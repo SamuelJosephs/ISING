@@ -184,11 +184,12 @@ end function getNeighborCells
                 
                 d = sqrt(dx**2 + dy**2 + dz**2)
         end function distance 
-        subroutine AssignAtomNearestNeighbhors(chainMesh,AtomIndex, AtomCellIndex, NeighborCellList)
+        subroutine AssignAtomNearestNeighbhors(chainMesh,AtomIndex, AtomCellIndex, NeighborCellList,atomLockArray)
                 implicit none
                 type(chainMesh_t), intent(inout), target :: chainMesh
                 integer, intent(in) :: AtomIndex 
                 integer, intent(in) :: AtomCellIndex, NeighborCellList(27)
+                integer(kind=OMP_LOCK_KIND), intent(inout) :: atomLockArray(:) 
                 type(Atom_t), pointer :: atoms(:)
                 type(chainMeshCell_t), pointer :: chainMeshCells(:)
                 integer :: cellIndex, NeighborListIter,NumCells, atomIndexTemp  
@@ -204,28 +205,20 @@ end function getNeighborCells
                 !print *, "Assigned Pointers"
                 nearestNeighborDistance = HUGE(0.0)
                 ! Get nearest neighbor distance 
-                ! TODO: Complete this 1) do a pass of all atoms in all cells in NeighborCellList and 
-                !                       check for distance
+
                 Atom = atoms(AtomIndex)
-                !print *, "DEBUG: Entering do loop, size(neighborCellList) = ", size(neighborCellList)
+                ! This loop is looping through all the atoms in the cell and it's neighbors to compute the nearest neighbor distance 
                 do cellIndex = 1,size(neighborCellList)
                     ! First atom in the i'th cell in neighbhorCellList
-                    !print *, "Computing atomIndexTemp for cellIndex = ",cellIndex
                     atomIndexTemp = chainMeshCells(neighborCellList(cellIndex))%firstAtomInMeshCell
-                    !print *, "Entering inner do loop for cellIndex = ", cellIndex 
                     do while (atomIndexTemp .ne. -1) 
-                        !print *, "attempting to compute tempAtom for atomIndexTemp = ",atomIndexTemp
-                        !print *, "neighborCellList =", neighborCellList
-                        !print *, "size(chainCells) = ", size(chainMesh%chainMeshCells)
+                        
                         if (atomIndexTemp == AtomIndex) then 
                                 atomIndexTemp = atoms(atomIndexTemp)%nextAtom
                         
                                 cycle
                         end if
                         tempAtom = atoms(atomIndexTemp)
-                        !print *, "Computed tempAtom"
-                        !distance = sqrt((Atom%x - tempAtom%x)**2 + (Atom%y - tempAtom%y)**2 &
-                         !       + (Atom%z - tempAtom%z)**2)
                          dist = distance(chainMesh,AtomIndex,AtomIndexTemp)
                         if ( dist .lt. nearestNeighborDistance) then 
                                 nearestNeighborDistance = dist 
@@ -233,30 +226,26 @@ end function getNeighborCells
                         atomIndexTemp = atoms(atomIndexTemp)%nextAtom
                     end do 
                 end do
-                !print *, "Completed first do loop"
                 ! Now actually compute the nearest neighbhor list 
                 do cellIndex = 1,size(neighborCellList)
                     ! First atom in the i'th cell in neighbhorCellList
                     atomIndexTemp = chainMeshCells(neighborCellList(cellIndex))%firstAtomInMeshCell
                     do while (atomIndexTemp .ne. -1)
-                        !print *, "Checking atom: ", atomIndexTemp, "as a nearest Neighbor"
                         if (atomIndexTemp == AtomIndex) then 
-                               atomIndexTemp = atoms(atomIndexTemp)%nextAtom 
+                                atomIndexTemp = atoms(atomIndexTemp)%nextAtom ! We don't want to consider the atom we are assigning
+                                                                              ! nearest neighbors to 
                                cycle 
                         else if (any(atoms(AtomIndex)%NeighborList == atomIndexTemp)) then 
-                               atomIndexTemp = atoms(atomIndexTemp)%nextAtom
+                                atomIndexTemp = atoms(atomIndexTemp)%nextAtom ! Don't want to consider an atom if it is already in
+                                                                              ! nearest neighbors list 
                                cycle 
                        end if
                         tempAtom = atoms(atomIndexTemp)
 
-                        !distance = sqrt((Atom%x - tempAtom%x)**2 + (Atom%y - tempAtom%y)**2 &
-                         !       + (Atom%z - tempAtom%z)**2)
                         dist = distance(chainMesh,AtomIndex, atomIndexTemp)
                         if (abs(dist - nearestNeighborDistance) < chainMesh%chainMeshCells(1)%latticePArameter/10) then ! Tolerance 
-                                !print *, "Adding atom ",atomIndexTemp, "to atom ",atomIndex,"'s nearestNeighbor List"&
-                                 !       , "With a distance of ", dist 
-                                !print *, "Distance = ",distance, "Old neighbhorList = ",atoms(atomIndexTemp)%NeighborList
-                                ! Add this atom (atomIndexTemp) to the list of nearest neighbhors
+                                call omp_set_lock(atomLockArray(atomIndex))
+
                                 allocate(tempList((size(atoms(AtomIndex)%NeighborList) + 1)))
                                 tempList(1:size(atoms(AtomIndex)%NeighborList)) = atoms(AtomIndex)%NeighborList 
                                 tempList(size(atoms(AtomIndex)%NeighborList)+1) = atomIndextemp   
@@ -265,13 +254,14 @@ end function getNeighborCells
                                 atoms(AtomIndex)%NeighborList = tempList
                                 !print *, "New Neighbor List: ", atoms(atomIndexTemp)%NeighborList
                                 deallocate(tempList)
+
+                                call omp_unset_lock(atomLockArray(atomIndex))
                                !atoms(atomIndexTemp)%NeighborList = [atoms(atomIndexTemp)%NeighborList, &
                                 !        atomIndexTemp]
                         end if 
                         atomIndexTemp = atoms(atomIndexTemp)%nextAtom
                     end do 
                 end do 
-                !print *, "DEBUG: leaving AssignNearestneighors"
         end subroutine AssignAtomNearestNeighbhors
 
         subroutine assignNearestNeighbors(chainMesh)
@@ -279,6 +269,11 @@ end function getNeighborCells
                 type(ChainMesh_t), intent(inout) :: chainMesh 
                 integer :: N, i, j ,k , numchainMeshCells, AtomIdent, icoord,jcoord,kcoord,idex, counter 
                 integer :: neighborCellList(27), tempIndex, itemp, jtemp, ktemp, idexTemp   
+                integer(kind=OMP_LOCK_KIND), allocatable :: atomLockArray(:) 
+                allocate(atomLockArray(size(chainMesh%atoms)))
+                do i=1,size(atomLockArray)
+                    call omp_init_lock(atomLockArray(i))
+                end do 
                 !print *, "Entered Assign Nearest Neighbhors"
                 N = chainMesh%numChainMeshCellsPerSide
                 !print *, "Assigned N"
@@ -287,7 +282,7 @@ end function getNeighborCells
                 ! For each chain mesh cell, for each atom in that cell, compute nearest neighbors and     
                 ! check neighbor chain mesh cells for nearest neighbor atoms, taking account the
                 ! periodicity of the system
-                !$omp parallel do shared(chainMesh,numChainMeshCells) private(idex,AtomIdent,NeighborCellList)
+                !$omp parallel do shared(chainMesh,numChainMeshCells,atomLockArray) private(idex,AtomIdent,NeighborCellList)
                 do idex = 1,numChainMeshCells
                         !print *, "DEBUG: idex = ",idex
                         AtomIdent = chainMesh%chainMeshCells(idex)%firstAtomInMeshCell
@@ -299,18 +294,20 @@ end function getNeighborCells
                         ! For each atom in cell Idex, test get it's nearest neighbor list based on 
                         !it's cell and all of the neighboring cells 
                         ! For each atom determine the nearest neighbor list 
-                        !$omp critical
+                        
                         do while (AtomIdent .ne. -1 )
                                 !print *, "DEBUG: Looping with AtomIdent = ", AtomIdent
-                                call AssignAtomNearestNeighbhors(chainMesh,AtomIdent,idex,neighborCellList) 
+                                call AssignAtomNearestNeighbhors(chainMesh,AtomIdent,idex,neighborCellList,atomLockArray) 
                                 AtomIdent = chainMesh%atoms(AtomIdent)%NextAtom
                         end do
-                        !$omp end critical
+                        
                         !print *, "DEBUG: idex = ", idex
                 end do 
                 !$omp end parallel do 
                 !print *, "DEBUG: succsessfully assigned nearest neighbors"
-        
+                do i=1,size(atomLockArray)
+                    call omp_destroy_lock(atomLockArray(i))
+                end do        
         end subroutine assignNearestNeighbors
 
         subroutine enumerateChainMeshCells(chainMesh)
@@ -324,23 +321,23 @@ end function getNeighborCells
                 atoms => chainMesh%atoms
                 atomCounter = 0 
                 do i = 1,size(chainMeshCells)
-                        !print *, "###################################"
+                        print *, "###################################"
                         atomIdent = chainMeshCells(i)%firstAtomInMeshCell
-                        !print *, "MeshCell ",i," contains atoms:"
+                        print *, "MeshCell ",i," contains atoms:"
                         do while (atomIdent .ne. -1)
                                 idex = IndexFromCoordinates(atoms(atomIdent)%x,atoms(atomIdent)%y,atoms(atomIdent)%z,N,W)
-                   !             print *, atomIdent,&
-                    !                   " With coordinates: ", "(",atoms(atomIdent)%x,",",&
-                     !                 atoms(atomIdent)%y,",",atoms(atomIdent)%z,")"
-                      !        print *, "tmpx, tmpy, tmpz = ",atoms(atomIdent)%tmpx,atoms(atomIdent)%tmpy,atoms(atomIDent)%tmpz
-                                !print *, "Corresponding to Index: ", idex
-                               ! print *, "Atom ", atomIdent," has nearest Neighbors: ", atoms(atomIdent)%NeighborList
-                               ! print *, "Atom ", atomIdent," has ",size(atoms(atomIdent)%NeighborList)," nearest Neighbors: " 
+                                print *, atomIdent,&
+                                       " With coordinates: ", "(",atoms(atomIdent)%x,",",&
+                                      atoms(atomIdent)%y,",",atoms(atomIdent)%z,")"
+                                print *, "tmpx, tmpy, tmpz = ",atoms(atomIdent)%tmpx,atoms(atomIdent)%tmpy,atoms(atomIDent)%tmpz
+                                print *, "Corresponding to Index: ", idex
+                                print *, "Atom ", atomIdent," has nearest Neighbors: ", atoms(atomIdent)%NeighborList
+                                print *, "Atom ", atomIdent," has ",size(atoms(atomIdent)%NeighborList)," nearest Neighbors: " 
                                 atomIdent = atoms(atomIdent)%nextAtom
                                 atomCounter = atomCounter + 1 
                         end do 
                 end do
-                !print *, "Mesh cells have a combined ",atomCounter," Atoms"
+                print *, "Mesh cells have a combined ",atomCounter," Atoms"
         end subroutine enumerateChainMeshCells
 
         subroutine addAtomToChainCell(CellIndex,AtomIndex,chainMesh)
