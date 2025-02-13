@@ -23,7 +23,7 @@ module RGFlow
                         real :: r, max_distance 
                         
                         if (.not. allocated(correlation)) then 
-                                numbins = ceiling(max_distance_in / chainMesh%latticeParameter)
+                                numbins = 4*ceiling(max_distance_in / chainMesh%latticeParameter)
                                 numAtoms = size(chainMesh%atoms)         
                                 allocate(correlation(numbins))
                                 max_distance = max_distance_in 
@@ -47,9 +47,11 @@ module RGFlow
                                         ! Compute the distance between atoms i and j 
                                         r = distance(chainMesh, i, j)
                                         if (r < max_distance) then 
-                                                bin = int(floor(r / chainMesh%latticeParameter)) + 1 ! Fortran has 1 based indexing 
+                                                bin = 4*int(floor(r / chainMesh%latticeParameter)) + 1 ! Fortran has 1 based indexing 
+                                                !$omp atomic update  
                                                 correlation(bin) = correlation(bin) + & 
                                                         chainMesh%atoms(i)%AtomParameters(1)*chainMesh%atoms(j)%AtomParameters(1)
+                                                !$omp atomic update
                                                 counts(bin) = counts(bin) + 1 
                                         end if 
 
