@@ -3,6 +3,7 @@
 module ChainMesh
         use Atom 
         use ChainMeshCell 
+        use vecNd 
         use omp_lib
 type ChainMesh_t 
         integer :: numAtoms, numChainMeshCells, numChainMeshCellsPerSide
@@ -134,6 +135,28 @@ end function getNeighborCells
                 
                 d = sqrt(dx**2 + dy**2 + dz**2)
         end function distance 
+        function distance_between_lattice_vectors(chainMesh, atomIndex1, atomIndex2) result(res)
+                type(ChainMesh_t), intent(in) :: chainMesh
+                integer, intent(in) :: atomIndex1, atomIndex2 
+                type(vecNd_t) :: res 
+                type(Atom_t) :: atom1, atom2 
+                real :: domainWidth 
+                implicit none 
+                domainwidth = chainMesh%domainWidth
+                atom1 = chainMesh%atoms(atomIndex1)
+                atom2 = chainMesh%atoms(atomIndex2)
+                N = chainMesh%numChainMeshCellsPerSide
+                dx = abs(atom1%x - atom2%x)
+                dy = abs(atom1%y - atom2%y) 
+                dz = abs(atom1%z - atom2%z)
+
+                if (dx > domainWidth/2) dx = domainWidth - dx 
+                if (dy > domainWidth/2) dy = domainWidth - dy 
+                if (dz > domainWidth/2) dz = domainWidth - dz 
+                
+                res = makeVecNd((/dx,dy,dz/))
+
+        end function distance_between_lattice_vectors
         subroutine AssignAtomNearestNeighbhors(chainMesh,AtomIndex, AtomCellIndex, NeighborCellList,atomLockArray)
                 implicit none
                 type(chainMesh_t), intent(inout), target :: chainMesh
@@ -478,5 +501,28 @@ end function H
                         deallocate(chainMesh%chainMeshCells)
                 end if 
         end subroutine deallocateChainMesh
+
+
+        function compute_unique_lattice_vectors(chainMesh, outputArray) result(distanceArray)
+                type(ChainMesh_t), intent(in), target :: chainMesh 
+                type(Atom_t), pointer :: tempAtom
+                integer :: i 
+                type(vecNd_t) :: G
+                type(vecNd_t), allocatable :: distanceArray(:)
+                
+                allocate(distanceArray(1))
+                distanceArray(1) = makeVecNd((/0.0,0.0,0.0/))
+                tempAtom => chainMesh%atoms(1) 
+                
+                do i = 1, size(tempAtom%NeighborList)
+                                ! distance_between_lattice_vectors correctly handles the periodicity of the lattice.
+                                G = distance_between_lattice_vectors(chainMesh, 1,chainMesh%atoms(tempAtom%NeighborList(i)))
+                                if (any(distanceArray == G)) then 
+                                        cycle 
+                                end if 
+                                distanceArray = [distanceArray, G] 
+                end do 
+        end function compute_unique_lattice_vectors
+
 end module ChainMesh 
 
