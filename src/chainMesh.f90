@@ -122,6 +122,8 @@ end function getNeighborCells
                 type(Atom_t) :: atom1, atom2 
                 real :: d, domainWidth 
                 domainwidth = chainMesh%domainWidth
+                
+                print *, "Computing distances for atoms ", atomIndex1, atomIndex2
                 atom1 = chainMesh%atoms(atomIndex1)
                 atom2 = chainMesh%atoms(atomIndex2)
                 N = chainMesh%numChainMeshCellsPerSide
@@ -136,12 +138,13 @@ end function getNeighborCells
                 d = sqrt(dx**2 + dy**2 + dz**2)
         end function distance 
         function distance_between_lattice_vectors(chainMesh, atomIndex1, atomIndex2) result(res)
+                implicit none
                 type(ChainMesh_t), intent(in) :: chainMesh
                 integer, intent(in) :: atomIndex1, atomIndex2 
                 type(vecNd_t) :: res 
                 type(Atom_t) :: atom1, atom2 
-                real :: domainWidth 
-                implicit none 
+                real(kind=8) :: domainWidth, dx, dy, dz  
+                integer :: N
                 domainwidth = chainMesh%domainWidth
                 atom1 = chainMesh%atoms(atomIndex1)
                 atom2 = chainMesh%atoms(atomIndex2)
@@ -503,25 +506,66 @@ end function H
         end subroutine deallocateChainMesh
 
 
-        function compute_unique_lattice_vectors(chainMesh, outputArray) result(distanceArray)
+        function compute_unique_lattice_vectors(chainMesh) result(distanceArray)
                 type(ChainMesh_t), intent(in), target :: chainMesh 
                 type(Atom_t), pointer :: tempAtom
-                integer :: i 
+                integer :: i,j, cellIndex, firstAtom, atomIndex
                 type(vecNd_t) :: G
                 type(vecNd_t), allocatable :: distanceArray(:)
-                
+                logical :: absTest
+                real(kind=8), parameter :: zero = 0.0
+                integer, allocatable :: atom_array(:)
                 allocate(distanceArray(1))
-                distanceArray(1) = makeVecNd((/0.0,0.0,0.0/))
-                tempAtom => chainMesh%atoms(1) 
+                distanceArray(1) = makeVecNd((/zero,zero,zero/))
+                cellIndex = chainMesh%chainMeshCells(1)%firstAtomInMeshCell
+                firstAtom = chainMesh%chainMeshCells(1)%firstAtomInMeshCell
                 
-                do i = 1, size(tempAtom%NeighborList)
-                                ! distance_between_lattice_vectors correctly handles the periodicity of the lattice.
-                                G = distance_between_lattice_vectors(chainMesh, 1,chainMesh%atoms(tempAtom%NeighborList(i)))
-                                if (any(distanceArray == G)) then 
-                                        cycle 
+                allocate(atom_array(1))
+                atom_array(1) = cellIndex
+                ! Fill atom_array with all possible atom Indexes 
+                do while (cellIndex /= -1)
+                        tempAtom => chainMesh%atoms(cellIndex)
+                        do i = 1, size(tempAtom%NeighborList)
+                                if (.not. any(atom_array == tempAtom%NeighborList(i))) then 
+                                        atom_array = [atom_array, tempAtom%NeighborList(i)]
                                 end if 
-                                distanceArray = [distanceArray, G] 
+                        end do 
+                        cellIndex = chainMesh%atoms(cellIndex)%nextAtom
                 end do 
+
+                do i = 1,size(atom_array)
+                        do j = i,size(atom_array)
+                                G = distance_between_lattice_vectors(chainMesh,atom_array(i),atom_array(j))
+                                if (abs(G) > 1.05*chainMesh%latticeParameter) cycle
+                                absTest = any(abs(abs(distanceArray) - abs(G)) < 1e-4) ! Probably don't need this but oh well.
+                                if (any(distanceArray == G) .or. absTest) cycle
+                                distanceArray = [distanceArray, G]
+                        end do 
+                end do 
+                ! Gather all atoms 
+                !outer_loop: do while (cellIndex /= -1 )
+                        
+                !        tempAtom => chainMesh%atoms(cellIndex) 
+                        
+                !        do i = 1, size(tempAtom%NeighborList)
+                                        ! distance_between_lattice_vectors correctly handles the periodicity of the lattice.
+                !                        G = distance_between_lattice_vectors(chainMesh, cellIndex,tempAtom%NeighborList(i))
+                !                        print *, "G = ", G%coords
+                !                        if (abs(abs(G) - chainMesh%latticeParameter) < 1e-5) print *, "Found |G| = a"
+                !                        if (abs(G) > 1.01*chainMesh%latticeParameter) then 
+                !                                print *, "Skipping lattice vector ", G%coords
+                !                                if (cellIndex == -1) cycle outer_loop
+                !                                cellIndex = chainMesh%atoms(cellIndex)%nextAtom
+                !                                cycle 
+                !                        end if 
+                !                        absTest = any(abs(abs(distanceArray) - abs(G)) < 1e-4)
+                !                        if ((any(distanceArray == G)) .or. absTest) then 
+                !                                cycle 
+                !                        end if 
+                !                        distanceArray = [distanceArray, G] 
+                !        end do 
+                !        cellIndex = chainMesh%atoms(cellIndex)%nextAtom
+                !end do outer_loop 
         end function compute_unique_lattice_vectors
 
 end module ChainMesh 

@@ -12,7 +12,7 @@ program main
         real :: AtomParam1(1), AtomParam2(1), a, energy 
         real(kind=8) :: idble, T, Kb,beta, sigma, upperT, lowerT 
         real(kind=8), allocatable :: correlation(:)
-        real :: max_distance 
+        real(kind=8) :: max_distance 
         character(len=20) :: str_buff
 
         !Kb = 8.62e-5 ! ev/ J 
@@ -34,7 +34,7 @@ program main
         AtomsInUnitCell(2) = makeAtom(a/2,a/2,a/2,AtomParam2,1,-1)
         testMesh = makeChainMesh(2,numCells,a,AtomsInUnitCell)
 
-        max_distance = testMesh%domainWidth / 2 
+        max_distance = dble(testMesh%domainWidth / 2)
         
         call assignNearestNeighbors(testMesh)
         !print *, "Succsess!"

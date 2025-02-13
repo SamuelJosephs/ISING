@@ -2,7 +2,7 @@ module vecNd
 
         implicit none 
         type vecNd_t  
-                real, allocatable:: coords(:) 
+                real(kind=8), allocatable:: coords(:) 
         end type vecNd_t   
         
 
@@ -16,14 +16,16 @@ module vecNd
 
         interface abs 
                 module procedure abs_nvec
+                module procedure abs_nvec_array
         end interface 
 
         interface operator(==)
                 module procedure vecNd_eq
+                module procedure vecNd_eq_array
         end interface
         contains 
         function makeVecNd(input) result(res)
-                real, intent(in) :: input(:) 
+                real(kind=8), intent(in) :: input(:) 
                 type(vecNd_t):: res 
 
                 allocate(res%coords(size(input))) 
@@ -75,7 +77,7 @@ module vecNd
 
         function abs_nvec(input) result(res)
                 type(vecNd_t), intent(in) :: input 
-                real :: res 
+                real(kind=8) :: res 
                 integer :: i 
                 res = 0.0
                 
@@ -84,6 +86,17 @@ module vecNd
                 end do 
                 res = sqrt(res)
         end function abs_nvec
+
+        function abs_nvec_array(input) result(output_array)
+                type(vecNd_t), intent(in) :: input(:) 
+                real(kind = 8), allocatable :: output_array(:)
+                integer :: i 
+                allocate(output_array(size(input)))
+                
+                do i = 1, size(input)
+                        output_array(i) = abs(input(i))
+                end do
+        end function abs_nvec_array
 
         function vecNd_eq(vec1,vec2) result(res)
                 type(vecNd_t), intent(in) :: vec1, vec2 
@@ -105,4 +118,20 @@ module vecNd
                 end do 
         
         end function vecNd_eq
+
+
+
+        function vecNd_eq_array(input_array, vec) result(output_Array) 
+                type(vecNd_t), intent(in) :: input_array(:) 
+                type(vecNd_t), intent(in) :: vec 
+                logical, allocatable :: output_array(:)
+                integer :: i 
+                allocate(output_array(size(input_array)))
+                
+                do i = 1, size(input_array)
+                        output_array(i) = input_array(i) == vec 
+                end do                
+        end function vecNd_eq_array 
+
+
 end module vecNd 
