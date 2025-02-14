@@ -3,7 +3,7 @@ program main
         use chainMeshCell 
         use ChainMesh
         use EnergyMin
-        use RGFlow, only: compute_correlation_function 
+        use RGFlow, only: compute_correlation_function, write_correlations_to_file 
         implicit none
         integer :: numCells, numsteps, i, iostat 
         character(len=30) :: arg
@@ -11,7 +11,7 @@ program main
         type(Atom_t) :: AtomsInUnitCell(2)
         real :: AtomParam1(1), AtomParam2(1), a, energy 
         real(kind=8) :: idble, T, Kb,beta, sigma, upperT, lowerT 
-        real(kind=8), allocatable :: correlation(:)
+        real(kind=8), allocatable :: correlation(:), positions(:)
         real(kind=8) :: max_distance 
         character(len=20) :: str_buff
 
@@ -19,7 +19,7 @@ program main
         Kb = 1.38e-23_dp 
         !Kb = 8.617e-5_dp
         a = 2.8
-        numsteps = 60
+        numsteps = 120
         upperT = 1500 
         lowerT = 500  
         if (command_argument_count() /= 1) then 
@@ -56,12 +56,14 @@ program main
                 !beta = 1.0_dp / (Kb*T)
                 beta = sigma / (Kb * T) !reduced 
                 print *, "Reduced beta = ", beta
-                call Metropolis(testMesh,sigma,beta,1000000)
+                call Metropolis2(testMesh,sigma,beta,10000000)
+                print *, "Finished metropolis2 step"
                 !print *, "Writing Magnetisation to file:", i , "/" , numsteps
-                !call WriteMagnetization(testMesh,"Magnetisation4.dat")
-                call compute_correlation_function(testMesh, max_distance, correlation)
+                call WriteMagnetization(testMesh,"Magnetisation4.dat")
+                call compute_correlation_function(testMesh, max_distance, correlation, positions)
                 write(str_buff, "(I0)") i 
-                call write_array_to_file(correlation,trim("./correlation_results/correlation_") // trim(str_buff), iostat)
+                !call write_array_to_file(correlation,trim("./correlation_results/correlation_") // trim(str_buff), iostat)
+                call write_correlations_to_file(correlation,positions,trim("./correlation_results/correlation_") // trim(str_buff))
         end do 
 
         !call deallocateChainMesh(testMesh)

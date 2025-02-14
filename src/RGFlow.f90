@@ -5,7 +5,7 @@ module RGFlow
         implicit none 
 
 
-        public :: compute_correlation_function 
+        public :: compute_correlation_function, write_correlations_to_file 
 
         contains 
 
@@ -67,7 +67,20 @@ module RGFlow
                         
 
                 end function distance_to_bin 
-
+                
+                function find_index(array, num) result(ind)
+                        real(kind=8), intent(in) :: array(:)
+                        real(kind=8), intent(in) ::  num 
+                        integer :: ind, i 
+                        ind = -1 
+                        do i = 1,size(array)
+                                if (abs(array(i) -  num)< 1e-4) then 
+                                        ind = i 
+                                        return 
+                                end if 
+                        end do 
+                 end function find_index
+                        
 
                 ! This method calculates the two point correlation function for the spins in a Metropolic alsogirhtm Monte Carlo
                 ! simulation. 
@@ -75,58 +88,63 @@ module RGFlow
                 ! e^{-beta H}. The metropolis algorithm effectively importance samples this distribution, reducing the problem to
                 ! finding the mean. Here we compute the correlation function as a function of the distance between lattice sites,
                 ! this is allowed due to our periodic boundary conditions.
-                subroutine compute_correlation_function(chainMesh, max_distance_in, correlations) 
+                subroutine compute_correlation_function(chainMesh, max_distance_in, correlations,positions) 
                         implicit none 
                         type(ChainMesh_t), intent(in) :: chainMesh 
                         real(kind=8), intent(in) :: max_distance_in 
                         real(kind=8), allocatable,  intent(out) :: correlations(:) 
                         integer, allocatable :: counts(:) 
-                        integer :: i, j,  bin
-                        integer(kind=8) :: numDistances 
-                        real(kind=8) :: r
-                        type(vecNd_t), allocatable :: lattice_vector_array(:)
-                        real(kind=8) :: correlation 
-                        integer(kind=8) :: temp
-
-                        lattice_vector_array = compute_unique_lattice_vectors(chainMesh)
-                        
-                        do i = 1,size(lattice_vector_array)
-                                print *, lattice_vector_array(i)%coords
-                        end do 
-
-                        if (size(lattice_vector_array) == 0) error stop "Error: lattice_vector_array is empty."
-                        ! Compute the number of discrete dinstances within max_distance 
-                        numDistances = 0_8 
-                        do i = 1,size(lattice_vector_array)
-                                if (abs(lattice_vector_array(i)) == 0) cycle 
-                                numDistances = numDistances + floor(max_distance_in / abs(lattice_vector_array(i)))
-                        end do
-                        print *, "NumDistances = ", numDistances
-                        allocate(correlations(numDistances + 2)) ! +1 for the zero bin 
-                        allocate(counts(numDistances + 2))
+                        real(kind=8), allocatable, intent(out) :: positions(:) 
+                        integer :: i, j, ind  
+                        real(kind=8) :: r 
+                        real(kind=8), parameter :: zero = 0.0
+                        allocate(correlations(0))
+                        allocate(positions(0))
+                        allocate(counts(0))
                         correlations = 0.0 
+                        positions = 0.0 
                         counts = 0 
                         do i = 1,size(chainMesh%atoms)
-                                do j = i, size(chainMesh%atoms)
-                                        r = distance(chainMesh,i,j)
-                                        if (r > max_distance_in) cycle 
-                                        bin = distance_to_bin(chainMesh,max_distance_in,r,lattice_vector_array)
-                                        print *, "numDistances = ", numDistances, "bin = ", bin
-                                        
-                                        correlations(bin) = correlations(bin) + & 
-                                                chainMesh%atoms(i)%AtomParameters(1)*chainMesh%atoms(j)%AtomParameters(1) 
-                                        counts(bin) = counts(bin) + 1 
-
+                                ! Calculate correlation for atom i as a function of distance 
+                                do j = 1, size(chainMesh%atoms)
+                                r = distance(chainMesh,i,j) 
+                                ! If r is in the positions, update the correlations appropriately, if not add it 
+                                ind  = find_index(positions,r)
+                                if (ind == -1) then 
+                                        ! add position to the positions array 
+                                        positions = [positions, r]
+                                        correlations = [correlations, zero]
+                                        counts = [counts, 0]
+                                        ind = size(positions) !The index is not the last element 
+                                end if 
+                                correlations(ind)  = correlations(ind) + chainMesh%atoms(i)%AtomParameters(1)*chainMesh%atoms(j)%AtomParameters(1)
+                                counts(ind) = counts(ind) + 1 
                                 end do 
                         end do 
-
-                        do i = 1,size(correlations)
+                        do i = 1, size(correlations)
                                 correlations(i) = correlations(i) / counts(i)
                         end do 
-                        
-                print *, "correlation = ", correlations 
-                print *, "Size of correlation array = ", size(correlations)
                 end subroutine compute_correlation_function
+
+                subroutine write_correlations_to_file(correlations, positions, fileName)
+                    implicit none
+                    real(kind=8), intent(in) :: correlations(:)
+                    real(kind=8), intent(in) :: positions(:)
+                    character(len=*), intent(in) :: fileName
+                    integer :: i, fileUnit
+
+                    open(newunit=fileUnit,file=fileName,status="replace",action="write")
+
+                    do i = 1, size(positions)
+                        write(fileUnit, '(F12.6, 2X, F12.6)') positions(i), correlations(i)
+                    end do
+
+                    close(fileUnit)
+
+
+
+                end subroutine write_correlations_to_file
+
 
 
 end module RGFlow

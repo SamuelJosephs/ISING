@@ -123,7 +123,6 @@ end function getNeighborCells
                 real :: d, domainWidth 
                 domainwidth = chainMesh%domainWidth
                 
-                print *, "Computing distances for atoms ", atomIndex1, atomIndex2
                 atom1 = chainMesh%atoms(atomIndex1)
                 atom2 = chainMesh%atoms(atomIndex2)
                 N = chainMesh%numChainMeshCellsPerSide
