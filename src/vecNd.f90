@@ -23,7 +23,19 @@ module vecNd
                 module procedure vecNd_eq
                 module procedure vecNd_eq_array
         end interface
+
+        interface size
+                module procedure vecNdSize
+        end interface size 
         contains 
+
+        function vecNdSize(input) result(res)
+                type(vecNd_t), intent(in) :: input
+                integer :: res 
+
+                res = size(input%coords)
+        end function vecNdSize 
+
         function makeVecNd(input) result(res)
                 real(kind=8), intent(in) :: input(:) 
                 type(vecNd_t):: res 
