@@ -285,8 +285,6 @@ end type ChainMesh_t
                 j = remainderj / c 
                 k = mod(remainderj,c)
                 reconstructedIndex = i*b*c + j*b + k + 1 ! Needed for 1 based indexing in Fortran 
-                print *, "Index ", Ind, " Corresponds to (",i,",",j,",",k,") & 
-                        reconstructed Index: ",reconstructedIndex 
         end subroutine coordinatesFromIndex
         subroutine AssignAtomsToUnitCells(chainMesh,domainWidth,N)
                 type(ChainMesh_t), intent(inout) :: chainMesh
