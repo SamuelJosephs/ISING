@@ -6,10 +6,11 @@ module ChainMesh
         use vecNd 
         use omp_lib
 type ChainMesh_t 
-        integer :: numAtoms, numChainMeshCells, numChainMeshCellsPerSide
+        integer :: numAtoms, numChainMeshCells
         type(Atom_t), allocatable :: atoms(:) ! Each atom is in a chain mesh cell and points to the next atom within that cell 
         type(ChainMeshCell_t), allocatable :: chainMeshCells(:)
-        real :: domainWidth, latticeParameter
+        real ::  latticeParameter
+        integer :: numCellsX, numCellsY, numCellsZ   
 end type ChainMesh_t 
 
         contains
@@ -17,13 +18,15 @@ end type ChainMesh_t
                 type(chainMesh_t), intent(in) :: chainMesh 
                 integer, intent(out) :: neighborCellList(27)
                 integer, intent(in) :: cellIndex 
-                integer :: counter, i,j,k, icoord, jcoord, kcoord, N, tempInt  
+                integer :: counter, i,j,k, icoord, jcoord, kcoord, N, tempInt, a,b,c  
                 !print *, "DEBIG: Entered getNeighboringCells"
-                N = chainMesh%numChainMeshCellsPerSide
                 !print *, "N = ",N
                 counter = 1
+                a = chainMesh%numCellsX 
+                b = chainMesh%numCellsY 
+                c = chainMesh%numCellsZ
                 !print *, "DEBUG: get Neighboring Cells"
-                call coordinatesFromIndex(cellIndex,N,icoord,jcoord,kcoord)
+                call coordinatesFromIndex(chainMesh,cellIndex,icoord,jcoord,kcoord)
                  do i = icoord - 1, icoord + 1 
                             do j = jcoord - 1, jcoord + 1 
                                 do k = kcoord - 1, kcoord + 1 
@@ -31,24 +34,24 @@ end type ChainMesh_t
                                         itemp = i 
                                         jtemp = j 
                                         ktemp = k 
-                                        if (itemp == N) then 
+                                        if (itemp == a) then 
                                                 itemp = 0 
                                         else if (itemp == -1) then 
-                                                itemp = N-1
+                                                itemp = a-1 
                                         end if 
-                                        if (jtemp == N) then 
+                                        if (jtemp == b) then 
                                                 jtemp = 0 
                                         else if (jtemp == -1) then 
-                                                jtemp = N-1
+                                                jtemp = b-1 
                                         end if 
-                                        if (ktemp == N) then 
+                                        if (ktemp == c) then 
                                                 ktemp = 0 
                                         else if (ktemp == -1) then 
-                                                ktemp = N-1 
+                                                ktemp = c-1  
                                         end if 
                                         !print *, "cellIndex = ",cellIndex," itemp,jtemp,ktemp = ",itemp,jtemp,ktemp
 
-                                        tempIndex = (itemp)*N**2 + (jtemp)*N + (ktemp) + 1
+                                        tempIndex = (itemp)*b*c + (jtemp)*c + (ktemp) + 1
                                         neighborCellList(counter) = tempIndex
                                 
                                         counter = counter + 1
@@ -58,108 +61,35 @@ end type ChainMesh_t
                         end do 
 
         end subroutine getNeighboringCells
-function getNeighborCells(cellIndex, N) result(neighborCells)
-    integer, intent(in) :: cellIndex, N  ! N is cells per side
-    integer :: neighborCells(27)
-    integer :: i, j, k, counter, icoord, jcoord, kcoord
-    integer :: itemp, jtemp, ktemp, tempIndex
-    
-    ! Get i,j,k coordinates from cell index
-    icoord = (cellIndex - 1)/(N*N)
-    jcoord = mod((cellIndex - 1)/N, N)
-    kcoord = mod((cellIndex - 1), N)
-    
-    counter = 1
-    do i = icoord - 1, icoord + 1 
-        do j = jcoord - 1, jcoord + 1 
-            do k = kcoord - 1, kcoord + 1 
-                ! Handle periodic boundaries
-                itemp = i
-                jtemp = j
-                ktemp = k
-                
-                if (itemp == N) then 
-                    itemp = 0 
-                else if (itemp == -1) then 
-                    itemp = N-1
-                end if 
-                
-                if (jtemp == N) then 
-                    jtemp = 0 
-                else if (jtemp == -1) then 
-                    jtemp = N-1
-                end if 
-                
-                if (ktemp == N) then 
-                    ktemp = 0 
-                else if (ktemp == -1) then 
-                    ktemp = N-1 
-                end if 
-                
-                tempIndex = itemp*N**2 + jtemp*N + ktemp + 1
-                neighborCells(counter) = tempIndex
-                counter = counter + 1
-            end do 
-        end do 
-    end do 
-        ! Sort neighbor array to prevent deadlocks
-        do i = 1, size(neighborCells)-1
-            do j = i+1, size(neighborCells)
-                if (neighborCells(i) >neighborCells(j)) then
-                    tempint =neighborCells(i)
-                    neighborCells(i) = neighborCells(j)
-                    neighborCells(j) = tempint
-                end if
-            end do
-        end do
-end function getNeighborCells
         function distance(chainMesh, atomIndex1, atomIndex2) result(d)
                 type(ChainMesh_t), intent(in) :: chainMesh
                 integer, intent(in) :: atomIndex1, atomIndex2 
                 integer :: ind1,ind2 ! ChainCell Coordinates of atoms 1 and 2 
                 integer :: i1,j1,k1,i2,j2,k2 ! Chain Cell i,j,k coordinates of 
-                integer :: N 
+                integer :: a,b,c  
                 type(Atom_t) :: atom1, atom2 
-                real :: d, domainWidth 
-                domainwidth = chainMesh%domainWidth
+                real :: d, widthX, widthY, widthZ  
                 
+                a = chainMesh%numCellsX 
+                b = chainMesh%numCellsY 
+                c = chainMesh%numCellsZ 
+                widthX = a*chainMesh%latticeParameter
+                widthY = b*chainMesh%latticeParameter 
+                widthZ = c*chainMesh%latticeParameter
+
                 atom1 = chainMesh%atoms(atomIndex1)
                 atom2 = chainMesh%atoms(atomIndex2)
-                N = chainMesh%numChainMeshCellsPerSide
                 dx = abs(atom1%x - atom2%x)
                 dy = abs(atom1%y - atom2%y) 
                 dz = abs(atom1%z - atom2%z)
 
-                if (dx > domainWidth/2) dx = domainWidth - dx 
-                if (dy > domainWidth/2) dy = domainWidth - dy 
-                if (dz > domainWidth/2) dz = domainWidth - dz 
+                if (dx > widthX/2) dx = widthX - dx 
+                if (dy > widthY/2) dy = widthY - dy 
+                if (dz > widthZ/2) dz = widthZ - dz 
                 
                 d = sqrt(dx**2 + dy**2 + dz**2)
         end function distance 
-        function distance_between_lattice_vectors(chainMesh, atomIndex1, atomIndex2) result(res)
-                implicit none
-                type(ChainMesh_t), intent(in) :: chainMesh
-                integer, intent(in) :: atomIndex1, atomIndex2 
-                type(vecNd_t) :: res 
-                type(Atom_t) :: atom1, atom2 
-                real(kind=8) :: domainWidth, dx, dy, dz  
-                integer :: N
-                domainwidth = chainMesh%domainWidth
-                atom1 = chainMesh%atoms(atomIndex1)
-                atom2 = chainMesh%atoms(atomIndex2)
-                N = chainMesh%numChainMeshCellsPerSide
-                dx = abs(atom1%x - atom2%x)
-                dy = abs(atom1%y - atom2%y) 
-                dz = abs(atom1%z - atom2%z)
-
-                if (dx > domainWidth/2) dx = domainWidth - dx 
-                if (dy > domainWidth/2) dy = domainWidth - dy 
-                if (dz > domainWidth/2) dz = domainWidth - dz 
-                
-                res = makeVecNd((/dx,dy,dz/))
-
-        end function distance_between_lattice_vectors
-        subroutine AssignAtomNearestNeighbhors(chainMesh,AtomIndex, AtomCellIndex, NeighborCellList,atomLockArray)
+       subroutine AssignAtomNearestNeighbhors(chainMesh,AtomIndex, AtomCellIndex, NeighborCellList,atomLockArray)
                 implicit none
                 type(chainMesh_t), intent(inout), target :: chainMesh
                 integer, intent(in) :: AtomIndex 
@@ -250,7 +180,6 @@ end function getNeighborCells
                     call omp_init_lock(atomLockArray(i))
                 end do 
                 !print *, "Entered Assign Nearest Neighbhors"
-                N = chainMesh%numChainMeshCellsPerSide
                 !print *, "Assigned N"
                 numChainMeshCells = chainMesh%numChainMeshCells
                 !print *, "Assigned numChainMeshCells = ", numChainMeshCells
@@ -290,8 +219,6 @@ end function getNeighborCells
                 type(ChainMeshCell_t), pointer :: chainMeshCells(:)
                 type(Atom_t), pointer :: atoms(:)
                 integer :: atomIdent, i, atomCounter, idex ,N 
-                N = chainMesh%numChainMeshCellsPerSide
-                W = chainMesh%domainWidth 
                 chainMeshCells => chainMesh%chainMeshCells
                 atoms => chainMesh%atoms
                 atomCounter = 0 
@@ -300,7 +227,7 @@ end function getNeighborCells
                         atomIdent = chainMeshCells(i)%firstAtomInMeshCell
                         print *, "MeshCell ",i," contains atoms:"
                         do while (atomIdent .ne. -1)
-                                idex = IndexFromCoordinates(atoms(atomIdent)%x,atoms(atomIdent)%y,atoms(atomIdent)%z,N,W)
+                                idex = IndexFromCoordinates(chainMesh,atoms(atomIdent)%x,atoms(atomIdent)%y,atoms(atomIdent)%z)
                                 print *, atomIdent,&
                                        " With coordinates: ", "(",atoms(atomIdent)%x,",",&
                                       atoms(atomIdent)%y,",",atoms(atomIdent)%z,")"
@@ -324,55 +251,42 @@ end function getNeighborCells
                 chainMesh%chainMeshCells(CellIndex)%firstAtomInMeshCell=AtomIndex 
                 chainMesh%atoms(AtomIndex)%NextAtom=temp
         end subroutine addAtomToChainCell 
-        function IndexFromCoordinates(Ain,Bin,Cin,N,Win) result(res)
-                real, intent(in) :: Ain,Bin,Cin, Win 
+        function IndexFromCoordinates(chainMesh,Ain,Bin,Cin) result(res)
+                type(ChainMesh_t), intent(in) :: chainMesh 
+                real, intent(in) :: Ain,Bin,Cin 
                 real(kind=8) :: A,B,C,W, latticeParam  
                 real(kind=8), parameter :: eps = 1e-8
                 integer :: res 
-                integer :: i,j,k
-                latticeParam = W/dble(N)
-                A = abs(dble(Ain)) 
-                B = abs(dble(Bin)) 
-                C = abs(dble(Cin))
-                W = dble(Win)
-                !print *, "A/W = ", A/W, "B/W = ", B/W, "C/W = ", C/W
+                integer :: i,j,k, Amesh, Bmesh, Cmesh 
+                Amesh = chainMesh%numCellsX
+                Bmesh = chainMesh%numCellsY 
+                Cmesh = chainMesh%numCellsZ 
                 
-                i = floor((A/W) * real(N))  
-                j = floor((B/W) * real(N)) 
-                k = floor((C/W) * real(N))
-
-                !if ((latticeParam - (A - dble(i)*latticeParam)) < eps .and. (A - dble(i)*latticeParam > 0.0) .and. i < N-1) then
-                 !       i = i + 1 
-                !end if
-                !if ((latticeParam - (B - dble(i)*latticeParam)) < eps .and. (B - dble(i)*latticeParam > 0.0) .and. j < N-1) then
-                 !       j = j + 1 
-                !end if                       
-                !if ((latticeParam - (C - dble(i)*latticeParam)) < eps .and. (C - dble(i)*latticeParam > 0.0) .and. k < N-1) then
-                 !       k = k + 1 
-                !end if            !    i = nint((((dble(N)*A)/W))) 
-                 !j = nint((((dble(N)*B)/W))) 
-          !      k = nint((((dble(N)*C)/W)))
-                !print *, "i,j,k = ", i,j,k 
-
-                res = i*N**2 + j*N + k + 1 ! +1 to work with fortran 1 based array indexing
-                !print *, "W = ", W 
-                !print *, "A/W, B/W, C/W = ", A/W, B/W, C/W 
-                !print *, "Assigning coordinates: ", A,B,C, " to ijk = ", i,j,k
+                latticeParam = chainMesh%latticeParameter
+                i = int(Ain / latticeParam)
+                j = int(Bin / latticeParam)
+                k = int(Cin / latticeParam)
+                res = i*Bmesh*Cmesh + j*Cmesh + k + 1 ! +1 to work with fortran 1 based array indexing
         end function IndexFromCoordinates
 
-        subroutine coordinatesFromIndex(Ind,N,i,j,k)
+        subroutine coordinatesFromIndex(chainMesh,Ind,i,j,k)
                 implicit none
-                integer, intent(in) :: Ind,N 
+                type(ChainMesh_t), intent(in) :: chainMesh 
+                integer, intent(in) :: Ind
                 integer, intent(out) :: i,j,k
-                integer :: remainderj, IndTemp, reconstructedIndex
+                integer :: remainderj, IndTemp, reconstructedIndex, a, b, c, tempInt 
+                a = chainMesh%numCellsX 
+                b = chainMesh%numCellsY 
+                c = chainMesh%numCellsZ 
+                tempInt = b*c 
                 IndTemp = Ind-1
-                i = int(floor(real(IndTemp)/real(N**2)))
-                remainderj = mod(IndTemp,N**2)
-                j = int(real(remainderj)/real(N))
-                k = mod(remainderj,N)
-                reconstructedIndex = i*N**2 + j*N + k + 1 ! Needed for 1 based indexing in Fortran 
-                !!print *, "Index ", Ind, " Corresponds to (",i,",",j,",",k,") & 
-                       ! reconstructed Index: ",reconstructedIndex 
+                i = IndTemp/tempInt  
+                remainderj = mod(IndTemp,tempInt)
+                j = remainderj / c 
+                k = mod(remainderj,c)
+                reconstructedIndex = i*b*c + j*b + k + 1 ! Needed for 1 based indexing in Fortran 
+                print *, "Index ", Ind, " Corresponds to (",i,",",j,",",k,") & 
+                        reconstructed Index: ",reconstructedIndex 
         end subroutine coordinatesFromIndex
         subroutine AssignAtomsToUnitCells(chainMesh,domainWidth,N)
                 type(ChainMesh_t), intent(inout) :: chainMesh
@@ -402,18 +316,18 @@ end function getNeighborCells
                         chainMesh%atoms(i)%tmpx=tmpx
                         chainMesh%atoms(i)%tmpy=tmpy
                         chainMesh%atoms(i)%tmpz=tmpz
-                        chainCellIndex = IndexFromCoordinates(tmpx,tmpy,&
-                                tmpz,N,domainWidth)
+                        chainCellIndex = IndexFromCoordinates(chainMesh,tmpx,tmpy,&
+                                tmpz)
                         call addAtomToChainCell(chainCellIndex,i,chainMesh)
                 !TODO: Complete this subroutine
                 end do 
 
         end subroutine AssignAtomsToUnitCells
 
-        function makeChainMesh(numAtomsPerUnitCell, numUnitCellsPerSideLength, & 
+        function makeChainMesh(numAtomsPerUnitCell, numCellsX, numCellsY, numCellsZ, & 
                         latticeParameter,   AtomsInUnitCell ) result(chainMesh)
                 implicit none 
-                integer, intent(in) :: numAtomsPerUnitCell, numUnitCellsPerSideLength
+                integer, intent(in) :: numAtomsPerUnitCell, numCellsX, numCellsY, numCellsZ 
                 real, intent(in) :: latticeParameter
                 type(Atom_t), intent(in) :: AtomsInUnitCell(numAtomsPerUnitCell)
                 ! Need to create all the atoms, create all the ChainMeshCells, then allocate all of the atoms to a chain mesh cell 
@@ -425,12 +339,13 @@ end function getNeighborCells
                 type(Atom_t) :: tempAtoms(size(AtomsInUnitCell))
                 real :: domainWidth
                 chainMesh%latticeParameter = latticeParameter
-                chainMesh%numChainMeshCellsPerSide = numUnitCellsPerSideLength
-                numChainMeshCells = numUnitCellsPerSideLength**3
-                domainWidth = latticeParameter*numUnitCellsPerSideLength
-                chainMesh%domainWidth = domainWidth
+
+                chainMesh%numCellsX = numCellsX 
+                chainMesh%numCellsY = numCellsY 
+                chainMesh%numCellsZ = numCellsZ 
+
+                numChainMeshCells = numCellsX*numCellsY*numCellsZ 
                 numAtoms = numAtomsPerUnitCell*numChainMeshCells
-                numChainMeshCells = numUnitCellsPerSideLength**3
                 chainMesh%numChainMeshCells = numChainMeshCells
                 allocate(chainMesh%chainMeshCells(numChainMeshCells))
                 allocate(chainMesh%atoms(numAtoms))
@@ -445,7 +360,7 @@ end function getNeighborCells
                         chainMesh%chainMeshCells(j) = tempChainMeshCell ! Just so that it isn't initialised to garbage  
              
 
-                        call coordinatesFromIndex(j,numUnitCellsPerSideLength,icoord,jcoord,kcoord) ! icoord, jcoord, kcoord integer
+                        call coordinatesFromIndex(chainMesh,j,icoord,jcoord,kcoord) ! icoord, jcoord, kcoord integer
                         do i=1,size(AtomsInUnitCell)
                                 !chainMesh%atoms(j,j+atoms) = AtomsInUnitCell ! Assuming they are all initialised properly
                                 ! coordinates for the chain mesh cell 
@@ -503,69 +418,6 @@ end function H
                         deallocate(chainMesh%chainMeshCells)
                 end if 
         end subroutine deallocateChainMesh
-
-
-        function compute_unique_lattice_vectors(chainMesh) result(distanceArray)
-                type(ChainMesh_t), intent(in), target :: chainMesh 
-                type(Atom_t), pointer :: tempAtom
-                integer :: i,j, cellIndex, firstAtom, atomIndex
-                type(vecNd_t) :: G
-                type(vecNd_t), allocatable :: distanceArray(:)
-                logical :: absTest
-                real(kind=8), parameter :: zero = 0.0
-                integer, allocatable :: atom_array(:)
-                allocate(distanceArray(1))
-                distanceArray(1) = makeVecNd((/zero,zero,zero/))
-                cellIndex = chainMesh%chainMeshCells(1)%firstAtomInMeshCell
-                firstAtom = chainMesh%chainMeshCells(1)%firstAtomInMeshCell
-                
-                allocate(atom_array(1))
-                atom_array(1) = cellIndex
-                ! Fill atom_array with all possible atom Indexes 
-                do while (cellIndex /= -1)
-                        tempAtom => chainMesh%atoms(cellIndex)
-                        do i = 1, size(tempAtom%NeighborList)
-                                if (.not. any(atom_array == tempAtom%NeighborList(i))) then 
-                                        atom_array = [atom_array, tempAtom%NeighborList(i)]
-                                end if 
-                        end do 
-                        cellIndex = chainMesh%atoms(cellIndex)%nextAtom
-                end do 
-
-                do i = 1,size(atom_array)
-                        do j = i,size(atom_array)
-                                G = distance_between_lattice_vectors(chainMesh,atom_array(i),atom_array(j))
-                                if (abs(G) > 1.05*chainMesh%latticeParameter) cycle
-                                absTest = any(abs(abs(distanceArray) - abs(G)) < 1e-4) ! Probably don't need this but oh well.
-                                if (any(distanceArray == G) .or. absTest) cycle
-                                distanceArray = [distanceArray, G]
-                        end do 
-                end do 
-                ! Gather all atoms 
-                !outer_loop: do while (cellIndex /= -1 )
-                        
-                !        tempAtom => chainMesh%atoms(cellIndex) 
-                        
-                !        do i = 1, size(tempAtom%NeighborList)
-                                        ! distance_between_lattice_vectors correctly handles the periodicity of the lattice.
-                !                        G = distance_between_lattice_vectors(chainMesh, cellIndex,tempAtom%NeighborList(i))
-                !                        print *, "G = ", G%coords
-                !                        if (abs(abs(G) - chainMesh%latticeParameter) < 1e-5) print *, "Found |G| = a"
-                !                        if (abs(G) > 1.01*chainMesh%latticeParameter) then 
-                !                                print *, "Skipping lattice vector ", G%coords
-                !                                if (cellIndex == -1) cycle outer_loop
-                !                                cellIndex = chainMesh%atoms(cellIndex)%nextAtom
-                !                                cycle 
-                !                        end if 
-                !                        absTest = any(abs(abs(distanceArray) - abs(G)) < 1e-4)
-                !                        if ((any(distanceArray == G)) .or. absTest) then 
-                !                                cycle 
-                !                        end if 
-                !                        distanceArray = [distanceArray, G] 
-                !        end do 
-                !        cellIndex = chainMesh%atoms(cellIndex)%nextAtom
-                !end do outer_loop 
-        end function compute_unique_lattice_vectors
 
 end module ChainMesh 
 

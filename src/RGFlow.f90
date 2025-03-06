@@ -1,6 +1,6 @@
 module RGFlow
         use omp_lib 
-        use ChainMesh, only : distance, chainMesh_t, compute_unique_lattice_vectors
+        use ChainMesh, only : distance, chainMesh_t
         use vecNd 
         implicit none 
 

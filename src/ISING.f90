@@ -28,13 +28,14 @@ program main
         end if
         call get_command_argument(1,arg)
         read(arg,*) numCells 
+        
         AtomParam1 = (/1.0/)
         AtomParam2 = (/1.0/)
         AtomsInUnitCell(1) = makeAtom(0.0,0.0,0.0,AtomParam1,1,-1) 
         AtomsInUnitCell(2) = makeAtom(a/2,a/2,a/2,AtomParam2,1,-1)
-        testMesh = makeChainMesh(2,numCells,a,AtomsInUnitCell)
+        testMesh = makeChainMesh(2,10,10,10,a,AtomsInUnitCell)
 
-        max_distance = dble(testMesh%domainWidth / 2)
+        max_distance = dble(5*a)
         
         call assignNearestNeighbors(testMesh)
         !print *, "Succsess!"
