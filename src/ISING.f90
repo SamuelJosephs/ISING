@@ -2,70 +2,98 @@ program main
         use Atom
         use chainMeshCell 
         use ChainMesh
-        use EnergyMin
-        use RGFlow, only: compute_correlation_function, write_correlations_to_file 
+        use vecNd
+        use LLG
+        use omp_lib
         implicit none
-        integer :: numCells, numsteps, i, iostat 
+        integer :: numCells, i, skyrmion_type, frame, num_frames
         character(len=30) :: arg
         type(ChainMesh_t) :: testMesh
         type(Atom_t) :: AtomsInUnitCell(2)
-        real :: AtomParam1(1), AtomParam2(1), a, energy 
-        real(kind=8) :: idble, T, Kb,beta, sigma, upperT, lowerT 
-        real(kind=8), allocatable :: correlation(:), positions(:)
-        real(kind=8) :: max_distance 
-        character(len=20) :: str_buff
-
-        !Kb = 8.62e-5 ! ev/ J 
-        Kb = 1.38e-23_dp 
-        !Kb = 8.617e-5_dp
-        a = 2.8
-        numsteps = 120
-        upperT = 1500 
-        lowerT = 500  
-        if (command_argument_count() /= 1) then 
-                print *, "Please specify the number of unit cells per side length"
-                stop
-        end if
-        call get_command_argument(1,arg)
-        read(arg,*) numCells 
+        type(vecNd_t) :: skyrmion_center
+        real(kind=8), allocatable :: center_coords(:), skyrmion_radius
+        real :: AtomParam1(3), AtomParam2(3), latticeParam
+        character(len=100) :: output_dir, output_filename, frame_filename
+        logical :: z_localized
         
-        AtomParam1 = (/1.0/)
-        AtomParam2 = (/1.0/)
-        AtomsInUnitCell(1) = makeAtom(0.0,0.0,0.0,AtomParam1,1,-1) 
-        AtomsInUnitCell(2) = makeAtom(a/2,a/2,a/2,AtomParam2,1,-1)
-        testMesh = makeChainMesh(2,10,10,10,a,AtomsInUnitCell)
-
-        max_distance = dble(5*a)
+        ! LLG evolution parameters
+        real(kind=8) :: dt, total_time, A, B, C, D
+        real(kind=8) :: H_field(3)
         
+        ! Initialize parameters
+        latticeParam = 2.8
+        ! Create 3D spin parameters for atoms (initialize all spins pointing up)
+        AtomParam1 = (/0.0, 0.0, 1.0/)
+        AtomParam2 = (/0.0, 0.0, -1.0/)
+        
+        ! Create atoms in unit cell
+        AtomsInUnitCell(1) = makeAtom(0.0, 0.0, 0.0, AtomParam1, 3, -1) 
+        AtomsInUnitCell(2) = makeAtom(latticeParam/2, latticeParam/2, latticeParam/2, AtomParam2, 3, -1)
+        numCells = 20 
+        ! Create the chain mesh
+        testMesh = makeChainMesh(2, numCells, numCells, numCells, latticeParam, AtomsInUnitCell)
+        
+        ! Assign nearest neighbors
         call assignNearestNeighbors(testMesh)
-        !print *, "Succsess!"
-        !call enumerateChainMeshCells(testMesh) 
-        !!print *, "Num atoms = ",size(testMesh%atoms)
-
-        energy = H(testMesh,0.04565376186997809)
-        print *, "Energy: ", energy 
-        print *, "Num Atoms = ", size(testMesh%atoms)
-        print *, "Energy / atom= ", energy / float(size(testMesh%atoms))
-        !sigma = 0.04565376186997809_dp*1.6e-19_dp  
-        !sigma = 0.04565376186997809_dp*1.6e-19_dp  
-        sigma = 0.01565376186997809_dp*1.6e-19_dp   
-        !call WriteMagnetization(testMesh,"Magnetisation3.dat") 
-        do i=1,numsteps  
-                idble = dble(i)
-                idble = (idble / numsteps)
-                T = idble * (upperT - lowerT) + lowerT ! Scan T in range(500,900)
-                !beta = 1.0_dp / (Kb*T)
-                beta = sigma / (Kb * T) !reduced 
-                print *, "Reduced beta = ", beta
-                call Metropolis2(testMesh,sigma,beta,10000000)
-                print *, "Finished metropolis2 step"
-                !print *, "Writing Magnetisation to file:", i , "/" , numsteps
-                call WriteMagnetization(testMesh,"Magnetisation4.dat")
-                call compute_correlation_function(testMesh, max_distance, correlation, positions)
-                write(str_buff, "(I0)") i 
-                !call write_array_to_file(correlation,trim("./correlation_results/correlation_") // trim(str_buff), iostat)
-                call write_correlations_to_file(correlation,positions,trim("./correlation_results/correlation_") // trim(str_buff))
-        end do 
-
-        !call deallocateChainMesh(testMesh)
+       
+        ! Define skyrmion center position (middle of the mesh)
+        allocate(center_coords(3))
+        center_coords(1) = numCells * latticeParam / 2.0d0
+        center_coords(2) = numCells * latticeParam / 2.0d0
+        center_coords(3) = numCells * latticeParam / 2.0d0
+        skyrmion_center = makeVecNd(center_coords)
+        skyrmion_radius = 14.0_8 * latticeParam 
+        
+        ! Initialize the skyrmion
+        call initialise_skyrmion(testMesh, skyrmion_center, skyrmion_radius)
+        
+        ! Set up output directory
+        output_dir = "skyrmion_evolution"
+        call system('mkdir -p ' // trim(output_dir))
+        
+        ! Write initial configuration
+        write(frame_filename, '(A,A,I5.5,A)') trim(output_dir), "/frame_", 0, ".csv"
+        call write_spins_to_file(testMesh, frame_filename)
+        
+        ! Set LLG parameters
+        A = 1.0d0  ! Exchange parameter for x
+        B = 1.0d0  ! Exchange parameter for y
+        C = 1.0d0  ! Exchange parameter for z
+        D = 0.1d0  ! Anisotropy parameter
+        H_field = (/0.0d0, 0.0d0, 0.1d0/)  ! External magnetic field in z-direction
+        
+        ! Time evolution parameters
+        dt = 0.01d0
+        total_time = 10.0d0
+        num_frames = 100
+        
+        ! Main evolution loop
+        print *, "Starting skyrmion evolution..."
+        do frame = 1, num_frames
+            ! Calculate how many LLG steps to perform between frames
+            do i = 1, int(total_time / dt / num_frames)
+                ! Evolve the system using LLG equation
+                call LLGStep(testMesh, dt, A, B, C, D, H_field)
+            end do
+            
+            ! Write current state to file
+            write(frame_filename, '(A,A,I5.5,A)') trim(output_dir), "/frame_", frame, ".csv"
+            call write_spins_to_file(testMesh, frame_filename)
+            
+            print *, "Completed frame", frame, "of", num_frames
+        end do
+        
+        ! Write information for Python visualization script
+        output_filename = trim(output_dir) // "/info.txt"
+        open(unit=10, file=output_filename, status='replace')
+        write(10, *) num_frames + 1  ! Total number of frames (including initial frame)
+        write(10, *) numCells, latticeParam     ! Mesh parameters
+        close(10)
+        
+        print *, "Skyrmion evolution completed. Output files in:", trim(output_dir)
+        print *, "Run your Python visualization script to create the animation."
+        
+        ! Clean up memory
+        deallocate(center_coords)
+        call deallocateChainMesh(testMesh)
 end program main
