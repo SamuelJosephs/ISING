@@ -89,6 +89,37 @@ end type ChainMesh_t
                 
                 d = sqrt(dx**2 + dy**2 + dz**2)
         end function distance 
+
+        function distance_points(chainMesh, point1, point2) result(d)
+            type(ChainMesh_t), intent(in) :: chainMesh
+            type(vecNd_t), intent(in) :: point1, point2
+            real(kind=8) :: d, dx, dy, dz, widthX, widthY, widthZ
+            integer :: a, b, c
+
+            ! Get system dimensions
+            a = chainMesh%numCellsX
+            b = chainMesh%numCellsY
+            c = chainMesh%numCellsZ
+            
+            ! Calculate total width in each dimension
+            widthX = a * chainMesh%latticeParameter
+            widthY = b * chainMesh%latticeParameter
+            widthZ = c * chainMesh%latticeParameter
+            
+            ! Calculate coordinate differences
+            dx = abs(point1%coords(1) - point2%coords(1))
+            dy = abs(point1%coords(2) - point2%coords(2))
+            dz = abs(point1%coords(3) - point2%coords(3))
+            
+            ! Apply periodic boundary conditions to find the minimum distance
+            if (dx > widthX/2) dx = widthX - dx
+            if (dy > widthY/2) dy = widthY - dy
+            if (dz > widthZ/2) dz = widthZ - dz
+            
+            ! Calculate Euclidean distance
+            d = sqrt(dx**2 + dy**2 + dz**2)
+        end function distance_points
+
        subroutine AssignAtomNearestNeighbhors(chainMesh,AtomIndex, AtomCellIndex, NeighborCellList,atomLockArray)
                 implicit none
                 type(chainMesh_t), intent(inout), target :: chainMesh
