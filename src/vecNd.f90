@@ -1,11 +1,15 @@
 module vecNd  
-
         implicit none 
+        
         type vecNd_t  
                 real(kind=8), allocatable:: coords(:) 
         end type vecNd_t   
         
-
+        ! Secondary type for shared views
+        type vecNd_view_t
+                real(kind=8), pointer :: coords(:) => null()
+        end type vecNd_view_t
+        
         interface operator(+) 
                 module procedure add_Nvec
         end interface 
@@ -14,19 +18,36 @@ module vecNd
                 module procedure sub_Nvec
         end interface 
 
+        interface operator(.x.)
+                module procedure cross_product
+                module procedure cross_product_view
+                module procedure cross_product_mixed1
+                module procedure cross_product_mixed2
+        end interface
+
         interface abs 
                 module procedure abs_nvec
                 module procedure abs_nvec_array
+                module procedure abs_nvec_view
         end interface 
 
         interface operator(==)
                 module procedure vecNd_eq
                 module procedure vecNd_eq_array
+                module procedure vecNd_view_eq
         end interface
 
         interface size
                 module procedure vecNdSize
+                module procedure vecNdViewSize
         end interface size 
+
+        ! New interface to create a view
+        interface view
+                module procedure createView
+                module procedure createViewFromArray
+        end interface view
+
         contains 
 
         function vecNdSize(input) result(res)
@@ -35,6 +56,13 @@ module vecNd
 
                 res = size(input%coords)
         end function vecNdSize 
+        
+        function vecNdViewSize(input) result(res)
+                type(vecNd_view_t), intent(in) :: input
+                integer :: res 
+
+                res = size(input%coords)
+        end function vecNdViewSize
 
         function makeVecNd(input) result(res)
                 real(kind=8), intent(in) :: input(:) 
@@ -42,8 +70,43 @@ module vecNd
 
                 allocate(res%coords(size(input))) 
                 res%coords = input 
+        end function makeVecNd
+        
+        ! Function to create a view of a vector without copying data
+        function createView(src) result(res)
+                type(vecNd_t), target, intent(in) :: src
+                type(vecNd_view_t) :: res
                 
-        end function makeVecNd 
+                ! Check if source vector is allocated
+                if (.not. allocated(src%coords)) then
+                        error stop "Error: Creating view of uninitialized vector."
+                end if
+                
+                ! Point to the source data without copying
+                res%coords => src%coords
+        end function createView
+        
+        ! Function to create a view from a stack-allocated array
+        function createViewFromArray(array) result(res)
+                real(kind=8), target, intent(in) :: array(:)
+                type(vecNd_view_t) :: res
+                
+                ! Point directly to the stack-allocated array
+                res%coords => array
+        end function createViewFromArray
+        
+        ! Function to convert a view back to a standard vector (with copying)
+        function vecFromView(v) result(res)
+                type(vecNd_view_t), intent(in) :: v
+                type(vecNd_t) :: res
+                
+                if (.not. associated(v%coords)) then
+                        error stop "Error: Converting uninitialized view."
+                end if
+                
+                allocate(res%coords(size(v%coords)))
+                res%coords = v%coords
+        end function vecFromView
 
         function add_Nvec(vec1, vec2) result(res) 
                 type(vecNd_t), intent(in) :: vec1, vec2 
@@ -63,7 +126,6 @@ module vecNd
                         res%coords(i) = vec1%coords(i) + vec2%coords(i)
                 end do 
                 
-
         end function add_NVec
 
         function sub_Nvec(vec1, vec2) result(res) 
@@ -84,8 +146,34 @@ module vecNd
                         res%coords(i) = vec1%coords(i) - vec2%coords(i)
                 end do 
                 
-
         end function sub_NVec
+        
+        ! Cross product function (primarily for 3D vectors)
+        function cross_product(vec1, vec2) result(res)
+                type(vecNd_t), intent(in) :: vec1, vec2
+                type(vecNd_t) :: res
+                integer :: dim1, dim2
+                
+                dim1 = size(vec1%coords)
+                dim2 = size(vec2%coords)
+                
+                ! Check if dimensions are appropriate for cross product
+                if ((.not. allocated(vec1%coords)) .or. (.not. allocated(vec2%coords))) then
+                        error stop "Error: Cross product with uninitialized vectors."
+                else if (dim1 /= dim2) then
+                        error stop "Error: Cross product with vectors of different dimensions."
+                else if (dim1 /= 3) then
+                        error stop "Error: Cross product is only implemented for 3D vectors."
+                end if
+                
+                ! Allocate result
+                allocate(res%coords(3))
+                
+                ! Calculate cross product for 3D vectors
+                res%coords(1) = vec1%coords(2) * vec2%coords(3) - vec1%coords(3) * vec2%coords(2)
+                res%coords(2) = vec1%coords(3) * vec2%coords(1) - vec1%coords(1) * vec2%coords(3)
+                res%coords(3) = vec1%coords(1) * vec2%coords(2) - vec1%coords(2) * vec2%coords(1)
+        end function cross_product
 
         function abs_nvec(input) result(res)
                 type(vecNd_t), intent(in) :: input 
@@ -98,6 +186,18 @@ module vecNd
                 end do 
                 res = sqrt(res)
         end function abs_nvec
+        
+        function abs_nvec_view(input) result(res)
+                type(vecNd_view_t), intent(in) :: input 
+                real(kind=8) :: res 
+                integer :: i 
+                res = 0.0
+                
+                do i=1,size(input%coords)
+                        res = res + input%coords(i)**2 
+                end do 
+                res = sqrt(res)
+        end function abs_nvec_view
 
         function abs_nvec_array(input) result(output_array)
                 type(vecNd_t), intent(in) :: input(:) 
@@ -130,8 +230,112 @@ module vecNd
                 end do 
         
         end function vecNd_eq
+        
+        function vecNd_view_eq(vec1,vec2) result(res)
+                type(vecNd_view_t), intent(in) :: vec1
+                type(vecNd_t), intent(in) :: vec2 
+                logical :: res 
+                integer :: i 
+                res = .True.
+                if ((.not. associated(vec1%coords)) .or. (.not. allocated(vec2%coords))) then 
+                        error stop "Error: equating unitialised vectors."
 
+                else if (size(vec1%coords) /= size(vec2%coords)) then 
+                        error stop "Error: equating vectors with different dimensions."
+                end if                 
 
+                do i = 1, size(vec1%coords) 
+                        if (abs(vec1%coords(i) - vec2%coords(i)) > 1e-8) then 
+                                res = .False.
+                                return 
+                        end if 
+                end do 
+        
+        end function vecNd_view_eq
+        
+        ! Cross product for view type
+        function cross_product_view(vec1, vec2) result(res)
+                type(vecNd_view_t), intent(in) :: vec1
+                type(vecNd_view_t), intent(in) :: vec2
+                type(vecNd_t) :: res
+                integer :: dim1, dim2
+                
+                dim1 = size(vec1%coords)
+                dim2 = size(vec2%coords)
+                
+                ! Check if dimensions are appropriate for cross product
+                if ((.not. associated(vec1%coords)) .or. (.not. associated(vec2%coords))) then
+                        error stop "Error: Cross product with uninitialized vector views."
+                else if (dim1 /= dim2) then
+                        error stop "Error: Cross product with vector views of different dimensions."
+                else if (dim1 /= 3) then
+                        error stop "Error: Cross product is only implemented for 3D vectors."
+                end if
+                
+                ! Allocate result
+                allocate(res%coords(3))
+                
+                ! Calculate cross product for 3D vectors
+                res%coords(1) = vec1%coords(2) * vec2%coords(3) - vec1%coords(3) * vec2%coords(2)
+                res%coords(2) = vec1%coords(3) * vec2%coords(1) - vec1%coords(1) * vec2%coords(3)
+                res%coords(3) = vec1%coords(1) * vec2%coords(2) - vec1%coords(2) * vec2%coords(1)
+        end function cross_product_view
+        
+        ! Cross product mixing vecNd_t and vecNd_view_t
+        function cross_product_mixed1(vec1, vec2) result(res)
+                type(vecNd_t), intent(in) :: vec1
+                type(vecNd_view_t), intent(in) :: vec2
+                type(vecNd_t) :: res
+                integer :: dim1, dim2
+                
+                dim1 = size(vec1%coords)
+                dim2 = size(vec2%coords)
+                
+                ! Check if dimensions are appropriate for cross product
+                if ((.not. allocated(vec1%coords)) .or. (.not. associated(vec2%coords))) then
+                        error stop "Error: Cross product with uninitialized vectors."
+                else if (dim1 /= dim2) then
+                        error stop "Error: Cross product with vectors of different dimensions."
+                else if (dim1 /= 3) then
+                        error stop "Error: Cross product is only implemented for 3D vectors."
+                end if
+                
+                ! Allocate result
+                allocate(res%coords(3))
+                
+                ! Calculate cross product for 3D vectors
+                res%coords(1) = vec1%coords(2) * vec2%coords(3) - vec1%coords(3) * vec2%coords(2)
+                res%coords(2) = vec1%coords(3) * vec2%coords(1) - vec1%coords(1) * vec2%coords(3)
+                res%coords(3) = vec1%coords(1) * vec2%coords(2) - vec1%coords(2) * vec2%coords(1)
+        end function cross_product_mixed1
+        
+        ! Cross product mixing vecNd_view_t and vecNd_t
+        function cross_product_mixed2(vec1, vec2) result(res)
+                type(vecNd_view_t), intent(in) :: vec1
+                type(vecNd_t), intent(in) :: vec2
+                type(vecNd_t) :: res
+                integer :: dim1, dim2
+                
+                dim1 = size(vec1%coords)
+                dim2 = size(vec2%coords)
+                
+                ! Check if dimensions are appropriate for cross product
+                if ((.not. associated(vec1%coords)) .or. (.not. allocated(vec2%coords))) then
+                        error stop "Error: Cross product with uninitialized vectors."
+                else if (dim1 /= dim2) then
+                        error stop "Error: Cross product with vectors of different dimensions."
+                else if (dim1 /= 3) then
+                        error stop "Error: Cross product is only implemented for 3D vectors."
+                end if
+                
+                ! Allocate result
+                allocate(res%coords(3))
+                
+                ! Calculate cross product for 3D vectors
+                res%coords(1) = vec1%coords(2) * vec2%coords(3) - vec1%coords(3) * vec2%coords(2)
+                res%coords(2) = vec1%coords(3) * vec2%coords(1) - vec1%coords(1) * vec2%coords(3)
+                res%coords(3) = vec1%coords(1) * vec2%coords(2) - vec1%coords(2) * vec2%coords(1)
+        end function cross_product_mixed2
 
         function vecNd_eq_array(input_array, vec) result(output_Array) 
                 type(vecNd_t), intent(in) :: input_array(:) 
@@ -145,5 +349,4 @@ module vecNd
                 end do                
         end function vecNd_eq_array 
 
-
-end module vecNd 
+end module vecNd
