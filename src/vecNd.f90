@@ -18,6 +18,14 @@ module vecNd
                 module procedure sub_Nvec
         end interface 
 
+        interface operator(*)
+                module procedure vecNd_scalar_product
+        end interface 
+        
+        interface operator(/)
+                module procedure vecNd_scalar_division
+        end interface
+
         interface operator(.x.)
                 module procedure cross_product
                 module procedure cross_product_view
@@ -349,4 +357,26 @@ module vecNd
                 end do                
         end function vecNd_eq_array 
 
+        function vecNd_scalar_product(vec1,vec2) result(res)
+                type(vecNd_t), intent(in) :: vec1, vec2 
+                real(kind=8) :: res 
+                integer :: i 
+                res = 0.0_8
+                do i = 1,size(vec1)
+                        res = res + vec1%coords(i) * vec2%coords(i)
+                end do 
+                
+        end function vecNd_scalar_product
+
+        function vecNd_scalar_division(vec1,a) 
+                type(vecNd_t), intent(inout) :: vec1 
+                real(kind=8), intent(in) :: a 
+                real(kind=8) :: res 
+                integer :: i 
+                
+                do i = 1,size(vec1)
+                        vec1%coords(i) = vec1%coords(i) / a 
+                end do 
+                
+        end function vecNd_scalar_product
 end module vecNd
