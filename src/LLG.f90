@@ -3,6 +3,7 @@ module llg
         ! equation, and write the output in a series of files that are are suited to animation and analysis in python.
         use chainMesh 
         use vecNd 
+        use stereographicProjection, only: NSphereProjection
         implicit none 
         
 
