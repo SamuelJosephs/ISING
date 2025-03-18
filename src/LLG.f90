@@ -10,6 +10,43 @@ module llg
         contains  
 
 
+        subroutine initialise_skyrmion_sp(chainMesh, r, R_s, chi)
+                
+                implicit none
+                type(ChainMesh_t), intent(inout) :: chainMesh 
+                type(vecNd_t), intent(in) :: r
+                real(kind=8), intent(in) :: R_s, chi  
+                integer :: i
+                real(kind=8), allocatable :: angle(:)
+                type(vecNd_t) :: AtomPos, SkyrmionCentre, m 
+                ! For each atom at position (x_A, y_A, z_A), calculate the angles from a stereographic projection 
+                ! from a sphere at position (r_x, r_y, z_A). This is a 2d spin texture "tornadoised" down the z axis.
+                ! Then from this projection set 
+                ! x = r sin(theta) cos(psi + chi)
+                ! y = r sin(theta) sin(psi + chi)
+                ! z = r cos(theta)
+                AtomPos = makeVecNd([0.0_08,0.0_08,0.0_08])
+                SkyrmionCentre = makeVecNd([r%coords(1), r%coords(2), 0.0_08])
+                do i = 1,size(chainMesh%atoms)
+                        AtomPos%coords(1) = chainMesh%atoms(i)%x 
+                        AtomPos%coords(2) = chainMesh%atoms(i)%y
+                        AtomPos%coords(3) = chainMesh%atoms(i)%z 
+
+                        SkyrmionCentre%coords(3) = chainMesh%atoms(i)%z + R_s 
+
+                        angle = NSphereProjection(AtomPos,SkyrmionCentre,R_s)
+                        if (any(angle /= angle)) error stop "NaN encountered"
+                        m = makeVecNd([sin(angle(1))*cos(angle(2) + chi), &
+                                       sin(angle(1))*sin(angle(2)+chi), &
+                                       cos(angle(1))])
+                        if (any(m%coords /= m%coords)) error stop "NaN encountered in m"
+                        chainMesh%atoms(i)%AtomParameters = m%coords
+                        
+                end do 
+
+        end subroutine initialise_skyrmion_sp
+
+
 
         subroutine initialise_skyrmion(chainMesh, r, R_s)
                 
@@ -80,7 +117,12 @@ module llg
             integer :: i, fileunit, iostat
             logical :: do_append, do_include_header
             character(len=20) :: frame_str
-            
+            do i=1,size(chainMesh%atoms)
+                if (any(chainMesh%atoms(i)%AtomParameters /= chainMesh%atoms(i)%AtomParameters)) then 
+                        print *, "NaN value encoutered in atom ", i, "with atomParameters:", chainMesh%atoms(i)%AtomParameters
+                        error stop "NaN value encountered"
+                end if
+            end do 
             ! Set defaults for optional parameters
             do_append = .false.
             if (present(append)) do_append = append
@@ -123,7 +165,8 @@ module llg
             
             ! Write data for each atom
             do i = 1, size(chainMesh%atoms)
-                write(fileunit, '(F15.8, 5(",", F15.8))', iostat=iostat) &
+                if (any(chainMesh%atoms(i)%AtomParameters /= chainMesh%atoms(i)%AtomParameters)) error stop "Nan Encountered"
+                write(fileunit, '(ES22.14, 5(",", ES22.14))', iostat=iostat) &
                     chainMesh%atoms(i)%x, &
                     chainMesh%atoms(i)%y, &
                     chainMesh%atoms(i)%z, &

@@ -60,52 +60,59 @@ module stereographicProjection
                                                                    ! sphere. 
                         real(kind=8), intent(in) :: radius
 
+                        type(vecNd_t) :: q
                         real(kind=8), allocatable :: angles(:) 
                         type(vecNd_t) :: point1 ,point2, targetPoint, top
                         real(kind=8) :: a, b, c, denominator, qOpt1,qOpt2, discriminant, k 
                         integer :: i, j 
                         if (size(coord) /= size(centre)) error stop "input and central coordinates must have the same dimension."
                         if (size(coord) == 0) error stop "Empty input coordinates."
-                        if (.not. allocated(angles)) allocate(angles(size(coord)))
-                        allocate(targetPoint%coords(size(coord)+1))
+                        if (.not. allocated(angles)) allocate(angles(size(coord)-1))
+                        allocate(targetPoint%coords(size(coord)))
                         angles = 0.0_8
-                        top = centre
-                        top%coords(size(top)) = top%coords(size(coord)) + radius 
-                        
-
-                        k = 0.0
-                        do i=1,size(coord)
-                                k = k + coord%coords(i)**2 
+                        ! targetPoint will be a N+1 dimensional point, q will be an N dimensional point. 
+                        q = coord - centre 
+                        q%coords(size(q)) = 0.0_8
+                        top = q 
+                        do i = 1, size(top) - 1 
+                                top%coords(i) = 0.0_8 
                         end do 
-                        k = k / (4*radius**2)
+                        top%coords(size(top)) = 2*radius 
+
+                        k = 0.0_8 
+                        do i = 1, size(q) - 1 
+                            k = k + q%coords(i)**2 
+                        end do 
+                        k = k / (4*(radius**2))
 
                         a = k + 1 
-                        b = 4*radius*k 
-                        c = 4*k - 1 
+                        b = -(4*k + 2)*radius 
+                        c = 4*radius**2 * k
                         discriminant = b**2 - 4*a*c 
-                        if (discriminant < 0.0_8) error stop "Encountered negative square root."
-                        qOpt1 = (-b + sqrt(discriminant))/(2*a)
-                        qOpt2 = (-b - sqrt(discriminant))/(2*a)
-                        if (abs(qOpt1 - 2*radius) < 1e-4) then 
-                                targetPoint%coords(size(targetPoint)) = qOpt2 
-                        else if (abs(qOpt2 - 2*radius) < 1e-4) then 
-                                targetPoint%coords(size(targetPoint)) = qOpt1 
-                        else
-                                error stop "Unable to correctly compute projection."
-                        end if
-
-                        do i = 1, size(targetPoint)-1
-                                targetPoint%coords(i) = (coord%coords(i)/(2*radius)) * (2*radius -  targetPoint%coords(size(targetPoint)))
+                        
+                        qOpt1 = (-b + sqrt(b**2 - 4*a*c))/(2*a) ! This yields 2*R which passes the sanity check!
+                        qOpt2 = (-b - sqrt(b**2 - 4*a*c))/(2*a) ! This yields the coordinate we actually want.
+                        targetPoint = coord
+                        targetPoint%coords = 0.0_8
+                        do i = 1, size(targetPoint) - 1 
+                                targetPoint%coords(i) = (q%coords(i)/(2*radius))*(2*radius - qOpt2)
                         end do 
-
+                        targetPoint%coords(size(targetPoint)) = qOpt2
                         do i = 1,size(angles)
                                 denominator = radius 
-                                do j = 1,i
-                                        denominator = denominator * sin(angles(j))   
-                                end do 
+                                if (i > 1) then 
+                                        do j = 1,i-1
+                                                denominator = denominator * sin(angles(j))   
+                                        end do 
+                                end if 
                                 angles(i) = acos(targetPoint%coords(i) / denominator)
+
+                                if (targetPoint%coords(i) / denominator > 1) then 
+                                        angles(i) = 0.0_08
+                                        print *, "targetPoint%coords(i) / denominator > 1 at point ", coord%coords 
+                                end if 
                         end do 
-        
+                        if (any(angles /= angles)) angles = 0.0_8
                 end function NSphereProjection 
 
 

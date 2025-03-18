@@ -149,7 +149,7 @@ end type ChainMesh_t
                     atomIndexTemp = chainMeshCells(neighborCellList(cellIndex))%firstAtomInMeshCell
                     do while (atomIndexTemp .ne. -1) 
                         
-                        if (atomIndexTemp == AtomIndex) then 
+                        if (atomIndexTemp == AtomIndex) then ! atom skips itself 
                                 atomIndexTemp = atoms(atomIndexTemp)%nextAtom
                         
                                 cycle
@@ -217,7 +217,8 @@ end type ChainMesh_t
                 ! For each chain mesh cell, for each atom in that cell, compute nearest neighbors and     
                 ! check neighbor chain mesh cells for nearest neighbor atoms, taking account the
                 ! periodicity of the system
-                !$omp parallel do shared(chainMesh,numChainMeshCells,atomLockArray) private(idex,AtomIdent,NeighborCellList)
+                !$omp parallel do shared(chainMesh,numChainMeshCells,atomLockArray) private(idex,AtomIdent,NeighborCellList) &
+                !$omp& default(firstprivate)
                 do idex = 1,numChainMeshCells
                         !print *, "DEBUG: idex = ",idex
                         AtomIdent = chainMesh%chainMeshCells(idex)%firstAtomInMeshCell
@@ -232,7 +233,9 @@ end type ChainMesh_t
                         
                         do while (AtomIdent .ne. -1 )
                                 !print *, "DEBUG: Looping with AtomIdent = ", AtomIdent
+                                !$omp critical 
                                 call AssignAtomNearestNeighbhors(chainMesh,AtomIdent,idex,neighborCellList,atomLockArray) 
+                                !$omp end critical
                                 AtomIdent = chainMesh%atoms(AtomIdent)%NextAtom
                         end do
                         

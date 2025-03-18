@@ -12,14 +12,13 @@ module Atom
 contains
         function makeAtom(x,y,z,atomParameters,NumAtomParameters,  NextAtom) result(res)
                 real, intent(in) :: x,y,z
-                integer, intent(in) :: NumAtomParameters
+                integer, intent(in) :: NumAtomParameters, NextAtom
                 real, intent(inout), target :: AtomParameters(NumAtomParameters)
                 type(Atom_t) :: res
                res%x = x
                res%y = y
                res%z = z
                res%NumAtomParameters = NumAtomParameters
-               res%NextAtom = -1
                allocate(res%atomParameters(size(atomParameters)))
                res%atomParameters = atomParameters
 
