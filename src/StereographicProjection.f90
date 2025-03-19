@@ -63,8 +63,8 @@ module stereographicProjection
                         type(vecNd_t) :: q
                         real(kind=8), allocatable :: angles(:) 
                         type(vecNd_t) :: point1 ,point2, targetPoint, top
-                        real(kind=8) :: a, b, c, denominator, qOpt1,qOpt2, discriminant, k 
-                        integer :: i, j 
+                        real(kind=8) :: a, b, c, denominator, qOpt1,qOpt2, discriminant, k,r 
+                        integer :: i, j, N
                         if (size(coord) /= size(centre)) error stop "input and central coordinates must have the same dimension."
                         if (size(coord) == 0) error stop "Empty input coordinates."
                         if (.not. allocated(angles)) allocate(angles(size(coord)-1))
@@ -97,20 +97,21 @@ module stereographicProjection
                         do i = 1, size(targetPoint) - 1 
                                 targetPoint%coords(i) = (q%coords(i)/(2*radius))*(2*radius - qOpt2)
                         end do 
-                        targetPoint%coords(size(targetPoint)) = qOpt2
-                        do i = 1,size(angles)
-                                denominator = radius 
-                                if (i > 1) then 
-                                        do j = 1,i-1
-                                                denominator = denominator * sin(angles(j))   
-                                        end do 
+                        targetPoint%coords(size(targetPoint)) = qOpt2 - radius !q - r_C to centre the circle
+                        N = size(targetPoint)
+                        do i = 1,size(angles) ! for a 2 sphere in the range [1,2]
+                                r = 0.0_8
+                                if (i == 1) then 
+                                        angles(N-1) = atan2(targetPoint%coords(2),targetPoint%coords(1))
+                                        if (angles(N-1) < 0) angles(N-1) = angles(N-1) + 2*3.14159265358979323846 
+                                        cycle 
                                 end if 
-                                angles(i) = acos(targetPoint%coords(i) / denominator)
 
-                                if (targetPoint%coords(i) / denominator > 1) then 
-                                        angles(i) = 0.0_08
-                                        print *, "targetPoint%coords(i) / denominator > 1 at point ", coord%coords 
-                                end if 
+                                do j = 1,i 
+                                        r = r + targetPoint%coords(j)**2 
+                                end do 
+                                r = sqrt(r)
+                                angles(N-i) = atan2(r,targetPoint%coords(i+1)) 
                         end do 
                         if (any(angles /= angles)) angles = 0.0_8
                 end function NSphereProjection 

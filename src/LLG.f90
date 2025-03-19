@@ -19,6 +19,7 @@ module llg
                 integer :: i
                 real(kind=8), allocatable :: angle(:)
                 type(vecNd_t) :: AtomPos, SkyrmionCentre, m 
+                real(kind=8) :: maxTheta, maxPhi, minTheta, minPhi
                 ! For each atom at position (x_A, y_A, z_A), calculate the angles from a stereographic projection 
                 ! from a sphere at position (r_x, r_y, z_A). This is a 2d spin texture "tornadoised" down the z axis.
                 ! Then from this projection set 
@@ -27,6 +28,10 @@ module llg
                 ! z = r cos(theta)
                 AtomPos = makeVecNd([0.0_08,0.0_08,0.0_08])
                 SkyrmionCentre = makeVecNd([r%coords(1), r%coords(2), 0.0_08])
+                maxTheta = TINY(maxTheta)
+                maxPhi = TINY(maxPhi)
+                minTheta = HUGE(minTheta)
+                minPhi = HUGE(minPhi)
                 do i = 1,size(chainMesh%atoms)
                         AtomPos%coords(1) = chainMesh%atoms(i)%x 
                         AtomPos%coords(2) = chainMesh%atoms(i)%y
@@ -41,9 +46,14 @@ module llg
                                        cos(angle(1))])
                         if (any(m%coords /= m%coords)) error stop "NaN encountered in m"
                         chainMesh%atoms(i)%AtomParameters = m%coords
+                        if (angle(1) > maxTheta) maxTheta = angle(1)
+                        if (angle(2) > maxPhi) maxPhi = angle(2)
                         
+                        if (angle(1) < minTheta) minTheta = angle(1)
+                        if (angle(2) < minPhi) minPhi = angle(2)
                 end do 
-
+                print *, "maxTheta, minTheta =  ", maxTheta, mintheta  
+                print *, "maxPhi, minphi = ", maxPhi, minphi
         end subroutine initialise_skyrmion_sp
 
 

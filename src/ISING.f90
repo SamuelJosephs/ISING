@@ -29,7 +29,7 @@ program main
         ! Create atoms in unit cell
         AtomsInUnitCell(1) = makeAtom(0.0, 0.0, 0.0, AtomParam1, 3, -1) 
         AtomsInUnitCell(2) = makeAtom(latticeParam/2, latticeParam/2, latticeParam/2, AtomParam2, 3, -1)
-        numCells = 10
+        numCells = 15
         ! Create the chain mesh
         testMesh = makeChainMesh(2, numCells, numCells, numCells, latticeParam, AtomsInUnitCell)
         
@@ -42,10 +42,10 @@ program main
         center_coords(2) = numCells * latticeParam / 2.0d0
         center_coords(3) = numCells * latticeParam / 2.0d0
         skyrmion_center = makeVecNd(center_coords)
-        skyrmion_radius = 2.0_8 
+        skyrmion_radius = 1*testMesh%latticeParameter 
         
         ! Initialize the skyrmion
-        call initialise_skyrmion_sp(testMesh, skyrmion_center, skyrmion_radius,0.0_8)
+        call initialise_skyrmion_sp(testMesh, skyrmion_center, skyrmion_radius,0.0_08)
         !call initialise_skyrmion(testMesh, skyrmion_center, skyrmion_radius)
         do i = 1, size(testMesh%atoms)
                 if (any(testMesh%atoms(i)%AtomParameters /= testMesh%atoms(i)%AtomParameters)) then 
@@ -69,8 +69,8 @@ program main
         H_field = (/0.0d0, 0.0d0, 0.1d0/)  ! External magnetic field in z-direction
         
         ! Time evolution parameters
-        dt = 0.01d0
-        total_time = 10.0d0
+        dt = 0.00001d0
+        total_time = 30.0d0*dt
         num_frames = 30
         
         ! Main evolution loop
