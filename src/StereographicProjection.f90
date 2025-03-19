@@ -55,7 +55,7 @@ module stereographicProjection
                         end if
                 end function planeToSphere 
 
-                function NSphereProjection(coord, centre, radius) result(angles)
+                function NSphereProjection(coord, centre, radius) result(angles) ! This was a pain to figure out
                         type(vecNd_t), intent(in) :: coord, centre ! Coordinate on the plane in question and the centre of the
                                                                    ! sphere. 
                         real(kind=8), intent(in) :: radius
@@ -97,7 +97,7 @@ module stereographicProjection
                         do i = 1, size(targetPoint) - 1 
                                 targetPoint%coords(i) = (q%coords(i)/(2*radius))*(2*radius - qOpt2)
                         end do 
-                        targetPoint%coords(size(targetPoint)) = qOpt2 - radius !q - r_C to centre the circle
+                        targetPoint%coords(size(targetPoint)) = qOpt2 - radius !q - r_C to centre the circle at the origin
                         N = size(targetPoint)
                         do i = 1,size(angles) ! for a 2 sphere in the range [1,2]
                                 r = 0.0_8
@@ -113,7 +113,7 @@ module stereographicProjection
                                 r = sqrt(r)
                                 angles(N-i) = atan2(r,targetPoint%coords(i+1)) 
                         end do 
-                        if (any(angles /= angles)) angles = 0.0_8
+                        if (any(angles /= angles)) angles = 0.0_8 !test for NaN's
                 end function NSphereProjection 
 
 

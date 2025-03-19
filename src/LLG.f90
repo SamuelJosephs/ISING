@@ -10,12 +10,13 @@ module llg
         contains  
 
 
-        subroutine initialise_skyrmion_sp(chainMesh, r, R_s, chi)
+        subroutine initialise_skyrmion_sp(chainMesh, r, R_s, chi, N)
                 
                 implicit none
                 type(ChainMesh_t), intent(inout) :: chainMesh 
                 type(vecNd_t), intent(in) :: r
                 real(kind=8), intent(in) :: R_s, chi  
+                integer, intent(in) :: N ! winding number
                 integer :: i
                 real(kind=8), allocatable :: angle(:)
                 type(vecNd_t) :: AtomPos, SkyrmionCentre, m 
@@ -41,8 +42,8 @@ module llg
 
                         angle = NSphereProjection(AtomPos,SkyrmionCentre,R_s)
                         if (any(angle /= angle)) error stop "NaN encountered"
-                        m = makeVecNd([sin(angle(1))*cos(angle(2) + chi), &
-                                       sin(angle(1))*sin(angle(2)+chi), &
+                        m = makeVecNd([sin(angle(1))*cos(N*(angle(2) + chi)), &
+                                       sin(angle(1))*sin(N*(angle(2)+chi)), &
                                        cos(angle(1))])
                         if (any(m%coords /= m%coords)) error stop "NaN encountered in m"
                         chainMesh%atoms(i)%AtomParameters = m%coords
