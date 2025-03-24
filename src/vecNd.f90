@@ -57,6 +57,7 @@ module vecNd
         interface size
                 module procedure vecNdSize
                 module procedure vecNdViewSize
+
         end interface size 
 
         ! New interface to create a view
@@ -80,14 +81,41 @@ module vecNd
 
                 res = size(input%coords)
         end function vecNdViewSize
+        function normalSize(input) result(res)
+                real(kind=8) :: input(:)
+                integer :: res 
 
+                res = size(input)
+
+        end function normalSize
         function makeVecNd(input) result(res)
                 real(kind=8), intent(in) :: input(:) 
                 type(vecNd_t):: res 
-
+                
                 allocate(res%coords(size(input))) 
                 res%coords = input 
         end function makeVecNd
+
+        function makeVecNdCheck(self, input) result(res) ! Checks for allocation and avoids any unneccessary allocations
+                type(vecNd_t), intent(inout) :: self
+                type(vecNd_t) :: res
+                real(kind = 8), intent(in) :: input(:)
+
+                if (allocated(self%coords)) then
+                        if (size(self%coords) == size(input)) then
+                                call move_alloc(self%coords,res%coords)
+                                res%coords = input
+                                return
+                        else 
+                                deallocate(self%coords)
+                                allocate(res%coords(size(input)))
+                                res%coords = input
+                                return
+                        end if 
+                end if 
+                allocate(res%coords(size(input)))
+                res%coords = input
+        end function makeVecNdCheck
         
         ! Function to create a view of a vector without copying data
         function createView(src) result(res)
