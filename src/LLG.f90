@@ -300,7 +300,7 @@ function H_eff_Heisenberg(Mesh, atomIndex,lockArray) result(H_temp)
     type(vecNd_t) :: E
     integer :: atomIndexTemp,i, threadNum
     type(vecNd_t) :: H_temp
-    type(vecNd_t), save :: D, atomPos1, atomPos2,r, tempVec, S_temp
+    type(vecNd_t) :: D, atomPos1, atomPos2,r, tempVec, S_temp
     real(kind=8), parameter :: Dz = 5.0
     real(kind = 8), parameter :: J = 0.5
     real(kind=8), parameter :: B = 3.0
@@ -346,7 +346,7 @@ subroutine HeunStep(chainMesh, numSteps, dt, H_eff_method, lambda,gamma)
     real(kind=8), intent(in) :: dt
     real(kind=8), intent(in) :: lambda, gamma
     procedure(H_eff_class), pointer, intent(in) :: H_eff_method
-    type(vecNd_t), save :: S_prime, S_next, S_temp, H, delta_S, delta_S_prime
+    type(vecNd_t) :: S_prime, S_next, S_temp, H, delta_S, delta_S_prime
     integer :: atomIndex, i, threadNum, counter
     integer(kind=OMP_LOCK_KIND), allocatable :: lockArray(:)
     allocate(lockArray(size(chainMesh%atoms)))
