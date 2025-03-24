@@ -117,7 +117,8 @@ module RGFlow
                                         counts = [counts, 0]
                                         ind = size(positions) !The index is not the last element 
                                 end if 
-                                correlations(ind)  = correlations(ind) + chainMesh%atoms(i)%AtomParameters(1)*chainMesh%atoms(j)%AtomParameters(1)
+                                correlations(ind)  = correlations(ind) + chainMesh%atoms(i)%AtomParameters(1)* &
+                                        chainMesh%atoms(j)%AtomParameters(1)
                                 counts(ind) = counts(ind) + 1 
                                 end do 
                         end do 

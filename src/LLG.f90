@@ -6,7 +6,15 @@ module llg
         use stereographicProjection, only: NSphereProjection
         implicit none 
         
-
+        abstract interface 
+        function H_eff_class(Mesh, atomIndex) result(E)
+            use chainMesh, only: chainMesh_t
+            use vecNd, only: vecNd_t
+            type(chainMesh_t), intent(inout) :: Mesh
+            integer, intent(in) :: atomIndex 
+            type(vecNd_t) :: E
+        end function H_eff_class
+        end interface 
         contains  
 
 
@@ -279,5 +287,30 @@ subroutine LLGStep(chainMesh, dt, A, B, C, D, H)
     end do
     
 end subroutine LLGStep
+
+
+
+subroutine HeunStep(chainMesh, numSteps, dt, H_eff_method, lambda,gamma)
+    implicit none
+    type(chainMesh_t), intent(inout) :: chainMesh
+    integer, intent(in) :: numSteps
+    real(kind=8), intent(in) :: dt
+    real(kind=8), intent(in) :: lambda, gamma
+    procedure(H_eff_class), pointer, intent(in) :: H_eff_method
+    type(vecNd_t) :: S_prime, S_next, S_temp, H, delta_S, delta_S_prime
+    integer :: atomIndex
+
+    do atomIndex = 1,size(chainMesh%atoms)
+        ! For each atom, calculate H_eff using H_eff_method. Then calculate S' and S'' before doing updating the spins
+        S_temp = makeVecNd(dble(chainMesh%atoms(atomIndex)%atomParameters))
+        H = H_eff_method(chainMesh,atomIndex)
+        delta_S = (- gamma / (1 + lambda**2))*((S_temp .x. H )+ ((lambda*S_temp) .x. (S_temp .x. H))) 
+        S_prime = S_temp + S_prime*dt
+        delta_S_prime = (- gamma / (1 + lambda**2))*((S_prime .x. H) + ((lambda*S_prime) .x. (S_prime .x. H))) 
+
+        S_next = S_temp + 0.5_8*(delta_S + delta_S_prime)*dt 
+        chainMesh%atoms(atomIndex)%atomParameters = S_next%coords
+    end do
+end subroutine HeunStep
 
 end module llg 

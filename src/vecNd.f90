@@ -22,6 +22,8 @@ module vecNd
         interface operator(*)
                 module procedure vecNd_scalar_product
                 module procedure vecNd_scalar_multiplication
+                module procedure vecNd_scalar_multiplication2
+
         end interface 
         
         interface operator(/)
@@ -393,4 +395,16 @@ module vecNd
                 end do 
                 
         end function vecNd_scalar_multiplication
+
+        function vecNd_scalar_multiplication2(a,vec1) result(res) 
+                type(vecNd_t), intent(in) :: vec1 
+                real(kind=8), intent(in) :: a 
+                type(vecNd_t) :: res 
+                integer :: i 
+                res = vec1  
+                do i = 1,size(vec1)
+                        res%coords(i) = res%coords(i) * a 
+                end do 
+                
+        end function vecNd_scalar_multiplication2
 end module vecNd
