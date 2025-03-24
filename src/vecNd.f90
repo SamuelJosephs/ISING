@@ -25,6 +25,11 @@ module vecNd
                 module procedure vecNd_scalar_multiplication2
 
         end interface 
+
+        interface assignment(=)
+                module procedure vecNDINIT
+
+        end interface
         
         interface operator(/)
                 module procedure vecNd_scalar_division
@@ -407,4 +412,27 @@ module vecNd
                 end do 
                 
         end function vecNd_scalar_multiplication2
+
+        subroutine vecNdINIT(lhs,rhs) ! input1 = input2
+                type(vecNd_t), intent(inout) :: lhs
+                type(vecNd_t), intent(in) :: rhs 
+                if (.not. allocated(rhs%coords)) error stop "RHS is not allocated"               
+                if (allocated(lhs%coords)) then 
+                        if (size(lhs) == size(rhs)) then 
+                                lhs%coords = rhs%coords
+                                return 
+                        else 
+                                deallocate(lhs%coords)
+                                allocate(lhs%coords(size(rhs)))
+                                lhs%coords = rhs%coords
+                                return 
+                        end if
+
+                end if
+                allocate(lhs%coords(size(rhs)))
+
+                lhs%coords = rhs%coords
+                return
+                
+        end subroutine vecNDINIT
 end module vecNd

@@ -15,6 +15,7 @@ program main
         real :: AtomParam1(3), AtomParam2(3), latticeParam
         character(len=100) :: output_dir, output_filename, frame_filename
         logical :: z_localized
+        procedure(H_eff_class), pointer :: p
         
         ! LLG evolution parameters
         real(kind=8) :: dt, total_time, A, B, C, D
@@ -75,11 +76,13 @@ program main
         
         ! Main evolution loop
         print *, "Starting skyrmion evolution..."
+        p => H_eff_Heisenberg
         do frame = 1, num_frames
             ! Calculate how many LLG steps to perform between frames
             do i = 1, int(total_time / dt / num_frames)
                 ! Evolve the system using LLG equation
-                call LLGStep(testMesh, dt, A, B, C, D, H_field)
+                ! call LLGStep(testMesh, dt, A, B, C, D, H_field)
+                call HeunStep(testMesh,4,dt,p,1.0_8,1.0_8)
             end do
             
             ! Write current state to file
