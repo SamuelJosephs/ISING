@@ -328,7 +328,7 @@ function H_eff_Heisenberg(Mesh, atomIndex,lockArray) result(H_temp)
         y = dble(Mesh%atoms(atomIndexTemp)%y)
         z = dble(Mesh%atoms(atomIndexTemp)%z)
         atomPos2%coords = [x,y,z]
-        r = atomPos1 - atomPos2
+        r = atomPos2 - atomPos1
         r = r / abs(r)
         D = tempVec .x. r
         S_temp = makeVecNdCheck(S_temp,dble(Mesh%atoms(atomIndexTemp)%atomParameters))
@@ -346,7 +346,7 @@ subroutine HeunStep(chainMesh, numSteps, dt, H_eff_method, lambda,gamma)
     real(kind=8), intent(in) :: dt
     real(kind=8), intent(in) :: lambda, gamma
     procedure(H_eff_class), pointer, intent(in) :: H_eff_method
-    type(vecNd_t) :: S_prime, S_next, S_temp, H, delta_S, delta_S_prime
+    type(vecNd_t) :: S_prime, S_next, S_temp, H, delta_S, delta_S_prime, H_prime, test_temp
     integer :: atomIndex, i, threadNum, counter
     integer(kind=OMP_LOCK_KIND), allocatable :: lockArray(:)
     allocate(lockArray(size(chainMesh%atoms)))
@@ -355,7 +355,7 @@ subroutine HeunStep(chainMesh, numSteps, dt, H_eff_method, lambda,gamma)
     end do 
     counter = 0
     do i = 1, numSteps
-    !$omp parallel do shared(chainMesh,lockArray, H_eff_method) default(private) firstprivate(counter)
+    !$omp parallel do shared(chainMesh,lockArray, H_eff_method) default(private) firstprivate(counter, lambda, gamma,dt)
 
         do atomIndex = 1,size(chainMesh%atoms)
             S_prime = makeVecNdCheck(S_prime,[0.0_8,0.0_8,0.0_8])
@@ -367,22 +367,33 @@ subroutine HeunStep(chainMesh, numSteps, dt, H_eff_method, lambda,gamma)
             threadNum = OMP_GET_THREAD_NUM()
             ! For each atom, calculate H_eff using H_eff_method. Then calculate S' and S'' before doing updating the spins
             S_temp = makeVecNdCheck(S_temp,dble(chainMesh%atoms(atomIndex)%atomParameters))
-
             H = H_eff_method(chainMesh,atomIndex,lockArray)
-
             delta_S = (- gamma / (1 + lambda**2))*((S_temp .x. H )+ ((lambda*S_temp) .x. (S_temp .x. H))) 
             if (.not. allocated(S_temp%coords)) print *, "S_temp is not allocated for i = ",i
             if (.not. allocated(S_prime%coords)) print *, "S_prime is not allocated for i = ",i
 
-            S_prime = S_temp + S_prime*dt
+            S_prime = S_temp + delta_s*dt
             S_prime%coords = S_prime%coords / abs(S_prime)
+            call OMP_SET_LOCK(lockArray(atomIndex))
+                chainMesh%atoms(atomIndex)%AtomParameters = S_prime%coords
+                
+            call OMP_UNSET_LOCK(lockArray(atomIndex))
+            H_prime = H_eff_method(chainMesh,atomIndex,lockArray)
 
-            delta_S_prime = (- gamma / (1 + lambda**2))*((S_prime .x. H) + ((lambda*S_prime) .x. (S_prime .x. H))) 
+            call OMP_SET_LOCK(lockArray(atomIndex))
+                chainMesh%atoms(atomIndex)%AtomParameters = S_temp%coords
+                
+            call OMP_UNSET_LOCK(lockArray(atomIndex))
+            delta_S_prime = (- gamma / (1 + lambda**2))*((S_prime .x. H_prime) + ((lambda*S_prime) .x. (S_prime .x. H_prime))) 
 
             S_next = S_temp + 0.5_8*(delta_S + delta_S_prime)*dt
             S_next%coords = S_next%coords / abs(S_next) 
             call OMP_SET_LOCK(lockArray(atomIndex))
             chainMesh%atoms(atomIndex)%atomParameters = S_next%coords
+            !print *, "delta_S = ", delta_S%coords 
+            !print *, "delta_S_prime = ", delta_S_prime%coords
+            !test_temp = S_next - S_temp 
+            !print *, "S_next - S_temp = ", test_temp%coords 
             call OMP_UNSET_LOCK(lockArray(atomIndex))
             counter = counter + 1
             

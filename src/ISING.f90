@@ -72,18 +72,18 @@ program main
         ! Time evolution parameters
         dt = 0.01d0
         total_time = 30.0d0
-        num_frames = 30
+        num_frames = 80
         
         ! Main evolution loop
         print *, "Starting skyrmion evolution..."
         p => H_eff_Heisenberg
         do frame = 1, num_frames
             ! Calculate how many LLG steps to perform between frames
-            do i = 1, int(total_time / dt / num_frames)
-                ! Evolve the system using LLG equation
-                ! call LLGStep(testMesh, dt, A, B, C, D, H_field)
-                call HeunStep(testMesh,4,dt,p,1.0_8,1.0_8)
-            end do
+            
+            
+            
+            call HeunStep(testMesh,4,dt,p,0.50_8,5.0_8)
+            
             
             ! Write current state to file
             write(frame_filename, '(A,A,I5.5,A)') trim(output_dir), "/frame_", frame, ".csv"
