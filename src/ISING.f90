@@ -6,7 +6,7 @@ program main
         use LLG
         use omp_lib
         implicit none
-        integer :: numCellsX, numCellsY, numCellsZ, i, skyrmion_type, frame, num_frames
+        integer :: numCellsX, numCellsY, numCellsZ, i, skyrmion_type, frame, num_frames, numMetropolisSteps
         character(len=30) :: arg
         type(ChainMesh_t) :: testMesh
         type(Atom_t) :: AtomsInUnitCell(2)
@@ -74,8 +74,9 @@ program main
         ! Time evolution parameters
         dt = 0.002d0
         total_time = 30.0d0
-        num_frames = 160
-        
+        num_frames = 40 
+        numMetropolisSteps = 10000
+        call MetropolisMixed(testMesh,1000.0_8) !TODO: Complete this
         ! Main evolution loop
         print *, "Starting skyrmion evolution..."
         p => H_eff_Heisenberg

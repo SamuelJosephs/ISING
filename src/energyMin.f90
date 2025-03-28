@@ -4,7 +4,7 @@ module EnergyMin
         use Atom 
         use ChainMesh 
         use ChainMeshCell
-        use Rand, only: makeRandom, algor_uniform_random, random
+        use Rand, only: makeRandom, algor_uniform_random, random, Normal
         use cube_partition, only: bounds_type, partition_unit_cube, dp 
         use omp_lib 
         implicit none 
@@ -54,6 +54,126 @@ end function AtomEnergy
                        ! i,j,k range from (0,a-1), (0,b-1), and (0,c-1) respectively
                 end subroutine coordsFromThreadIndex 
 
+        subroutine UniformRandomSpin(vec3d, rand)
+                type(vecNd_t), intent(inout) :: vec3d 
+                type(random), intent(inout) :: rand
+
+                integer :: i 
+                do i = 1,size(vec3d)
+                        vec3d%coords(i) = algor_uniform_random(rand)
+                end do 
+                vec3d= vec3d/ abs(vec3d)
+        end subroutine UniformRandomSpin 
+
+        subroutine GaussianStep(vec3d, rand, beta)
+                type(vecNd_t), intent(inout) :: vec3d 
+                type(random), intent(inout) :: rand 
+                real(kind=8), intent(in) :: beta
+
+                integer :: i
+                real(kind=8) :: stddev
+                stddev = 1.0_8 / beta
+                do i = 1,size(vec3d)
+                        vec3d%coords(i) = vec3d%coords(i) + Normal(rand,0.0_8, stddev)
+                end do 
+                vec3d = vec3d / abs(vec3d)
+        end subroutine GaussianStep 
+
+        function calculateHeisenbergEnergy(chainMesh,atomIndex, J, Dz,B, lockArray) result(Energy)
+                implicit none
+                type(ChainMesh_t), intent(in) :: chainMesh 
+                integer, intent(in) :: atomIndex 
+                real(kind=8), intent(in) :: J, Dz, B
+                integer(kind=OMP_LOCK_KIND), intent(inout) :: lockArray(:)
+
+                real(kind = 8) :: Energy, x,y,z 
+                integer :: i, atomIndexTemp
+                type(vecNd_t) :: S, S_prime, atomPos1, atomPos2, tempVec,r, D 
+                Energy = 0.0_8
+                S = makeVecNdCheck(S, dble(chainMesh%atoms(atomIndex)%AtomParameters))
+                x = chainMesh%atoms(atomIndex)%x
+                y = chainMesh%atoms(atomIndex)%y 
+                z = chainMesh%atoms(atomIndex)%z 
+                atomPos1 = makeVecNd([x,y,z]) 
+                tempVec = makeVecNdCheck(tempVec, [0.0_8, 0.0_8, Dz])
+                do i = 1,size(chainMesh%atoms(atomIndex)%NeighborList)
+                        atomIndexTemp = chainMesh%atoms(atomIndex)%NeighborList(i)
+                        call OMP_SET_LOCK(lockArray(atomIndexTemp))
+                                S_prime = makeVecNdCheck(S_prime,dble(chainMesh%atoms(atomIndexTemp)%AtomParameters))
+                        call OMP_UNSET_LOCK(lockArray(atomIndexTemp))
+                        x = chainMesh%atoms(atomIndexTemp)%x
+                        y = chainMesh%atoms(atomIndexTemp)%y 
+                        z = chainMesh%atoms(atomIndexTemp)%z
+                        atomPos2 = makeVecNdCheck(atomPos2, [x,y,z])
+                        r = atomPos1 - atomPos2 
+                        D = tempVec .x. r
+                        Energy = Energy + (J* S*S_prime) + (D*(S .x. S_prime)) + B*S%coords(3)
+                        
+                end do 
+        end function calculateHeisenbergEnergy
+
+
+        subroutine MetropolisMixed(chainMesh, beta, nsteps, J, Dz, B, lockArray)
+                ! Each thread will randomly select an atom nsteps times and determine whether to flip the spin 
+                implicit none
+                type(ChainMesh_t), intent(inout) :: chainMesh 
+                real(kind=8), intent(in) :: beta, J, Dz, B 
+                integer, intent(in) :: nsteps 
+                integer(kind=OMP_LOCK_KIND), intent(inout) :: lockArray(:)
+
+                type(random) :: rand 
+                integer :: threadID, time, i, atomIndex, counter
+                real(kind=8) :: rand_num, oldEnergy, newEnergy, P, Z  
+                type(vecNd_t) :: S, S_proposed
+                !$omp parallel default(private) firstprivate(nsteps,beta) shared(chainMesh, lockArray)
+                block 
+
+                threadID = omp_get_thread_num()
+                call system_clock(time)
+                rand = makeRandom(time*threadID + modulo(threadID,time))
+                do i = 1,100
+                        rand_num = algor_uniform_random(rand) ! Warm up the generator
+                end do 
+                
+                do i = 1,nsteps
+                        counter = 0
+                        !$omp do 
+                        do atomIndex = 1, size(chainMesh%atoms)
+                                ! Given atomIndex, propose a new spin then accept/reject based on the energy
+                                call OMP_SET_LOCK(lockArray(atomIndex))
+                                S = makeVecNdCheck(S,dble(chainMesh%atoms(atomIndex)%AtomParameters))
+                                call OMP_UNSET_LOCK(lockArray(atomIndex))
+                                S_proposed = S 
+                                if (counter == 0) then 
+                                        call UniformRandomSpin(S_proposed, rand)
+                                else if (counter < 3) then 
+                                        call GaussianStep(S_proposed,rand,beta)
+                                end if 
+                                oldEnergy = calculateHeisenbergEnergy(chainMesh, atomIndex,J,Dz,B,lockArray)
+                                chainMesh%atoms(atomIndex)%AtomParameters = S_proposed%coords 
+                                newEnergy = calculateHeisenbergEnergy(chainMesh, atomIndex,J,Dz,B,lockArray)
+                                chainMesh%atoms(atomIndex)%AtomParameters = S%coords
+                         
+                                if (newEnergy < oldEnergy) then 
+                                        Z = 1.0_8 
+                                else 
+                                        Z = exp(- beta * ((newEnergy - oldEnergy)))
+                                end if
+                                p = algor_uniform_random(rand)
+                                if (Z >= p) then 
+                                        chainMesh%atoms(atomIndex)%AtomParameters = S_proposed%coords 
+                                end if 
+                        end do
+
+                        !$omp end do 
+                        counter = counter + 1 
+                        if (counter >= 3) counter = 0
+                end do
+                end block
+                !$omp end parallel 
+                
+
+        end subroutine MetropolisMixed
 
         subroutine Metropolis2(chainMesh, sigma, beta, nsteps)
                 ! Each thread will randomly select an atom nsteps times and determine whether to flip the spin 

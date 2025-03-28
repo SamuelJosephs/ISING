@@ -4,7 +4,7 @@ module Rand
         type random 
                 integer :: seed, ix, iy  
         end type random 
-        public :: random, makeRandom, algor_uniform_random        
+        public :: random, makeRandom, algor_uniform_random, Normal      
        !ix=ieor(777755555_int32,iseed)                   !Marsaglia generator        
         contains
         type(random) function makeRandom(seed)
@@ -92,5 +92,21 @@ module Rand
 
     return
   end function algor_uniform_random
+
+  function Normal(rand,mean,stdev) result(z1)
+        type(random), intent(inout) :: rand 
+        real(kind=8), intent(in) :: mean, stdev
+        real(kind=8) :: u1,u2, z1, z2
+        real(kind=8), parameter :: pi = 3.14159265358979323846_8
+
+        u1 = algor_uniform_random(rand)
+        u2 = algor_uniform_random(rand)
+
+        z1 = sqrt(-2*log(u1)) * cos(2*pi*u2)
+        z2 = sqrt(-2*log(u1)) * sin(2*pi*u2)
+         
+        z1 = mean + stdev*z1 
+        z2 = mean + stdev*z2
+  end function Normal
 end module Rand 
 
