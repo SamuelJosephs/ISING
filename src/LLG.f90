@@ -301,9 +301,9 @@ function H_eff_Heisenberg(Mesh, atomIndex,lockArray) result(H_temp)
     integer :: atomIndexTemp,i, threadNum
     type(vecNd_t) :: H_temp
     type(vecNd_t) :: D, atomPos1, atomPos2,r, tempVec, S_temp
-    real(kind=8), parameter :: Dz = 5.0
-    real(kind = 8), parameter :: J = 0.5
-    real(kind=8), parameter :: B = 3.0
+    real(kind=8), parameter :: Dz = 1.0_08
+    real(kind = 8), parameter :: J = 1.0_8 
+    real(kind=8), parameter :: B = 0.0_8 
     real(kind=8) :: x,y,z
 
     threadNum = omp_get_thread_num()
@@ -320,18 +320,21 @@ function H_eff_Heisenberg(Mesh, atomIndex,lockArray) result(H_temp)
     atomPos1 = makeVecNdCheck(atomPos1,[x,y,z])
     tempVec = makeVecNdCheck(tempVec,[0.0_8, 0.0_8, Dz])
     do i = 1,size(Mesh%atoms(atomIndex)%NeighborList)
-        call OMP_SET_LOCK(lockArray(Mesh%atoms(atomIndex)%NeighborList(i)))
-        atomIndexTemp = Mesh%atoms(atomIndex)%NeighborList(i)
-        call OMP_UNSET_LOCK(lockArray(Mesh%atoms(atomIndex)%NeighborList(i)))
+        !call OMP_SET_LOCK(lockArray(Mesh%atoms(atomIndex)%NeighborList(i)))
+        atomIndexTemp = Mesh%atoms(atomIndex)%NeighborList(i) !NeighborList is not written to so don't need to guard against race
+                                                              ! conditions
+        !call OMP_UNSET_LOCK(lockArray(Mesh%atoms(atomIndex)%NeighborList(i)))
         if (atomIndexTemp == atomIndex) cycle
         x = dble(Mesh%atoms(atomIndexTemp)%x)
         y = dble(Mesh%atoms(atomIndexTemp)%y)
         z = dble(Mesh%atoms(atomIndexTemp)%z)
         atomPos2%coords = [x,y,z]
-        r = atomPos2 - atomPos1
+        r = atomPos1 - atomPos2
         r = r / abs(r)
         D = tempVec .x. r
+        call OMP_SET_LOCK(lockArray(atomIndexTemp))
         S_temp = makeVecNdCheck(S_temp,dble(Mesh%atoms(atomIndexTemp)%atomParameters))
+        call OMP_UNSET_LOCK(lockArray(atomIndexTemp))
         H_temp = H_temp + (J*S_temp + (D .x. S_temp))
     end do
     H_temp%coords(3) = H_temp%coords(3) + B
@@ -374,27 +377,27 @@ subroutine HeunStep(chainMesh, numSteps, dt, H_eff_method, lambda,gamma)
 
             S_prime = S_temp + delta_s*dt
             S_prime%coords = S_prime%coords / abs(S_prime)
-            call OMP_SET_LOCK(lockArray(atomIndex))
+            !call OMP_SET_LOCK(lockArray(atomIndex))
                 chainMesh%atoms(atomIndex)%AtomParameters = S_prime%coords
                 
-            call OMP_UNSET_LOCK(lockArray(atomIndex))
+            !call OMP_UNSET_LOCK(lockArray(atomIndex))
             H_prime = H_eff_method(chainMesh,atomIndex,lockArray)
 
-            call OMP_SET_LOCK(lockArray(atomIndex))
+            !call OMP_SET_LOCK(lockArray(atomIndex))
                 chainMesh%atoms(atomIndex)%AtomParameters = S_temp%coords
                 
-            call OMP_UNSET_LOCK(lockArray(atomIndex))
+            !call OMP_UNSET_LOCK(lockArray(atomIndex))
             delta_S_prime = (- gamma / (1 + lambda**2))*((S_prime .x. H_prime) + ((lambda*S_prime) .x. (S_prime .x. H_prime))) 
 
             S_next = S_temp + 0.5_8*(delta_S + delta_S_prime)*dt
             S_next%coords = S_next%coords / abs(S_next) 
-            call OMP_SET_LOCK(lockArray(atomIndex))
+            !call OMP_SET_LOCK(lockArray(atomIndex))
             chainMesh%atoms(atomIndex)%atomParameters = S_next%coords
             !print *, "delta_S = ", delta_S%coords 
             !print *, "delta_S_prime = ", delta_S_prime%coords
             !test_temp = S_next - S_temp 
             !print *, "S_next - S_temp = ", test_temp%coords 
-            call OMP_UNSET_LOCK(lockArray(atomIndex))
+            !call OMP_UNSET_LOCK(lockArray(atomIndex))
             counter = counter + 1
             
 

@@ -6,7 +6,7 @@ program main
         use LLG
         use omp_lib
         implicit none
-        integer :: numCells, i, skyrmion_type, frame, num_frames
+        integer :: numCellsX, numCellsY, numCellsZ, i, skyrmion_type, frame, num_frames
         character(len=30) :: arg
         type(ChainMesh_t) :: testMesh
         type(Atom_t) :: AtomsInUnitCell(2)
@@ -25,29 +25,31 @@ program main
         latticeParam = 2.8
         ! Create 3D spin parameters for atoms (initialize all spins pointing up)
         AtomParam1 = (/0.0, 0.0, 1.0/)
-        AtomParam2 = (/0.0, 0.0, -1.0/)
+        AtomParam2 = (/0.0, 0.0, 1.0/)
         
         ! Create atoms in unit cell
         AtomsInUnitCell(1) = makeAtom(0.0, 0.0, 0.0, AtomParam1, 3, -1) 
         AtomsInUnitCell(2) = makeAtom(latticeParam/2, latticeParam/2, latticeParam/2, AtomParam2, 3, -1)
-        numCells = 15
+        numCellsX = 40
+        numCellsY = 40
+        numCellsZ = 20 
         ! Create the chain mesh
-        testMesh = makeChainMesh(2, numCells, numCells, numCells, latticeParam, AtomsInUnitCell)
+        testMesh = makeChainMesh(2, numCellsX, numCellsY, numCellsZ, latticeParam, AtomsInUnitCell)
         
         ! Assign nearest neighbors
         call assignNearestNeighbors(testMesh)
        
         ! Define skyrmion center position (middle of the mesh)
         allocate(center_coords(3))
-        center_coords(1) = numCells * latticeParam / 2.0d0
-        center_coords(2) = numCells * latticeParam / 2.0d0
-        center_coords(3) = numCells * latticeParam / 2.0d0
+        center_coords(1) = numCellsX * latticeParam / 2.0d0
+        center_coords(2) = numCellsY * latticeParam / 2.0d0
+        center_coords(3) = numCellsZ * latticeParam / 2.0d0
         skyrmion_center = makeVecNd(center_coords)
-        skyrmion_radius = 1*testMesh%latticeParameter 
+        skyrmion_radius = 1.0_8*testMesh%latticeParameter 
         
         ! Initialize the skyrmion
-        call initialise_skyrmion_sp(testMesh, skyrmion_center, skyrmion_radius,3.12_8/2.0_08,1)
-        !call initialise_skyrmion_sp(testMesh, skyrmion_center, skyrmion_radius,0.0_8,2)
+        !call initialise_skyrmion_sp(testMesh, skyrmion_center, skyrmion_radius,3.12_8/2.0_08,1)
+        call initialise_skyrmion_sp(testMesh, skyrmion_center, skyrmion_radius,0.0_08,1)
         do i = 1, size(testMesh%atoms)
                 if (any(testMesh%atoms(i)%AtomParameters /= testMesh%atoms(i)%AtomParameters)) then 
                         print *, "atom ", i, " has atom parameters ", testMesh%atoms(i)%AtomParameters
@@ -70,9 +72,9 @@ program main
         H_field = (/0.0d0, 0.0d0, 0.1d0/)  ! External magnetic field in z-direction
         
         ! Time evolution parameters
-        dt = 0.01d0
+        dt = 0.002d0
         total_time = 30.0d0
-        num_frames = 80
+        num_frames = 160
         
         ! Main evolution loop
         print *, "Starting skyrmion evolution..."
@@ -82,7 +84,7 @@ program main
             
             
             
-            call HeunStep(testMesh,4,dt,p,0.50_8,5.0_8)
+            call HeunStep(testMesh,100,dt,p,0.90_8,1.0_8)
             
             
             ! Write current state to file
@@ -96,7 +98,7 @@ program main
         output_filename = trim(output_dir) // "/info.txt"
         open(unit=10, file=output_filename, status='replace')
         write(10, *) num_frames + 1  ! Total number of frames (including initial frame)
-        write(10, *) numCells, latticeParam     ! Mesh parameters
+        write(10, *) numCellsX, latticeParam     ! Mesh parameters
         close(10)
         
         print *, "Skyrmion evolution completed. Output files in:", trim(output_dir)
