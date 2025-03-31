@@ -8,7 +8,7 @@ module llg
         implicit none 
         
         abstract interface 
-        function H_eff_class(Mesh, atomIndex,lockArray) result(E)
+        function H_eff_class(Mesh, atomIndex,lockArray, J, Dz, B) result(E)
             use chainMesh, only: chainMesh_t
             use vecNd, only: vecNd_t
             use OMP_LIB 
@@ -16,6 +16,7 @@ module llg
             integer, intent(in) :: atomIndex 
             type(vecNd_t) :: E
             integer(kind=OMP_LOCK_KIND), intent(inout) :: lockArray(:)
+            real(kind=8), intent(in) :: J, Dz, B 
         end function H_eff_class
         end interface 
         contains  
@@ -291,19 +292,18 @@ subroutine LLGStep(chainMesh, dt, A, B, C, D, H)
     
 end subroutine LLGStep
 
-function H_eff_Heisenberg(Mesh, atomIndex,lockArray) result(H_temp)
+function H_eff_Heisenberg(Mesh, atomIndex,lockArray, J, Dz, B) result(H_temp)
     use chainMesh, only: chainMesh_t
     use vecNd, only: vecNd_t
     type(chainMesh_t), intent(inout) :: Mesh
     integer, intent(in) :: atomIndex 
     integer(kind=OMP_LOCK_KIND), intent(inout) :: lockArray(:)
+    real(kind=8), intent(in) :: J, Dz, B 
     type(vecNd_t) :: E
     integer :: atomIndexTemp,i, threadNum
     type(vecNd_t) :: H_temp
     type(vecNd_t) :: D, atomPos1, atomPos2,r, tempVec, S_temp
-    real(kind=8), parameter :: Dz = 1.0_08
-    real(kind = 8), parameter :: J = 1.0_8 
-    real(kind=8), parameter :: B = 0.0_8 
+
     real(kind=8) :: x,y,z
 
     threadNum = omp_get_thread_num()
@@ -342,12 +342,12 @@ function H_eff_Heisenberg(Mesh, atomIndex,lockArray) result(H_temp)
 
 end function H_eff_Heisenberg
 
-subroutine HeunStep(chainMesh, numSteps, dt, H_eff_method, lambda,gamma)
+subroutine HeunStep(chainMesh, numSteps, dt, H_eff_method, lambda,gamma, J, Dz, B)
     implicit none
     type(chainMesh_t), intent(inout) :: chainMesh
     integer, intent(in) :: numSteps
     real(kind=8), intent(in) :: dt
-    real(kind=8), intent(in) :: lambda, gamma
+    real(kind=8), intent(in) :: lambda, gamma, J, Dz, B 
     procedure(H_eff_class), pointer, intent(in) :: H_eff_method
     type(vecNd_t) :: S_prime, S_next, S_temp, H, delta_S, delta_S_prime, H_prime, test_temp
     integer :: atomIndex, i, threadNum, counter
@@ -358,7 +358,7 @@ subroutine HeunStep(chainMesh, numSteps, dt, H_eff_method, lambda,gamma)
     end do 
     counter = 0
     do i = 1, numSteps
-    !$omp parallel do shared(chainMesh,lockArray, H_eff_method) default(private) firstprivate(counter, lambda, gamma,dt)
+    !$omp parallel do shared(chainMesh,lockArray, H_eff_method) default(private) firstprivate(counter, lambda, gamma,dt,J,Dz,B)
 
         do atomIndex = 1,size(chainMesh%atoms)
             S_prime = makeVecNdCheck(S_prime,[0.0_8,0.0_8,0.0_8])
@@ -370,7 +370,7 @@ subroutine HeunStep(chainMesh, numSteps, dt, H_eff_method, lambda,gamma)
             threadNum = OMP_GET_THREAD_NUM()
             ! For each atom, calculate H_eff using H_eff_method. Then calculate S' and S'' before doing updating the spins
             S_temp = makeVecNdCheck(S_temp,dble(chainMesh%atoms(atomIndex)%atomParameters))
-            H = H_eff_method(chainMesh,atomIndex,lockArray)
+            H = H_eff_method(chainMesh,atomIndex,lockArray, J, Dz, B)
             delta_S = (- gamma / (1 + lambda**2))*((S_temp .x. H )+ ((lambda*S_temp) .x. (S_temp .x. H))) 
             if (.not. allocated(S_temp%coords)) print *, "S_temp is not allocated for i = ",i
             if (.not. allocated(S_prime%coords)) print *, "S_prime is not allocated for i = ",i
@@ -381,7 +381,7 @@ subroutine HeunStep(chainMesh, numSteps, dt, H_eff_method, lambda,gamma)
                 chainMesh%atoms(atomIndex)%AtomParameters = S_prime%coords
                 
             !call OMP_UNSET_LOCK(lockArray(atomIndex))
-            H_prime = H_eff_method(chainMesh,atomIndex,lockArray)
+            H_prime = H_eff_method(chainMesh,atomIndex,lockArray, J, Dz, B)
 
             !call OMP_SET_LOCK(lockArray(atomIndex))
                 chainMesh%atoms(atomIndex)%AtomParameters = S_temp%coords

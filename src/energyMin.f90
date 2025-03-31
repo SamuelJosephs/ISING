@@ -6,6 +6,7 @@ module EnergyMin
         use ChainMeshCell
         use Rand, only: makeRandom, algor_uniform_random, random, Normal
         use cube_partition, only: bounds_type, partition_unit_cube, dp 
+        use constants, only: gyromagnetic_ratio, Kb, Bohr_magneton
         use omp_lib 
         implicit none 
         contains 
@@ -69,10 +70,10 @@ end function AtomEnergy
                 type(vecNd_t), intent(inout) :: vec3d 
                 type(random), intent(inout) :: rand 
                 real(kind=8), intent(in) :: beta
-
+                real(kind=8) :: T 
                 integer :: i
                 real(kind=8) :: stddev
-                stddev = 1.0_8 / beta
+                stddev = (2.0_8/25.0_8)*(1.0_8 / (beta*Bohr_magneton))**(0.2)
                 do i = 1,size(vec3d)
                         vec3d%coords(i) = vec3d%coords(i) + Normal(rand,0.0_8, stddev)
                 end do 
@@ -106,8 +107,11 @@ end function AtomEnergy
                         z = chainMesh%atoms(atomIndexTemp)%z
                         atomPos2 = makeVecNdCheck(atomPos2, [x,y,z])
                         r = atomPos1 - atomPos2 
+                        r = r / abs(r)
                         D = tempVec .x. r
-                        Energy = Energy + (J* S*S_prime) + (D*(S .x. S_prime)) + B*S%coords(3)
+                        !D = Dz*r
+                        Energy = Energy + 0.5*(J* S*S_prime) + 0.5*(D*(S .x. S_prime)) + &
+                                gyromagnetic_ratio*Bohr_magneton*B*S%coords(3)
                         
                 end do 
         end function calculateHeisenbergEnergy
@@ -135,10 +139,10 @@ end function AtomEnergy
                         rand_num = algor_uniform_random(rand) ! Warm up the generator
                 end do 
                 
+                counter = 0
                 do i = 1,nsteps
-                        counter = 0
-                        !$omp do 
-                        do atomIndex = 1, size(chainMesh%atoms)
+                                atomIndex = int((algor_uniform_random(rand)*dble(size(chainMesh%atoms)))/&
+                                        (dble(size(chainMesh%atoms))+1) * dble(size(chainMesh%atoms)-1)) + 1 
                                 ! Given atomIndex, propose a new spin then accept/reject based on the energy
                                 call OMP_SET_LOCK(lockArray(atomIndex))
                                 S = makeVecNdCheck(S,dble(chainMesh%atoms(atomIndex)%AtomParameters))
@@ -149,6 +153,9 @@ end function AtomEnergy
                                 else if (counter < 3) then 
                                         call GaussianStep(S_proposed,rand,beta)
                                 end if 
+                                S_proposed = S_proposed / abs(S_proposed)
+                                if (any(S_proposed%coords /= S_proposed%coords)) error stop "NaN in MetropolisMixed"
+                                if (any(S%coords /= S%coords)) error stop "NaN in MetropolisMixed"
                                 oldEnergy = calculateHeisenbergEnergy(chainMesh, atomIndex,J,Dz,B,lockArray)
                                 chainMesh%atoms(atomIndex)%AtomParameters = S_proposed%coords 
                                 newEnergy = calculateHeisenbergEnergy(chainMesh, atomIndex,J,Dz,B,lockArray)
@@ -161,11 +168,11 @@ end function AtomEnergy
                                 end if
                                 p = algor_uniform_random(rand)
                                 if (Z >= p) then 
-                                        chainMesh%atoms(atomIndex)%AtomParameters = S_proposed%coords 
+                                        call OMP_SET_LOCK(lockArray(atomIndex))
+                                        chainMesh%atoms(atomIndex)%AtomParameters = S_proposed%coords
+                                        call OMP_UNSET_LOCK(lockArray(atomIndex))
                                 end if 
-                        end do
 
-                        !$omp end do 
                         counter = counter + 1 
                         if (counter >= 3) counter = 0
                 end do

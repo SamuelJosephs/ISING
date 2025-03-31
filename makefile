@@ -11,7 +11,7 @@
 
 # Compiler settings
 FC = gfortran
-FCFLAGS =  -Wno-line-truncation -fopenmp -fcheck=all -g -fbacktrace 
+FCFLAGS =  -Wno-line-truncation -fopenmp -O3 
 MODDIR = -J./obj
 INCDIR = -I./obj
 
@@ -21,7 +21,7 @@ OBJDIR = obj
 BINDIR = bin
 
 # Source files and their corresponding object files
-SOURCES = $(SRCDIR)/rand.f90 $(SRCDIR)/CubePartition.f90 $(SRCDIR)/ISING.f90 $(SRCDIR)/RGFlow.f90 $(SRCDIR)/atom.f90 $(SRCDIR)/chainMeshCell.f90 $(SRCDIR)/chainMesh.f90 $(SRCDIR)/energyMin.f90 $(SRCDIR)/vecNd.f90 $(SRCDIR)/LLG.f90 $(SRCDIR)/StereographicProjection.f90 
+SOURCES = $(SRCDIR)/rand.f90 $(SRCDIR)/CubePartition.f90 $(SRCDIR)/ISING.f90 $(SRCDIR)/RGFlow.f90 $(SRCDIR)/atom.f90 $(SRCDIR)/chainMeshCell.f90 $(SRCDIR)/chainMesh.f90 $(SRCDIR)/energyMin.f90 $(SRCDIR)/vecNd.f90 $(SRCDIR)/LLG.f90 $(SRCDIR)/StereographicProjection.f90 $(SRCDIR)/constants.f90  
 
 
 OBJECTS = $(patsubst $(SRCDIR)/%.f90,$(OBJDIR)/%.o,$(SOURCES))
@@ -42,7 +42,7 @@ $(OBJDIR)/%.o: $(SRCDIR)/%.f90
 
 # Dependencies
 $(OBJDIR)/ISING.o: $(OBJDIR)/rand.o $(OBJDIR)/CubePartition.o $(OBJDIR)/RGFlow.o $(OBJDIR)/atom.o $(OBJDIR)/chainMeshCell.o $(OBJDIR)/chainMesh.o $(OBJDIR)/energyMin.o $(OBJDIR)/LLG.o 
-$(OBJDIR)/energyMin.o: $(OBJDIR)/chainMesh.o 
+$(OBJDIR)/energyMin.o: $(OBJDIR)/chainMesh.o $(OBJDIR)/constants.o 
 $(OBJDIR)/chainMesh.o: $(OBJDIR)/atom.o $(OBJDIR)/chainMeshCell.o $(OBJDIR)/vecNd.o 
 $(OBJDIR)/chainMeshCell.o: $(OBJDIR)/atom.o 
 $(OBJDIR)/rand.o: $(OBJDIR)/chainMesh.o 
@@ -50,8 +50,9 @@ $(OBJDIR)/CubePartition.o: $(OBJDIR)/chainMesh.o
 $(OBJDIR)/RGFlow.0: $(OBJDIR)/chainMesh.o  
 $(OBJDIR)/atom.o:
 $(OBJDIR)/vecNd.o: 
+$(OBJDIR)/constants.o:
 $(OBJDIR)/LLG.o: $(OBJDIR)/chainMesh.o $(OBJDIR)/vecNd.o $(OBJDIR)/StereographicProjection.o 
-$(OBJDFIR)/StereographicProjection.o: $(OBJDDIR)/vecNd.o
+$(OBJDIR)/StereographicProjection.o: $(OBJDIR)/vecNd.o
 # Clean target
 clean:
 	rm -f $(OBJDIR)/*.o $(OBJDIR)/*.mod $(BINDIR)/ISING
