@@ -39,7 +39,7 @@ program main
         AtomsInUnitCell(2) = makeAtom(latticeParam/2, latticeParam/2, latticeParam/2, AtomParam2, 3, -1)
         numCellsX = 40
         numCellsY = 40
-        numCellsZ = 20 
+        numCellsZ = 10
         ! Create the chain mesh
         testMesh = makeChainMesh(2, numCellsX, numCellsY, numCellsZ, latticeParam, AtomsInUnitCell)
         
@@ -78,7 +78,7 @@ program main
         total_time = 30.0d0
         num_frames = 10  
         numMetropolisSteps = 200000
-        numBetaSteps = 50 
+        numBetaSteps = 100
         J = 1.0_08
         Dz = 1.0_8 
         B = 0.8_8*(J)/(gyromagnetic_ratio*bohr_magneton) 

@@ -107,9 +107,9 @@ end type ChainMesh_t
             widthZ = c * chainMesh%latticeParameter
             
             ! Calculate coordinate differences
-            dx = abs(point1%coords(1) - point2%coords(1))
-            dy = abs(point1%coords(2) - point2%coords(2))
-            dz = abs(point1%coords(3) - point2%coords(3))
+            dx = abs(point2%coords(1) - point1%coords(1))
+            dy = abs(point2%coords(2) - point1%coords(2))
+            dz = abs(point2%coords(3) - point1%coords(3))
             
             ! Apply periodic boundary conditions to find the minimum distance
             if (dx > widthX/2) dx = widthX - dx
@@ -119,6 +119,37 @@ end type ChainMesh_t
             ! Calculate Euclidean distance
             d = sqrt(dx**2 + dy**2 + dz**2)
         end function distance_points
+
+        subroutine distance_points_vec(chainMesh, point1, point2,d)
+            type(ChainMesh_t), intent(in) :: chainMesh
+            type(vecNd_t), intent(in) :: point1, point2
+            type(vecNd_t), intent(inout) :: d 
+
+            real(kind=8) :: dx, dy, dz, widthX, widthY, widthZ
+            integer :: a, b, c
+            ! Get system dimensions
+            a = chainMesh%numCellsX
+            b = chainMesh%numCellsY
+            c = chainMesh%numCellsZ
+            
+            ! Calculate total width in each dimension
+            widthX = a * chainMesh%latticeParameter
+            widthY = b * chainMesh%latticeParameter
+            widthZ = c * chainMesh%latticeParameter
+            
+            ! Calculate coordinate differences
+            dx = (point1%coords(1) - point2%coords(1))
+            dy = (point1%coords(2) - point2%coords(2))
+            dz = (point1%coords(3) - point2%coords(3))
+            
+            ! Apply periodic boundary conditions to find the minimum distance
+            if (dx > widthX/2) dx = widthX - dx
+            if (dy > widthY/2) dy = widthY - dy
+            if (dz > widthZ/2) dz = widthZ - dz
+            
+            ! Calculate Euclidean distance
+            d = makeVecNdCheck(d,[dx,dy,dz])
+        end subroutine distance_points_vec
 
        subroutine AssignAtomNearestNeighbhors(chainMesh,AtomIndex, AtomCellIndex, NeighborCellList,atomLockArray)
                 implicit none
