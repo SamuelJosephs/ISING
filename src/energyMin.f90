@@ -129,7 +129,7 @@ end function AtomEnergy
                 integer :: threadID, time, i, atomIndex, counter
                 real(kind=8) :: rand_num, oldEnergy, newEnergy, P, Z  
                 type(vecNd_t) :: S, S_proposed
-                !$omp parallel default(private) firstprivate(nsteps,beta) shared(chainMesh, lockArray)
+                !$omp parallel default(private) firstprivate(nsteps,beta, J, Dz, B) shared(chainMesh, lockArray)
                 block 
 
                 threadID = omp_get_thread_num()
@@ -160,13 +160,17 @@ end function AtomEnergy
                                 chainMesh%atoms(atomIndex)%AtomParameters = S_proposed%coords 
                                 newEnergy = calculateHeisenbergEnergy(chainMesh, atomIndex,J,Dz,B,lockArray)
                                 chainMesh%atoms(atomIndex)%AtomParameters = S%coords
-                         
+                                
                                 if (newEnergy < oldEnergy) then 
                                         Z = 1.0_8 
                                 else 
                                         Z = exp(- beta * ((newEnergy - oldEnergy)))
+   
+
                                 end if
                                 p = algor_uniform_random(rand)
+                                !print *, "Z = ", Z, "New Energy - Old energy ", NewEnergy - OldEnergy, &
+                                !                NewEnergy, OldEnergy, "beta = ", beta
                                 if (Z >= p) then 
                                         call OMP_SET_LOCK(lockArray(atomIndex))
                                         chainMesh%atoms(atomIndex)%AtomParameters = S_proposed%coords
