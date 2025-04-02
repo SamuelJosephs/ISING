@@ -74,11 +74,11 @@ program main
         H_field = (/0.0d0, 0.0d0, 0.1d0/)  ! External magnetic field in z-direction
         
         ! Time evolution parameters
-        dt = 0.0000002d0
+        dt = 0.000000000000002_8
         total_time = 30.0d0
-        num_frames = 10  
-        numMetropolisSteps = 2000000
-        numBetaSteps = 100
+        num_frames = 30  
+        numMetropolisSteps = 200000
+        numBetaSteps = 50
         J = 1.0_08
         Dz = 1.0_8 
         B = 0.8_8*(J)/(gyromagnetic_ratio*bohr_magneton) 
@@ -101,27 +101,27 @@ program main
                 print *, "Completed metropolis run at beta = ", beta 
                 
         end do 
-        print *, "Completed Mixed Metropolis"
-        !do frame = 1, num_frames
+        print *, "Completed Mixed Metropolis, beggining Heun evolution"
+        do frame = 1, num_frames
             ! Calculate how many LLG steps to perform between frames
             
             
             
-        !    call HeunStep(testMesh,10,dt,p,0.90_8,1.0_8, J, Dz, B)
+            call HeunStep(testMesh,10,dt,p,0.90_8,gyromagnetic_ratio, J, Dz, B)
             
             
-        !    ! Write current state to file
-        !    write(frame_filename, '(A,A,I5.5,A)') trim(output_dir), "/frame_", frame, ".csv"
-        !    call write_spins_to_file(testMesh, frame_filename)
-        !    
-        !    print *, "Completed frame", frame, "of", num_frames
-        !end do
+            ! Write current state to file
+            write(frame_filename, '(A,A,I5.5,A)') trim(output_dir), "/frame_", frame + numBetaSteps, ".csv"
+            call write_spins_to_file(testMesh, frame_filename)
+            
+            print *, "Completed frame", frame, "of", num_frames
+        end do
         
         ! Write information for Python visualization script
         output_filename = trim(output_dir) // "/info.txt"
         open(unit=10, file=output_filename, status='replace')
         !write(10, *) num_frames + 1  ! Total number of frames (including initial frame)
-        write(10, *) numBetaSteps + 1  ! Total number of frames (including initial frame)
+        write(10, *) num_frames + numBetaSteps + 1  ! Total number of frames (including initial frame)
         write(10, *) numCellsX, latticeParam     ! Mesh parameters
         close(10)
         

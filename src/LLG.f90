@@ -5,6 +5,7 @@ module llg
         use vecNd 
         use stereographicProjection, only: NSphereProjection
         use omp_lib
+        use constants 
         implicit none 
         
         abstract interface 
@@ -337,7 +338,7 @@ function H_eff_Heisenberg(Mesh, atomIndex,lockArray, J, Dz, B) result(H_temp)
         call OMP_UNSET_LOCK(lockArray(atomIndexTemp))
         H_temp = H_temp + (J*S_temp + (D .x. S_temp))
     end do
-    H_temp%coords(3) = H_temp%coords(3) + B
+    H_temp%coords(3) = H_temp%coords(3) + Bohr_magneton*gyromagnetic_ratio*B
 
 
 end function H_eff_Heisenberg
