@@ -80,17 +80,21 @@ end function AtomEnergy
                 vec3d = vec3d / abs(vec3d)
         end subroutine GaussianStep 
 
-        function calculateHeisenbergEnergy(chainMesh,atomIndex, J, Dz,B, lockArray) result(Energy)
+        subroutine calculateHeisenbergEnergy(chainMesh,atomIndex, J, Dz,B, lockArray,S_proposed, oldEnergy, newEnergy) 
                 implicit none
                 type(ChainMesh_t), intent(in) :: chainMesh 
                 integer, intent(in) :: atomIndex 
-                real(kind=8), intent(in) :: J, Dz, B
+                real(kind=8), intent(in) :: J, Dz, B 
+                real(kind=8), intent(inout) ::  oldEnergy, newEnergy 
+                type(vecNd_t), intent(in) :: S_proposed 
                 integer(kind=OMP_LOCK_KIND), intent(inout) :: lockArray(:)
 
                 real(kind = 8) :: Energy, x,y,z 
                 integer :: i, atomIndexTemp
                 type(vecNd_t) :: S, S_prime, atomPos1, atomPos2, tempVec,r, D 
-                Energy = 0.0_8
+                !call OMP_SET_LOCK(lockArray(atomIndex))
+                oldEnergy = 0.0_8
+                newEnergy = 0.0_8
                 S = makeVecNdCheck(S, dble(chainMesh%atoms(atomIndex)%AtomParameters))
                 x = chainMesh%atoms(atomIndex)%x
                 y = chainMesh%atoms(atomIndex)%y 
@@ -99,6 +103,7 @@ end function AtomEnergy
                 tempVec = makeVecNdCheck(tempVec, [0.0_8, 0.0_8, Dz])
                 do i = 1,size(chainMesh%atoms(atomIndex)%NeighborList)
                         atomIndexTemp = chainMesh%atoms(atomIndex)%NeighborList(i)
+                        if (atomIndexTemp == atomIndex) error stop "Encountered self interaction"
                         call OMP_SET_LOCK(lockArray(atomIndexTemp))
                                 S_prime = makeVecNdCheck(S_prime,dble(chainMesh%atoms(atomIndexTemp)%AtomParameters))
                         call OMP_UNSET_LOCK(lockArray(atomIndexTemp))
@@ -111,11 +116,15 @@ end function AtomEnergy
                         r = r / abs(r)
                         D = tempVec .x. r
                         !D = Dz*r
-                        Energy = Energy + 0.5*(J* S*S_prime) + 0.5*(D*(S .x. S_prime)) + &
+                        oldEnergy = oldEnergy + 0.5*(J* S*S_prime) + 0.5*(D*(S .x. S_prime)) + &
                                 gyromagnetic_ratio*Bohr_magneton*B*S%coords(3)
                         
+                        newEnergy = newEnergy + 0.5*(J* S_proposed*S_prime) + 0.5*(D*(S_proposed .x. S_prime)) + &
+                                gyromagnetic_ratio*Bohr_magneton*B*S_proposed%coords(3)
                 end do 
-        end function calculateHeisenbergEnergy
+
+                !call OMP_UNSET_LOCK(lockArray(atomIndex))
+        end subroutine calculateHeisenbergEnergy
 
 
         subroutine MetropolisMixed(chainMesh, beta, nsteps, J, Dz, B, lockArray)
@@ -135,7 +144,8 @@ end function AtomEnergy
 
                 threadID = omp_get_thread_num()
                 call system_clock(time)
-                rand = makeRandom(time*threadID + modulo(threadID,time))
+                !rand = makeRandom(time*threadID + modulo(threadID,time))
+                rand = makeRandom(123456 + threadID)
                 do i = 1,100
                         rand_num = algor_uniform_random(rand) ! Warm up the generator
                 end do 
@@ -157,11 +167,11 @@ end function AtomEnergy
                                 S_proposed = S_proposed / abs(S_proposed)
                                 if (any(S_proposed%coords /= S_proposed%coords)) error stop "NaN in MetropolisMixed"
                                 if (any(S%coords /= S%coords)) error stop "NaN in MetropolisMixed"
-                                oldEnergy = calculateHeisenbergEnergy(chainMesh, atomIndex,J,Dz,B,lockArray)
-                                chainMesh%atoms(atomIndex)%AtomParameters = S_proposed%coords 
-                                newEnergy = calculateHeisenbergEnergy(chainMesh, atomIndex,J,Dz,B,lockArray)
-                                chainMesh%atoms(atomIndex)%AtomParameters = S%coords
-                                
+                                !oldEnergy = calculateHeisenbergEnergy(chainMesh, atomIndex,J,Dz,B,lockArray)
+                                !chainMesh%atoms(atomIndex)%AtomParameters = S_proposed%coords 
+                                !newEnergy = calculateHeisenbergEnergy(chainMesh, atomIndex,J,Dz,B,lockArray)
+                                !chainMesh%atoms(atomIndex)%AtomParameters = S%coords
+                                call calculateHeisenbergEnergy(chainMesh,atomIndex,J,Dz,B,lockArray,S_proposed,oldEnergy,newEnergy)
                                 if (newEnergy < oldEnergy) then 
                                         Z = 1.0_8 
                                 else 

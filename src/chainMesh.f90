@@ -143,9 +143,15 @@ end type ChainMesh_t
             dz = (point1%coords(3) - point2%coords(3))
             
             ! Apply periodic boundary conditions to find the minimum distance
-            if (dx > widthX/2) dx = widthX - dx
-            if (dy > widthY/2) dy = widthY - dy
-            if (dz > widthZ/2) dz = widthZ - dz
+            !if (dx > widthX/2) dx = widthX - dx
+            !if (dy > widthY/2) dy = widthY - dy
+            !if (dz > widthZ/2) dz = widthZ - dz
+
+
+            dx = dx - widthX*nint(dx/widthX)
+            dy = dy - widthY*nint(dy/widthY)
+            dz = dz - widthZ*nint(dz/widthZ)
+            
             
             ! Calculate Euclidean distance
             d = makeVecNdCheck(d,[dx,dy,dz])

@@ -77,7 +77,7 @@ program main
         dt = 0.0000002d0
         total_time = 30.0d0
         num_frames = 10  
-        numMetropolisSteps = 200000
+        numMetropolisSteps = 2000000
         numBetaSteps = 100
         J = 1.0_08
         Dz = 1.0_8 
