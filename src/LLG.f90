@@ -330,7 +330,7 @@ function H_eff_Heisenberg(Mesh, atomIndex,lockArray, J, Dz, B) result(H_temp)
         y = dble(Mesh%atoms(atomIndexTemp)%y)
         z = dble(Mesh%atoms(atomIndexTemp)%z)
         atomPos2%coords = [x,y,z]
-        r = atomPos1 - atomPos2
+        call distance_points_vec(chainMesh,atomPos1,atomPos2, r) 
         r = r / abs(r)
         D = tempVec .x. r
         call OMP_SET_LOCK(lockArray(atomIndexTemp))
