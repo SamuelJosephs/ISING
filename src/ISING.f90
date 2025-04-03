@@ -74,14 +74,15 @@ program main
         H_field = (/0.0d0, 0.0d0, 0.1d0/)  ! External magnetic field in z-direction
         
         ! Time evolution parameters
-        dt = 0.000000000000002_8
+        ! dt = 0.00000000000002_8
+        dt = 1e-15_8
         total_time = 30.0d0
-        num_frames = 30  
+        num_frames = 100  
         numMetropolisSteps = 200000
-        numBetaSteps = 50
+        numBetaSteps = 80
         J = 1.0_08
-        Dz = 1.0_8 
-        B = 0.8_8*(J)/(gyromagnetic_ratio*bohr_magneton) 
+        Dz = 1.0_8
+        B = 2.0_8* 0.8_8*(J)/(gyromagnetic_ratio*bohr_magneton) 
         ! Main evolution loop
         p => H_eff_Heisenberg
                 
@@ -107,7 +108,7 @@ program main
             
             
             
-            call HeunStep(testMesh,10,dt,p,0.90_8,gyromagnetic_ratio, J, Dz, B)
+            call HeunStep(testMesh,10,dt,p,0.1_08,gyromagnetic_ratio, J, Dz, B)
             
             
             ! Write current state to file
