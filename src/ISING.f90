@@ -37,8 +37,8 @@ program main
         ! Create atoms in unit cell
         AtomsInUnitCell(1) = makeAtom(0.0, 0.0, 0.0, AtomParam1, 3, -1) 
         AtomsInUnitCell(2) = makeAtom(latticeParam/2, latticeParam/2, latticeParam/2, AtomParam2, 3, -1)
-        numCellsX = 40
-        numCellsY = 40
+        numCellsX = 80
+        numCellsY = 80
         numCellsZ = 6
         ! Create the chain mesh
         testMesh = makeChainMesh(2, numCellsX, numCellsY, numCellsZ, latticeParam, AtomsInUnitCell)
@@ -79,7 +79,7 @@ program main
         total_time = 30.0d0
         num_frames = 1000   
         numMetropolisSteps = 400000
-        numBetaSteps = 120
+        numBetaSteps = 220
         J = 1.0_08
         Dz = 1.0_8
         B = 2.0_8* 0.8_8*(J)/(gyromagnetic_ratio*bohr_magneton) 
@@ -92,7 +92,8 @@ program main
         end do 
         do i = 0,numBetaSteps
                 Tmax = 10000.0_8 
-                Tmin = 0.1*(0.76*8*J)/(3*Kb)
+                !Tmin = 0.1*(0.76*8*J)/(3*Kb)
+                Tmin = 10.0_8
                 T = Tmax - (Tmax - Tmin)*(dble(i)/dble(numBetaSteps)) 
                 beta = 1.0_8 / (Kb*T)
                 call MetropolisMixed(testMesh,beta,numMetropolisSteps,J,Dz,B, lockArray)
