@@ -113,7 +113,7 @@ end function AtomEnergy
                         atomPos2 = makeVecNdCheck(atomPos2, [x,y,z])
                         !r = atomPos1 - atomPos2
                         call distance_points_vec(chainMesh,atomPos1,atomPos2, r) 
-                        r = r / abs(r)
+                        r = (-1.0_8) * r / abs(r)
                         D = tempVec .x. r
                         !D = Dz*r
                         oldEnergy = oldEnergy + (J* S*S_prime) + (D*(S .x. S_prime)) + &

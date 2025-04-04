@@ -11,6 +11,7 @@ type ChainMesh_t
         type(ChainMeshCell_t), allocatable :: chainMeshCells(:)
         real ::  latticeParameter
         integer :: numCellsX, numCellsY, numCellsZ   
+        integer, allocatable, dimension(:,:,:) :: derivativeList !(i,j,k) : i=atomInex, j=dim (1,2,3), k = lower,higher (1,2)
 end type ChainMesh_t 
 
         contains
@@ -138,9 +139,9 @@ end type ChainMesh_t
             widthZ = c * chainMesh%latticeParameter
             
             ! Calculate coordinate differences
-            dx = (point1%coords(1) - point2%coords(1))
-            dy = (point1%coords(2) - point2%coords(2))
-            dz = (point1%coords(3) - point2%coords(3))
+            dx = (point2%coords(1) - point1%coords(1)) ! Warning! May need to do point 1 - point 2 
+            dy = (point2%coords(2) - point1%coords(2))
+            dz = (point2%coords(3) - point1%coords(3))
             
             ! Apply periodic boundary conditions to find the minimum distance
             !if (dx > widthX/2) dx = widthX - dx
@@ -488,5 +489,110 @@ end function H
                 end if 
         end subroutine deallocateChainMesh
 
+        subroutine DerivativeList(chainMesh,array)
+                implicit none
+                type(chainMesh_t), intent(inout) :: chainMesh
+                integer, allocatable, intent(inout) :: array(:,:,:) ! Output Array 
+                
+                integer :: N, d, numChainMeshCells, cellIndex, atomIndex, lowerAtom, HigherAtom   
+                if (allocated(array)) deallocate(array)
+                if (.not. allocated(chainMesh%atoms)) error stop "ChainMesh not properly initialised"
+                N = size(chainMesh%atoms)
+                allocate(array(N,3,2)) ! (atomIndex, dim, (low index, high index))
+                numChainMeshCells = chainMesh%numChainMeshCells
+
+                do d = 1,3 ! For each dimension  
+                        do cellIndex = 1,numChainMeshCells
+                                atomIndex = chainMesh%chainMeshCells(cellIndex)%firstAtomInMeshCell
+                                do while (atomIndex /= -1)
+                                        call computeAdjacentAtoms(chainMesh,d,cellIndex,atomIndex,lowerAtom,HigherAtom)
+                                        array(AtomIndex,d,1) = lowerAtom 
+                                        array(AtomIndex,d,2) = HigherAtom
+                                        atomIndex = chainMesh%atoms(atomIndex)%nextAtom
+                                end do 
+                        end do 
+                end do 
+        end subroutine DerivativeList 
+
+        subroutine computeAdjacentAtoms(chainMesh,d,cellIndex,atomIndex,lowerAtom,HigherAtom)
+                type(chainMesh_t), intent(in) :: chainMesh 
+                integer, intent(in) :: d, cellIndex, atomIndex 
+                integer, intent(out) :: lowerAtom, HigherAtom 
+                
+                integer, dimension(27) :: neighborCellList
+                integer :: i, j, cellIndexTemp, atomIndexTemp, currentMinIndex, currentMaxIndex  
+                type(vecNd_t) :: distance, atomPos1, atomPos2 
+                real(kind=8) :: x,y,z, currentMin, currentMax
+                logical :: candidate 
+                currentMinIndex = -1
+                currentMaxIndex = -1
+                currentMin = HUGE(currentMin) ! This is a confusing naming scheme, but we need to find the closest atoms with
+                                              !coordinate in dimension d that is greater and less than the current atoms.
+                currentMax = HUGE(currentMax)
+                call getNeighboringCells(chainMesh,cellIndex,neighborCellList) 
+                x = chainMesh%atoms(atomIndex)%x 
+                y = chainMesh%atoms(atomIndex)%y 
+                z = chainMesh%atoms(atomIndex)%z 
+                atomPos1 = makeVecNdCheck(atomPos1, [x,y,z])
+                do i = 1,size(neighborCellList)
+                        cellIndexTemp = neighborCellList(i)
+                        atomIndexTemp = chainMesh%chainMeshCells(cellIndexTemp)%firstAtomInMeshCell
+                        
+                        do while (atomIndexTemp /= -1)
+                                if (atomIndexTemp == atomIndex) then 
+                                        atomIndexTemp = chainMesh%atoms(atomIndexTemp)%nextAtom
+                                        cycle 
+                                end if
+                                x = chainMesh%atoms(atomIndexTemp)%x 
+                                y = chainMesh%atoms(atomIndexTemp)%y 
+                                z = chainMesh%atoms(atomIndexTemp)%z 
+                                atomPos2 = makeVecNdCheck(atomPos2, [x,y,z])
+                                call distance_points_vec(chainMesh,atomPos1, atomPos2, distance)
+                                
+                                candidate = .True.
+                                do j = 1,3
+                                        if (j == d) cycle 
+                                        if (abs(distance%coords(j)) > chainMesh%latticeParameter / 20.0_8) then 
+                                                candidate = .False.
+                                                exit 
+                                        end if 
+                                end do 
+                                if (candidate) then 
+                                        if (distance%coords(d) < 0.0_8) then ! Figure out we put it into the bin for the closest
+                                                                             !atom with position less than atomIndex's
+                                                if (abs(distance%coords(d)) <= currentMin) then 
+                                                        currentMin = abs(distance%coords(d))
+                                                        currentMinIndex = atomIndexTemp 
+                                                end if 
+
+                                        end if 
+
+                                        if (distance%coords(d) > 0.0_8) then ! Figure out if we put it into the bin for closest atom
+                                                                            !with position greater than atomIndex's
+                                                if (abs(distance%coords(d)) <= currentMax) then 
+                                                        currentMax = abs(distance%coords(d))
+                                                        currentMaxIndex = atomIndexTemp 
+                                                end if 
+                                        end if 
+                                end if 
+                                atomIndexTemp = chainMesh%atoms(atomIndexTemp)%nextAtom
+                                
+                        end do 
+                end do 
+                if ((currentMinIndex == -1) .or. (currentMaxIndex == -1)) error stop "Unable to locate atoms"
+                lowerAtom = currentMinIndex 
+                HigherAtom = currentMAxIndex 
+        end subroutine computeAdjacentAtoms
+
+        subroutine calculatePartialDerivative(chainMesh,atomIndex,d,outputVec)
+                type(ChainMesh_t), intent(inout) :: chainMesh 
+                integer, intent(in) :: atomIndex, d , outputVec
+
+                if (.not. allocated(chainMesh%derivativeList)) then 
+                        print *, "Warning: derivativeList not allocated, allocating and computing"
+                        call DerivativeList(chainMesh,chainMesh%derivativeList)
+                end if 
+                
+        end subroutine calculatePartialDerivative
 end module ChainMesh 
 

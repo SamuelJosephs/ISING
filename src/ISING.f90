@@ -37,15 +37,15 @@ program main
         ! Create atoms in unit cell
         AtomsInUnitCell(1) = makeAtom(0.0, 0.0, 0.0, AtomParam1, 3, -1) 
         AtomsInUnitCell(2) = makeAtom(latticeParam/2, latticeParam/2, latticeParam/2, AtomParam2, 3, -1)
-        numCellsX = 110
-        numCellsY = 110
+        numCellsX = 40
+        numCellsY = 40
         numCellsZ = 6
         ! Create the chain mesh
         testMesh = makeChainMesh(2, numCellsX, numCellsY, numCellsZ, latticeParam, AtomsInUnitCell)
         
         ! Assign nearest neighbors
         call assignNearestNeighbors(testMesh)
-       
+        call DerivativeList(testMesh,testMesh%derivativeList)       
         ! Define skyrmion center position (middle of the mesh)
         allocate(center_coords(3))
         center_coords(1) = numCellsX * latticeParam / 2.0d0
@@ -75,10 +75,10 @@ program main
         
         ! Time evolution parameters
         ! dt = 0.00000000000002_8
-        dt = 1e-15_8
+        dt = 1e-19_8
         total_time = 30.0d0
-        num_frames = 100  
-        numMetropolisSteps = 2000000
+        num_frames = 1000   
+        numMetropolisSteps = 400000
         numBetaSteps = 120
         J = 1.0_08
         Dz = 1.0_8
@@ -103,26 +103,26 @@ program main
                 
         end do 
         print *, "Completed Mixed Metropolis, beggining Heun evolution"
-        ! do frame = 1, num_frames
-        !     ! Calculate how many LLG steps to perform between frames
+         do frame = 1, num_frames
+             ! Calculate how many LLG steps to perform between frames
             
             
             
-        !     call HeunStep(testMesh,10,dt,p,0.1_08,gyromagnetic_ratio, J, Dz, B)
+             call HeunStep(testMesh,10,dt,p,0.8_08,gyromagnetic_ratio, J, Dz, B)
             
             
-        !     ! Write current state to file
-        !     write(frame_filename, '(A,A,I5.5,A)') trim(output_dir), "/frame_", frame + numBetaSteps, ".csv"
-        !     call write_spins_to_file(testMesh, frame_filename)
+             ! Write current state to file
+             write(frame_filename, '(A,A,I5.5,A)') trim(output_dir), "/frame_", frame + numBetaSteps, ".csv"
+             call write_spins_to_file(testMesh, frame_filename)
             
-        !     print *, "Completed frame", frame, "of", num_frames
-        ! end do
+             print *, "Completed frame", frame, "of", num_frames
+         end do
         
         ! Write information for Python visualization script
         output_filename = trim(output_dir) // "/info.txt"
         open(unit=10, file=output_filename, status='replace')
         !write(10, *) num_frames + 1  ! Total number of frames (including initial frame)
-        write(10, *) numBetaSteps + 1  ! Total number of frames (including initial frame)
+        write(10, *) numBetaSteps + num_frames + 1  ! Total number of frames (including initial frame)
         write(10, *) numCellsX, latticeParam     ! Mesh parameters
         close(10)
         
