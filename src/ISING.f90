@@ -77,12 +77,12 @@ program main
         ! dt = 0.00000000000002_8
         dt = 1e-19_8
         total_time = 30.0d0
-        num_frames = 1000   
-        numMetropolisSteps = 400000
+        num_frames = 500  
+        numMetropolisSteps = 40000
         numBetaSteps = 220
-        J = 1.0_08
-        Dz = 1.0_8
-        B = 2.0_8* 0.8_8*(J)/(gyromagnetic_ratio*bohr_magneton) 
+        J = -1.0_08
+        Dz = -1.0_8
+        B = 2.0_8*0.8_8*(J)/(gyromagnetic_ratio*bohr_magneton) 
         ! Main evolution loop
         p => H_eff_Heisenberg
                 
@@ -93,9 +93,10 @@ program main
         do i = 0,numBetaSteps
                 Tmax = 10000.0_8 
                 !Tmin = 0.1*(0.76*8*J)/(3*Kb)
-                Tmin = 10.0_8
+                Tmin = 5.0_8
                 T = Tmax - (Tmax - Tmin)*(dble(i)/dble(numBetaSteps)) 
                 beta = 1.0_8 / (Kb*T)
+        
                 call MetropolisMixed(testMesh,beta,numMetropolisSteps,J,Dz,B, lockArray)
 
                 write(frame_filename, '(A,A,I5.5,A)') trim(output_dir), "/frame_", i, ".csv"
@@ -108,10 +109,9 @@ program main
              ! Calculate how many LLG steps to perform between frames
             
             
+            call HeunStep(testMesh,10,dt,p,0.8_08,gyromagnetic_ratio, J, Dz, B)
             
-             call HeunStep(testMesh,10,dt,p,0.8_08,gyromagnetic_ratio, J, Dz, B)
-            
-            
+                            
              ! Write current state to file
              write(frame_filename, '(A,A,I5.5,A)') trim(output_dir), "/frame_", frame + numBetaSteps, ".csv"
              call write_spins_to_file(testMesh, frame_filename)

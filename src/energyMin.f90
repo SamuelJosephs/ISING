@@ -116,10 +116,10 @@ end function AtomEnergy
                         r = (-1.0_8) * r / abs(r)
                         D = tempVec .x. r
                         !D = Dz*r
-                        oldEnergy = oldEnergy + (J* S*S_prime) + (D*(S .x. S_prime)) + &
+                        oldEnergy = oldEnergy - (J* S*S_prime) - (D*(S .x. S_prime)) + &
                                 gyromagnetic_ratio*Bohr_magneton*B*S%coords(3)
                         
-                        newEnergy = newEnergy + (J* S_proposed*S_prime) + (D*(S_proposed .x. S_prime)) + &
+                        newEnergy = newEnergy - (J* S_proposed*S_prime) - (D*(S_proposed .x. S_prime)) + &
                                 gyromagnetic_ratio*Bohr_magneton*B*S_proposed%coords(3)
                 end do 
 
