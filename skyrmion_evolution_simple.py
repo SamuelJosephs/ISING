@@ -1,4 +1,5 @@
-
+import sys
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize
@@ -6,9 +7,9 @@ from matplotlib import cm
 import matplotlib.animation as animation
 import pandas as pd
 
-def save_heatmap(output_dir, lattice_param, frame):
-    # Read data from the specified CSV file
-    filename = f"{output_dir}/frame_{frame:05d}.csv"
+def save_heatmap(input_dir, output_dir, output_prefix, lattice_param, frame):
+    # Read data from the specified CSV file in the input directory
+    filename = f"{input_dir}/frame_{frame:05d}.csv"
     data = pd.read_csv(filename)
     
     # Extract coordinates and Sz components
@@ -58,16 +59,27 @@ def save_heatmap(output_dir, lattice_param, frame):
     ax_heatmap.set_ylabel("y")
     fig_heatmap.colorbar(cax, ax=ax_heatmap, label="Sz")
     
-    # Save the heatmap figure
-    fig_heatmap.savefig("sz_heatmap.png", dpi=300)
-    print("Heatmap saved as sz_heatmap.png")
+    # Save the heatmap figure using the specified output prefix
+    heatmap_filename = f"{output_dir}/{output_prefix}_sz_heatmap.png"
+    fig_heatmap.savefig(heatmap_filename, dpi=300)
+    print(f"Heatmap saved as {heatmap_filename}")
 
 def main():
-    # Directory containing the output files
-    output_dir = "skyrmion_evolution"
+    # Check for proper command line arguments
+    if len(sys.argv) < 3:
+        print("Usage: python script.py <input_dir> <output_dir> [output_prefix]")
+        sys.exit(1)
     
-    # Read simulation parameters
-    with open(f"{output_dir}/info.txt", 'r') as f:
+    input_dir = sys.argv[1]
+    output_dir = sys.argv[2]
+    output_prefix = sys.argv[3] if len(sys.argv) > 3 else "skyrmion_evolution"
+
+    # Ensure the output directory exists
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    
+    # Read simulation parameters from info.txt in the input directory
+    with open(f"{input_dir}/info.txt", 'r') as f:
         lines = f.readlines()
         num_frames = int(lines[0].strip())
         mesh_params = lines[1].strip().split()
@@ -92,8 +104,8 @@ def main():
     def update_plot(frame):
         print(f"Processing frame {frame}/{num_frames-1}")
         
-        # Read data from CSV file
-        filename = f"{output_dir}/frame_{frame:05d}.csv"
+        # Read data from CSV file in the input directory
+        filename = f"{input_dir}/frame_{frame:05d}.csv"
         data = pd.read_csv(filename)
         
         # Extract coordinates and spin components
@@ -120,7 +132,7 @@ def main():
         sm.set_norm(norm)
         cbar.update_normal(sm)
         
-        # Determine arrow colors based on the updated norm
+        # Determine arrow colors based on the updated normalization
         arrow_colors = cmap_z(norm(Sz_slice))
         
         # Clear the axis and plot the in-plane spin components as arrows
@@ -145,12 +157,14 @@ def main():
     ani = animation.FuncAnimation(fig, update_plot, frames=range(num_frames), 
                                   interval=200, blit=False)
     
-    # Save the animation to an MP4 file
-    ani.save('skyrmion_evolution_cross_section.mp4', writer='ffmpeg', fps=10, dpi=200)
-    print("Animation saved as skyrmion_evolution_cross_section.mp4")
+    # Save the animation to an MP4 file using the specified output prefix
+    animation_filename = f"{output_dir}/{output_prefix}_cross_section.mp4"
+    ani.save(animation_filename, writer='ffmpeg', fps=10, dpi=200)
+    print(f"Animation saved as {animation_filename}")
     
     # Generate and save the heatmap for the Sz components using the final frame
-    save_heatmap(output_dir, lattice_param, frame=num_frames - 1)
+    save_heatmap(input_dir, output_dir, output_prefix, lattice_param, frame=num_frames - 1)
 
 if __name__ == "__main__":
     main()
+
