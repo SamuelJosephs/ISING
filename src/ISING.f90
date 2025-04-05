@@ -26,18 +26,23 @@ program main
         ! Metropolis parameters 
         real(kind=8) :: betaMin, betaMax, beta, J, Dz, B, tempReal, T, Tmax, Tmin  
         integer(kind=OMP_LOCK_KIND), allocatable :: lockArray(:) 
-        integer :: numBetaSteps
+        integer :: numBetaSteps 
+        character(len=90) :: filepath_output
         
         
         argc = command_argument_count() 
-        if (argc /= 3) error stop "Must have three command line arguments: J Dz B"
+        if (argc /= 4) error stop "Must have three command line arguments: J Dz B outputFile"
         call get_command_argument(1,arg)
         read(arg,*) J 
         call get_command_argument(2,arg)
         read(arg,*) Dz 
         call get_command_argument(3,arg)
         read(arg,*) B
-        print *, "Comand line arguments: ", J, Dz, B
+        call get_command_argument(4,arg)
+        filepath_output = arg
+
+        print *, "Comand line arguments: ", J, Dz, B, filepath_output
+
         ! Initialize parameters
         latticeParam = 2.8
         ! Create 3D spin parameters for atoms (initialize all spins pointing up)
@@ -74,7 +79,9 @@ program main
                 end if 
         end do 
         ! Set up output directory
-        output_dir = "skyrmion_evolution"
+        !output_dir = "skyrmion_evolution"
+        output_dir = filepath_output
+
         call system('mkdir -p ' // trim(output_dir))
         
         ! Write initial configuration
