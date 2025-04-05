@@ -58,12 +58,20 @@ end function AtomEnergy
         subroutine UniformRandomSpin(vec3d, rand)
                 type(vecNd_t), intent(inout) :: vec3d 
                 type(random), intent(inout) :: rand
-
+                real(kind=8), parameter :: pi = 3.14159265358979323846
                 integer :: i 
-                do i = 1,size(vec3d)
-                        vec3d%coords(i) = algor_uniform_random(rand)
-                end do 
-                vec3d= vec3d/ abs(vec3d)
+                real(kind=8) :: theta,phi, u 
+
+                u = algor_uniform_random(rand) 
+                u = 2.0_8*u - 1 
+                theta = acos(u) 
+                phi = algor_uniform_random(rand) 
+                phi = 2.0_8*pi*phi 
+
+                vec3d%coords(1) = cos(theta)*sin(phi)
+                vec3d%coords(2) = sin(theta)*sin(phi)
+                vec3d%coords(3) = cos(theta)
+
         end subroutine UniformRandomSpin 
 
         subroutine GaussianStep(vec3d, rand, beta)
