@@ -337,10 +337,10 @@ function H_eff_Heisenberg(Mesh, atomIndex,lockArray, J, Dz, B) result(H_temp)
         S_temp = makeVecNdCheck(S_temp,dble(Mesh%atoms(atomIndexTemp)%atomParameters))
         call OMP_UNSET_LOCK(lockArray(atomIndexTemp))
         !H_temp = H_temp - (J*S_temp + (D .x. S_temp))
-        H_temp = H_temp - (J*S_temp + (S_temp .x. D))
+        H_temp = H_temp + (J*S_temp + (S_temp .x. D))
     end do
-    H_temp%coords(3) = H_temp%coords(3) + Bohr_magneton*gyromagnetic_ratio*B
-    H_temp = (-1.0_8/Bohr_magneton)*H_temp ! Testing minus signs
+    H_temp%coords(3) = H_temp%coords(3) + B
+    H_temp = (-1.0_8)*H_temp ! Testing minus signs
 
 end function H_eff_Heisenberg
 

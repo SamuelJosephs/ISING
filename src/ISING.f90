@@ -9,7 +9,6 @@ program main
         use constants, only: Kb, gyromagnetic_ratio, bohr_magneton
         implicit none
         integer :: numCellsX, numCellsY, numCellsZ, i, skyrmion_type, frame, num_frames, numMetropolisSteps
-        character(len=30) :: arg
         type(ChainMesh_t) :: testMesh
         type(Atom_t) :: AtomsInUnitCell(2)
         type(vecNd_t) :: skyrmion_center
@@ -18,7 +17,8 @@ program main
         character(len=100) :: output_dir, output_filename, frame_filename
         logical :: z_localized
         procedure(H_eff_class), pointer :: p
-        
+        integer :: argc 
+        character(len=50) :: arg         
         ! LLG evolution parameters
         real(kind=8) :: dt, total_time
         real(kind=8) :: H_field(3)
@@ -28,6 +28,16 @@ program main
         integer(kind=OMP_LOCK_KIND), allocatable :: lockArray(:) 
         integer :: numBetaSteps
         
+        
+        argc = command_argument_count() 
+        if (argc /= 3) error stop "Must have three command line arguments: J Dz B"
+        call get_command_argument(1,arg)
+        read(arg,*) J 
+        call get_command_argument(2,arg)
+        read(arg,*) Dz 
+        call get_command_argument(3,arg)
+        read(arg,*) B
+        print *, "Comand line arguments: ", J, Dz, B
         ! Initialize parameters
         latticeParam = 2.8
         ! Create 3D spin parameters for atoms (initialize all spins pointing up)
@@ -45,7 +55,7 @@ program main
         
         ! Assign nearest neighbors
         call assignNearestNeighbors(testMesh)
-        call DerivativeList(testMesh,testMesh%derivativeList)       
+        !call DerivativeList(testMesh,testMesh%derivativeList)       
         ! Define skyrmion center position (middle of the mesh)
         allocate(center_coords(3))
         center_coords(1) = numCellsX * latticeParam / 2.0d0
@@ -77,12 +87,10 @@ program main
         ! dt = 0.00000000000002_8
         dt = 1e-19_8
         total_time = 30.0d0
-        num_frames = 500  
-        numMetropolisSteps = 40000
-        numBetaSteps = 220
-        J = -1.0_08
-        Dz = -1.0_8
-        B = 2.0_8*0.8_8*(J)/(gyromagnetic_ratio*bohr_magneton) 
+        num_frames = 0 
+        numMetropolisSteps = 80000
+        numBetaSteps = 500
+        
         ! Main evolution loop
         p => H_eff_Heisenberg
                 
@@ -91,11 +99,11 @@ program main
                 call OMP_INIT_LOCK(lockArray(i))
         end do 
         do i = 0,numBetaSteps
-                Tmax = 10000.0_8 
+                Tmax = 50.0_8 
                 !Tmin = 0.1*(0.76*8*J)/(3*Kb)
-                Tmin = 5.0_8
+                Tmin = 0.01_8
                 T = Tmax - (Tmax - Tmin)*(dble(i)/dble(numBetaSteps)) 
-                beta = 1.0_8 / (Kb*T)
+                beta = 1.0_8 / (T)
         
                 call MetropolisMixed(testMesh,beta,numMetropolisSteps,J,Dz,B, lockArray)
 
