@@ -152,8 +152,8 @@ end function AtomEnergy
 
                 threadID = omp_get_thread_num()
                 call system_clock(time)
-                !rand = makeRandom(time*threadID + modulo(threadID,time))
-                rand = makeRandom(123456 + threadID)
+                rand = makeRandom(time*threadID + modulo(threadID,time))
+                !rand = makeRandom(123456 + threadID)
                 do i = 1,100
                         rand_num = algor_uniform_random(rand) ! Warm up the generator
                 end do 
