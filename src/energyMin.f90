@@ -139,7 +139,7 @@ end function AtomEnergy
                                 nn_index = chainMesh%derivativeList(atomIndex,dim_i,nn) !Next to nearest neighbor atom index 
                                 if (nn_index == atomIndex) error stop "Encountered self interaction in next to nearest neighbor"
                                 call OMP_SET_LOCK(lockARray(nn_index))
-                                        S_prime = makeVecNdCheck(S_prime,dble(chainMesh%atoms(atomIndexTemp)%atomParameters))
+                                        S_prime = makeVecNdCheck(S_prime,dble(chainMesh%atoms(nn_index)%atomParameters))
                                 call OMP_UNSET_LOCK(lockArray(nn_index)) 
                                 x = chainMesh%atoms(atomIndexTemp)%x
                                 y = chainMesh%atoms(atomIndexTemp)%y 
