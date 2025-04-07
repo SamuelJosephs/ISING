@@ -25,6 +25,8 @@ for J_prime in J_prime_arr:
         #SBATCH --output=./outfiles/omp_job_{identifier}.out        # Standard output
         #SBATCH --error=./errfiles/omp_job_{identifier}.err         # Standard error
         #SBATCH -p shared
+
+        module load ffmpeg
         # Set the number of OpenMP threads
         export OMP_NUM_THREADS={num_threads}
         ./bin/ISING {J} {J_prime} {D} {D_prime} 1.5 ./output_dir_{identifier} && python3 skyrmion_evolution_simple.py ./output_dir_{identifier} ./visualisations {identifier}
