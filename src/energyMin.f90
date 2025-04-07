@@ -88,18 +88,18 @@ end function AtomEnergy
                 vec3d = vec3d / abs(vec3d)
         end subroutine GaussianStep 
 
-        subroutine calculateHeisenbergEnergy(chainMesh,atomIndex, J, Dz,B, lockArray,S_proposed, oldEnergy, newEnergy) 
+        subroutine calculateHeisenbergEnergy(chainMesh,atomIndex, J, J_prime, Dz, Dz_prime ,B , lockArray,S_proposed, oldEnergy, newEnergy) 
                 implicit none
                 type(ChainMesh_t), intent(in) :: chainMesh 
                 integer, intent(in) :: atomIndex 
-                real(kind=8), intent(in) :: J, Dz, B 
+                real(kind=8), intent(in) :: J, J_prime, Dz,Dz_prime, B 
                 real(kind=8), intent(inout) ::  oldEnergy, newEnergy 
                 type(vecNd_t), intent(in) :: S_proposed 
                 integer(kind=OMP_LOCK_KIND), intent(inout) :: lockArray(:)
 
                 real(kind = 8) :: Energy, x,y,z 
-                integer :: i, atomIndexTemp
-                type(vecNd_t) :: S, S_prime, atomPos1, atomPos2, tempVec,r, D 
+                integer :: i, atomIndexTemp, dim_i, nn , nn_index  
+                type(vecNd_t) :: S, S_prime, atomPos1, atomPos2, tempVec,r, D, D_prime
                 !call OMP_SET_LOCK(lockArray(atomIndex))
                 oldEnergy = 0.0_8
                 newEnergy = 0.0_8
@@ -124,22 +124,49 @@ end function AtomEnergy
                         r = (-1.0_8) * r / abs(r)
                         D = tempVec .x. r
                         !D = Dz*r
-                        oldEnergy = oldEnergy + (J* S*S_prime) + (D*(S .x. S_prime)) + &
-                                B*S%coords(3)
+                        oldEnergy = oldEnergy + (J* S*S_prime) + (D*(S .x. S_prime)) !+ &
+                        !B*S%coords(3) this is probably wrong, should only do this once
                         
-                        newEnergy = newEnergy + (J* S_proposed*S_prime) + (D*(S_proposed .x. S_prime)) + &
-                                B*S_proposed%coords(3)
+                        newEnergy = newEnergy + (J* S_proposed*S_prime) + (D*(S_proposed .x. S_prime))! + &
+                                !B*S_proposed%coords(3)
                 end do 
+                oldEnergy = oldEnergy + B*s%coords(3)
+                oldEnergy = newEnergy + B*S_proposed%coords(3)
+                ! Now add contributions from next - nearest in plane neighbors in the x and y axis
+                if (.not. allocated(chainMesh%derivativeList)) error stop "DerivativeList is not allocated"
+                do dim_i = 1,2 
+                        do nn = 1,2 
+                                nn_index = chainMesh%derivativeList(atomIndex,dim_i,nn) !Next to nearest neighbor atom index 
+                                if (nn_index == atomIndex) error stop "Encountered self interaction in next to nearest neighbor"
+                                call OMP_SET_LOCK(lockARray(nn_index))
+                                        S_prime = makeVecNdCheck(S_prime,dble(chainMesh%atoms(atomIndexTemp)%atomParameters))
+                                call OMP_UNSET_LOCK(lockArray(nn_index)) 
+                                x = chainMesh%atoms(atomIndexTemp)%x
+                                y = chainMesh%atoms(atomIndexTemp)%y 
+                                z = chainMesh%atoms(atomIndexTemp)%z
+                                atomPos2 = makeVecNdCheck(atomPos2,[x,y,z])
+                                call distance_points_vec(chainMesh,atomPos1,atomPos2,r)
+                                r = (-1.0_8) * r / abs(r)
+                                tempVec%coords(3) = Dz_prime
+                                D_prime = tempVec .x. r 
+                                oldEnergy = oldEnergy + (J_prime* S*S_prime) + (D_prime*(S .x. S_prime)) !+ &
+                                !B*S%coords(3) this is probably wrong, should only do this once
+                        
+                                newEnergy = newEnergy + (J_prime* S_proposed*S_prime) + (D_prime*(S_proposed .x. S_prime))! + &
+                                        !B*S_proposed%coords(3)                               
 
+                        end do 
+                end do 
+                ! Don't need to add magnetic field contributions again as they have already been added 
                 !call OMP_UNSET_LOCK(lockArray(atomIndex))
         end subroutine calculateHeisenbergEnergy
 
 
-        subroutine MetropolisMixed(chainMesh, beta, nsteps, J, Dz, B, lockArray)
+        subroutine MetropolisMixed(chainMesh, beta, nsteps, J, J_prime,  Dz, Dz_prime, B, lockArray)
                 ! Each thread will randomly select an atom nsteps times and determine whether to flip the spin 
                 implicit none
                 type(ChainMesh_t), intent(inout) :: chainMesh 
-                real(kind=8), intent(in) :: beta, J, Dz, B 
+                real(kind=8), intent(in) :: beta, J, J_prime, Dz, Dz_prime, B 
                 integer, intent(in) :: nsteps 
                 integer(kind=OMP_LOCK_KIND), intent(inout) :: lockArray(:)
 
@@ -147,7 +174,7 @@ end function AtomEnergy
                 integer :: threadID, time, i, atomIndex, counter
                 real(kind=8) :: rand_num, oldEnergy, newEnergy, P, Z  
                 type(vecNd_t) :: S, S_proposed
-                !$omp parallel default(private) firstprivate(nsteps,beta, J, Dz, B) shared(chainMesh, lockArray)
+                !$omp parallel default(private) firstprivate(nsteps,beta, J,J_prime, Dz,Dz_prime, B) shared(chainMesh, lockArray)
                 block 
 
                 threadID = omp_get_thread_num()
@@ -179,7 +206,7 @@ end function AtomEnergy
                                 !chainMesh%atoms(atomIndex)%AtomParameters = S_proposed%coords 
                                 !newEnergy = calculateHeisenbergEnergy(chainMesh, atomIndex,J,Dz,B,lockArray)
                                 !chainMesh%atoms(atomIndex)%AtomParameters = S%coords
-                                call calculateHeisenbergEnergy(chainMesh,atomIndex,J,Dz,B,lockArray,S_proposed,oldEnergy,newEnergy)
+                                call calculateHeisenbergEnergy(chainMesh,atomIndex,J,J_prime,Dz,Dz_prime,B,lockArray,S_proposed,oldEnergy,newEnergy)
                                 if (newEnergy < oldEnergy) then 
                                         Z = 1.0_8 
                                 else 

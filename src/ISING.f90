@@ -24,24 +24,34 @@ program main
         real(kind=8) :: H_field(3)
 
         ! Metropolis parameters 
-        real(kind=8) :: betaMin, betaMax, beta, J, Dz, B, tempReal, T, Tmax, Tmin  
+        real(kind=8) :: betaMin, betaMax, beta, J, J_prime,Dz, Dz_prime, B, tempReal, T, Tmax, Tmin  
         integer(kind=OMP_LOCK_KIND), allocatable :: lockArray(:) 
         integer :: numBetaSteps 
         character(len=90) :: filepath_output
         
         
         argc = command_argument_count() 
-        if (argc /= 4) error stop "Must have three command line arguments: J Dz B outputFile"
+        if (argc /= 6) error stop "Must have three command line arguments: J J_prime Dz Dz_prime B outputFile"
         call get_command_argument(1,arg)
         read(arg,*) J 
         call get_command_argument(2,arg)
-        read(arg,*) Dz 
+        read(arg,*) J_prime 
         call get_command_argument(3,arg)
-        read(arg,*) B
+        read(arg,*) Dz 
         call get_command_argument(4,arg)
+        read(arg,*) Dz_prime 
+        call get_command_argument(5,arg)
+        read(arg,*) B 
+        call get_command_argument(6,arg)
         filepath_output = arg
 
-        print *, "Comand line arguments: ", J, Dz, B, filepath_output
+        print *, "Comand line arguments: "
+        print *, "J:",J 
+        print *, "J':", J_prime 
+        print *, "Dz:", Dz 
+        print *, "Dz':", Dz_prime 
+        print *, "B:", B 
+        print *, "outDir:", filepath_output
 
         ! Initialize parameters
         latticeParam = 2.8
@@ -60,7 +70,7 @@ program main
         
         ! Assign nearest neighbors
         call assignNearestNeighbors(testMesh)
-        !call DerivativeList(testMesh,testMesh%derivativeList)       
+        call DerivativeList(testMesh,testMesh%derivativeList)       
         ! Define skyrmion center position (middle of the mesh)
         allocate(center_coords(3))
         center_coords(1) = numCellsX * latticeParam / 2.0d0
@@ -112,7 +122,7 @@ program main
                 T = Tmax - (Tmax - Tmin)*(dble(i)/dble(numBetaSteps)) 
                 beta = 1.0_8 / (T)
         
-                call MetropolisMixed(testMesh,beta,numMetropolisSteps,J,Dz,B, lockArray)
+                call MetropolisMixed(testMesh,beta,numMetropolisSteps,J,J_prime,Dz,Dz_prime,B, lockArray)
 
                 write(frame_filename, '(A,A,I5.5,A)') trim(output_dir), "/frame_", i, ".csv"
                 call write_spins_to_file(testMesh, frame_filename)
