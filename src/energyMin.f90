@@ -140,7 +140,7 @@ end function AtomEnergy
                                 if (nn_index == atomIndex) error stop "Encountered self interaction in next to nearest neighbor"
                                 call OMP_SET_LOCK(lockARray(nn_index))
                                         S_prime = makeVecNdCheck(S_prime,dble(chainMesh%atoms(nn_index)%atomParameters))
-                                call OMP_UNSET_LOCK(lockArray(nn_index)) 
+                               call OMP_UNSET_LOCK(lockArray(nn_index)) 
                                 x = chainMesh%atoms(atomIndexTemp)%x
                                 y = chainMesh%atoms(atomIndexTemp)%y 
                                 z = chainMesh%atoms(atomIndexTemp)%z
@@ -154,7 +154,6 @@ end function AtomEnergy
                         
                                 newEnergy = newEnergy + (J_prime* S_proposed*S_prime) + (D_prime*(S_proposed .x. S_prime))! + &
                                         !B*S_proposed%coords(3)                               
-
                         end do 
                 end do 
                 ! Don't need to add magnetic field contributions again as they have already been added 
@@ -215,10 +214,10 @@ end function AtomEnergy
 
                                 end if
                                 p = algor_uniform_random(rand)
-                                !if (z <= 0.6) then 
-                                !print *, "Z = ", Z, "New Energy - Old energy ", NewEnergy - OldEnergy, &
-                                !                NewEnergy, OldEnergy, "beta = ", beta
-                                !end if
+                                if (z <= 0.6) then 
+                                print *, "Z = ", Z, "New Energy - Old energy ", NewEnergy - OldEnergy, &
+                                                NewEnergy, OldEnergy, "beta = ", beta
+                                end if
                                 if (Z >= p) then 
                                         call OMP_SET_LOCK(lockArray(atomIndex))
                                         chainMesh%atoms(atomIndex)%AtomParameters = S_proposed%coords

@@ -105,7 +105,7 @@ program main
         dt = 1e-19_8
         total_time = 30.0d0
         num_frames = 0 
-        numMetropolisSteps = 80000
+        numMetropolisSteps = 220000
         numBetaSteps = 500
         
         ! Main evolution loop
@@ -116,9 +116,9 @@ program main
                 call OMP_INIT_LOCK(lockArray(i))
         end do 
         do i = 0,numBetaSteps
-                Tmax = 100.0_8 
+                Tmax = 10.0_8 
                 !Tmin = 0.1*(0.76*8*J)/(3*Kb)
-                Tmin = 0.01_8
+                Tmin = 0.001_8
                 T = Tmax - (Tmax - Tmin)*(dble(i)/dble(numBetaSteps)) 
                 beta = 1.0_8 / (T)
         
