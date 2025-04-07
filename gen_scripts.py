@@ -23,4 +23,4 @@ export OMP_NUM_THREADS={num_threads}
         with open(f"script_{J:.3f}_{D:.3f}_{B:.3f}.sh", "w") as f:
             f.write(script)
         if submit:
-            result = subprocess.run([f"sbatch script_{J:.3f}_{D:.3f}_{B:.3f}.sh"])
+            result = subprocess.run([f"sbatch",f"script_{J:.3f}_{D:.3f}_{B:.3f}.sh"])
