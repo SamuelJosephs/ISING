@@ -106,7 +106,7 @@ program main
         total_time = 30.0d0
         num_frames = 0 
         numMetropolisSteps = 220000
-        numBetaSteps = 5000
+        numBetaSteps = 200
         
         ! Main evolution loop
         p => H_eff_Heisenberg
@@ -124,13 +124,13 @@ program main
                 beta = 1.0_8 / (T)
         
                 call MetropolisMixed(testMesh,beta,numMetropolisSteps,J,J_prime,Dz,Dz_prime,B, lockArray)
-                if (mod(counter,10) == 0) then 
-                        write(frame_filename, '(A,A,I5.5,A)') trim(output_dir), "/frame_", counter, ".csv"
+                if (mod(i,10) == 0) then 
+                        write(frame_filename, '(A,A,I5.5,A)') trim(output_dir), "/frame_", counter-1, ".csv"
                         call write_spins_to_file(testMesh, frame_filename)
                         print *, "Completed metropolis run at beta = ", beta 
                         
+                        counter = counter + 1
                 end if 
-                counter = counter + 1
                 
         end do 
         print *, "Completed Mixed Metropolis, beggining Heun evolution"
@@ -152,7 +152,7 @@ program main
         output_filename = trim(output_dir) // "/info.txt"
         open(unit=10, file=output_filename, status='replace')
         !write(10, *) num_frames + 1  ! Total number of frames (including initial frame)
-        write(10, *) counter + num_frames + 1  ! Total number of frames (including initial frame)
+        write(10, *) counter + num_frames - 1  ! Total number of frames (including initial frame)
         write(10, *) numCellsX, latticeParam     ! Mesh parameters
         close(10)
         

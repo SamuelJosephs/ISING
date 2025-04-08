@@ -552,12 +552,15 @@ end function H
                                 candidate = .True.
                                 do j = 1,3
                                         if (j == d) cycle 
-                                        if (abs(distance%coords(j)) > chainMesh%latticeParameter / 20.0_8) then 
+                                        if (abs(distance%coords(j)) > 0.0001) then 
                                                 candidate = .False.
                                                 exit 
                                         end if 
                                 end do 
+
                                 if (candidate) then 
+
+                                        !print *, "Candidate found! , distance between atom is given by: ", distance%coords, "d = ",d
                                         if (distance%coords(d) < 0.0_8) then ! Figure out we put it into the bin for the closest
                                                                              !atom with position less than atomIndex's
                                                 if (abs(distance%coords(d)) <= currentMin) then 

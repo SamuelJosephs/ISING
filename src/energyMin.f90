@@ -141,11 +141,13 @@ end function AtomEnergy
                                 call OMP_SET_LOCK(lockARray(nn_index))
                                         S_prime = makeVecNdCheck(S_prime,dble(chainMesh%atoms(nn_index)%atomParameters))
                                call OMP_UNSET_LOCK(lockArray(nn_index)) 
-                                x = chainMesh%atoms(atomIndexTemp)%x
-                                y = chainMesh%atoms(atomIndexTemp)%y 
-                                z = chainMesh%atoms(atomIndexTemp)%z
+                                x = chainMesh%atoms(nn_index)%x
+                                y = chainMesh%atoms(nn_index)%y 
+                                z = chainMesh%atoms(nn_index)%z
                                 atomPos2 = makeVecNdCheck(atomPos2,[x,y,z])
                                 call distance_points_vec(chainMesh,atomPos1,atomPos2,r)
+                                !print *, "Atom1 pos = ", atomPos1%coords, "Atom2 pos = ",&
+                                !atomPos2%coords, "d = ", dim_i, "distance = ", r%coords
                                 r = (-1.0_8) * r / abs(r)
                                 tempVec%coords(3) = Dz_prime
                                 D_prime = tempVec .x. r 
@@ -154,6 +156,7 @@ end function AtomEnergy
                         
                                 newEnergy = newEnergy + (J_prime* S_proposed*S_prime) + (D_prime*(S_proposed .x. S_prime))! + &
                                         !B*S_proposed%coords(3)                               
+
                         end do 
                 end do 
                 ! Don't need to add magnetic field contributions again as they have already been added 
