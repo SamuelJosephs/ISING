@@ -88,15 +88,15 @@ end function AtomEnergy
                 vec3d = vec3d / abs(vec3d)
         end subroutine GaussianStep 
 
-        subroutine calculateHeisenbergEnergy(chainMesh,atomIndex, J, J_prime, Dz, Dz_prime ,B , lockArray,S_proposed, oldEnergy, newEnergy) 
+        subroutine calculateHeisenbergEnergy(chainMesh,atomIndex, J, J_prime, Dz, Dz_prime ,B , & 
+                        lockArray, S_proposed, oldEnergy, newEnergy)
                 implicit none
                 type(ChainMesh_t), intent(in) :: chainMesh 
                 integer, intent(in) :: atomIndex 
                 real(kind=8), intent(in) :: J, J_prime, Dz,Dz_prime, B 
-                real(kind=8), intent(inout) ::  oldEnergy, newEnergy 
-                type(vecNd_t), intent(in) :: S_proposed 
                 integer(kind=OMP_LOCK_KIND), intent(inout) :: lockArray(:)
-
+                type(vecNd_t), intent(in) :: S_proposed 
+                real(kind=8), intent(inout) ::  oldEnergy, newEnergy 
                 real(kind = 8) :: Energy, x,y,z 
                 integer :: i, atomIndexTemp, dim_i, nn , nn_index  
                 type(vecNd_t) :: S, S_prime, atomPos1, atomPos2, tempVec,r, D, D_prime
@@ -205,7 +205,8 @@ end function AtomEnergy
                                 !chainMesh%atoms(atomIndex)%AtomParameters = S_proposed%coords 
                                 !newEnergy = calculateHeisenbergEnergy(chainMesh, atomIndex,J,Dz,B,lockArray)
                                 !chainMesh%atoms(atomIndex)%AtomParameters = S%coords
-                                call calculateHeisenbergEnergy(chainMesh,atomIndex,J,J_prime,Dz,Dz_prime,B,lockArray,S_proposed,oldEnergy,newEnergy)
+                                call calculateHeisenbergEnergy(chainMesh,atomIndex,J,J_prime,Dz,Dz_prime,&
+                                        B,lockArray,S_proposed,oldEnergy,newEnergy)
                                 if (newEnergy < oldEnergy) then 
                                         Z = 1.0_8 
                                 else 

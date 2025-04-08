@@ -17,7 +17,7 @@ program main
         character(len=100) :: output_dir, output_filename, frame_filename
         logical :: z_localized
         procedure(H_eff_class), pointer :: p
-        integer :: argc 
+        integer :: argc, counter 
         character(len=50) :: arg         
         ! LLG evolution parameters
         real(kind=8) :: dt, total_time
@@ -106,7 +106,7 @@ program main
         total_time = 30.0d0
         num_frames = 0 
         numMetropolisSteps = 220000
-        numBetaSteps = 500
+        numBetaSteps = 5000
         
         ! Main evolution loop
         p => H_eff_Heisenberg
@@ -115,6 +115,7 @@ program main
         do i = 1,size(lockArray)
                 call OMP_INIT_LOCK(lockArray(i))
         end do 
+        counter = 0 
         do i = 0,numBetaSteps
                 Tmax = 10.0_8 
                 !Tmin = 0.1*(0.76*8*J)/(3*Kb)
@@ -123,10 +124,13 @@ program main
                 beta = 1.0_8 / (T)
         
                 call MetropolisMixed(testMesh,beta,numMetropolisSteps,J,J_prime,Dz,Dz_prime,B, lockArray)
-
-                write(frame_filename, '(A,A,I5.5,A)') trim(output_dir), "/frame_", i, ".csv"
-                call write_spins_to_file(testMesh, frame_filename)
-                print *, "Completed metropolis run at beta = ", beta 
+                if (mod(counter,counter/10) == 0) then 
+                        write(frame_filename, '(A,A,I5.5,A)') trim(output_dir), "/frame_", counter, ".csv"
+                        call write_spins_to_file(testMesh, frame_filename)
+                        print *, "Completed metropolis run at beta = ", beta 
+                        
+                end if 
+                counter = counter + 1
                 
         end do 
         print *, "Completed Mixed Metropolis, beggining Heun evolution"
@@ -148,7 +152,7 @@ program main
         output_filename = trim(output_dir) // "/info.txt"
         open(unit=10, file=output_filename, status='replace')
         !write(10, *) num_frames + 1  ! Total number of frames (including initial frame)
-        write(10, *) numBetaSteps + num_frames + 1  ! Total number of frames (including initial frame)
+        write(10, *) counter + num_frames + 1  ! Total number of frames (including initial frame)
         write(10, *) numCellsX, latticeParam     ! Mesh parameters
         close(10)
         
