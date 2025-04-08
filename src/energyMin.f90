@@ -216,8 +216,8 @@ end function AtomEnergy
                                 end if
                                 p = algor_uniform_random(rand)
                                 if (z <= 0.6) then 
-                                print *, "Z = ", Z, "New Energy - Old energy ", NewEnergy - OldEnergy, &
-                                                NewEnergy, OldEnergy, "beta = ", beta
+                                !print *, "Z = ", Z, "New Energy - Old energy ", NewEnergy - OldEnergy, &
+                                !                NewEnergy, OldEnergy, "beta = ", beta
                                 end if
                                 if (Z >= p) then 
                                         call OMP_SET_LOCK(lockArray(atomIndex))
