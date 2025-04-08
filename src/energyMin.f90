@@ -97,7 +97,7 @@ end function AtomEnergy
                 integer(kind=OMP_LOCK_KIND), intent(inout) :: lockArray(:)
                 type(vecNd_t), intent(in) :: S_proposed 
                 real(kind=8), intent(inout) ::  oldEnergy, newEnergy 
-                real(kind = 8) :: Energy, x,y,z 
+                real(kind = 8) :: Energy, x,y,z, tempEnergy 
                 integer :: i, atomIndexTemp, dim_i, nn , nn_index  
                 type(vecNd_t) :: S, S_prime, atomPos1, atomPos2, tempVec,r, D, D_prime
                 !call OMP_SET_LOCK(lockArray(atomIndex))
@@ -131,7 +131,8 @@ end function AtomEnergy
                                 !B*S_proposed%coords(3)
                 end do 
                 oldEnergy = oldEnergy + B*s%coords(3)
-                oldEnergy = newEnergy + B*S_proposed%coords(3)
+                newEnergy = newEnergy + B*S_proposed%coords(3)
+                
                 ! Now add contributions from next - nearest in plane neighbors in the x and y axis
                 if (.not. allocated(chainMesh%derivativeList)) error stop "DerivativeList is not allocated"
                 do dim_i = 1,2 
