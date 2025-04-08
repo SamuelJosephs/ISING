@@ -115,7 +115,7 @@ program main
         do i = 1,size(lockArray)
                 call OMP_INIT_LOCK(lockArray(i))
         end do 
-        counter = 0 
+        counter = 1 
         do i = 0,numBetaSteps
                 Tmax = 10.0_8 
                 !Tmin = 0.1*(0.76*8*J)/(3*Kb)
@@ -124,7 +124,7 @@ program main
                 beta = 1.0_8 / (T)
         
                 call MetropolisMixed(testMesh,beta,numMetropolisSteps,J,J_prime,Dz,Dz_prime,B, lockArray)
-                if (mod(counter,counter/10) == 0) then 
+                if (mod(counter,10) == 0) then 
                         write(frame_filename, '(A,A,I5.5,A)') trim(output_dir), "/frame_", counter, ".csv"
                         call write_spins_to_file(testMesh, frame_filename)
                         print *, "Completed metropolis run at beta = ", beta 
