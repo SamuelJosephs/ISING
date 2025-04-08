@@ -106,7 +106,7 @@ program main
         total_time = 30.0d0
         num_frames = 0 
         numMetropolisSteps = 220000
-        numBetaSteps = 200
+        numBetaSteps = 500
         
         ! Main evolution loop
         p => H_eff_Heisenberg
@@ -117,7 +117,7 @@ program main
         end do 
         counter = 1 
         do i = 0,numBetaSteps
-                Tmax = 10.0_8 
+                Tmax = 200.0_8 
                 !Tmin = 0.1*(0.76*8*J)/(3*Kb)
                 Tmin = 0.001_8
                 T = Tmax - (Tmax - Tmin)*(dble(i)/dble(numBetaSteps)) 
