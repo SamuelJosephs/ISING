@@ -102,11 +102,11 @@ program main
         
         ! Time evolution parameters
         ! dt = 0.00000000000002_8
-        dt = 1e-19_8
+        dt = 1e-3
         total_time = 30.0d0
-        num_frames = 0 
-        numMetropolisSteps = 220000
-        numBetaSteps = 500
+        num_frames = 20
+        numMetropolisSteps = 9200
+        numBetaSteps = 100
         
         ! Main evolution loop
         p => H_eff_Heisenberg
@@ -142,7 +142,8 @@ program main
             
                             
              ! Write current state to file
-             write(frame_filename, '(A,A,I5.5,A)') trim(output_dir), "/frame_", frame + numBetaSteps, ".csv"
+             print *, "Frame = ", frame, "Counter = ", counter
+             write(frame_filename, '(A,A,I5.5,A)') trim(output_dir), "/frame_", frame + counter - 2, ".csv"
              call write_spins_to_file(testMesh, frame_filename)
             
              print *, "Completed frame", frame, "of", num_frames
