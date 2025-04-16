@@ -5,6 +5,8 @@ module ChainMesh
         use ChainMeshCell 
         use vecNd 
         use omp_lib
+        use, intrinsic :: iso_c_binding
+        include 'fftw3.f03'
 type ChainMesh_t 
         integer :: numAtoms, numChainMeshCells
         type(Atom_t), allocatable :: atoms(:) ! Each atom is in a chain mesh cell and points to the next atom within that cell 
@@ -12,8 +14,15 @@ type ChainMesh_t
         real ::  latticeParameter
         integer :: numCellsX, numCellsY, numCellsZ   
         integer, allocatable, dimension(:,:,:) :: derivativeList !(i,j,k) : i=atomInex, j=dim (1,2,3), k = lower,higher (1,2)
+        type(C_ptr) :: forwardPlan, backwardPlan
+        real(kind=c_double), pointer :: fft_array(:,:,:)
+        complex(kind=c_double_complex), pointer :: fft_c_view(:,:,:)
+        type(C_ptr) :: fft_array_ptr
 end type ChainMesh_t 
 
+        interface IndexFromCoordinates
+                module procedure IndexFromCoordinatesReal, IndexFromCoordinatesInteger
+        end interface IndexFromCoordinates
         contains
         subroutine getNeighboringCells(chainMesh,cellIndex,neighborCellList)
                 type(chainMesh_t), intent(in) :: chainMesh 
@@ -323,7 +332,8 @@ end type ChainMesh_t
                 chainMesh%chainMeshCells(CellIndex)%firstAtomInMeshCell=AtomIndex 
                 chainMesh%atoms(AtomIndex)%NextAtom=temp
         end subroutine addAtomToChainCell 
-        function IndexFromCoordinates(chainMesh,Ain,Bin,Cin) result(res)
+
+        function IndexFromCoordinatesReal(chainMesh,Ain,Bin,Cin) result(res)
                 type(ChainMesh_t), intent(in) :: chainMesh 
                 real, intent(in) :: Ain,Bin,Cin 
                 real(kind=8) :: A,B,C,W, latticeParam  
@@ -339,7 +349,21 @@ end type ChainMesh_t
                 j = int(Bin / latticeParam)
                 k = int(Cin / latticeParam)
                 res = i*Bmesh*Cmesh + j*Cmesh + k + 1 ! +1 to work with fortran 1 based array indexing
-        end function IndexFromCoordinates
+        end function IndexFromCoordinatesReal
+
+        function IndexFromCoordinatesInteger(chainMesh,i,j,k) result(res)
+                type(ChainMesh_t), intent(in) :: chainMesh 
+                integer, intent(in) :: i,j,k 
+                integer :: res 
+                integer :: Amesh, Bmesh, Cmesh 
+                Amesh = chainMesh%numCellsX
+                Bmesh = chainMesh%numCellsY 
+                Cmesh = chainMesh%numCellsZ 
+                
+                latticeParam = chainMesh%latticeParameter
+                ! i,j, and k will be from loops with 1 based indexing, e.g. do i = 1,size(array)
+                res = (i-1)*Bmesh*Cmesh + (j-1)*Cmesh + (k-1) + 1 ! +1 to work with fortran 1 based array indexing
+        end function IndexFromCoordinatesInteger
 
         subroutine coordinatesFromIndex(chainMesh,Ind,i,j,k)
                 implicit none
@@ -394,6 +418,20 @@ end type ChainMesh_t
 
         end subroutine AssignAtomsToUnitCells
 
+        subroutine create_chainMesh_plan(chainMesh)
+                type(chainmesh_t), intent(inout) :: chainMesh 
+                type(C_ptr) :: plan 
+                
+                integer :: N,L,M 
+                
+                N = chainMesh%numCellsX
+                L = chainMesh%numCellsY 
+                M = chainMesh%numCellsZ 
+
+                chainMesh%forwardPlan = fftw_plan_dft_r2c_3d(M,L,N,chainMesh%fft_array,chainMesh%fft_c_view,FFTW_ESTIMATE)
+                chainMesh%backwardPlan = fftw_plan_dft_c2r_3d(M,L,N,chainMesh%fft_c_view,chainMesh%fft_array,FFTW_ESTIMATE)
+        end subroutine create_chainMesh_plan
+
         function makeChainMesh(numAtomsPerUnitCell, numCellsX, numCellsY, numCellsZ, & 
                         latticeParameter,   AtomsInUnitCell ) result(chainMesh)
                 implicit none 
@@ -401,18 +439,26 @@ end type ChainMesh_t
                 real, intent(in) :: latticeParameter
                 type(Atom_t), intent(in) :: AtomsInUnitCell(numAtomsPerUnitCell)
                 ! Need to create all the atoms, create all the ChainMeshCells, then allocate all of the atoms to a chain mesh cell 
-                type(ChainMesh_t) :: chainMesh 
+                type(ChainMesh_t), target :: chainMesh 
                 integer :: numChainMeshCells 
                 integer :: numAtoms, stride 
-                integer :: i,j,k, icoord, jcoord, kcoord
+                integer :: i,j,k, icoord, jcoord, kcoord, stat 
                 type(ChainMeshCell_t) :: tempChainMeshCell
                 type(Atom_t) :: tempAtoms(size(AtomsInUnitCell))
                 real :: domainWidth
+                type(C_ptr) :: temp_c_ptr
                 chainMesh%latticeParameter = latticeParameter
 
                 chainMesh%numCellsX = numCellsX 
                 chainMesh%numCellsY = numCellsY 
-                chainMesh%numCellsZ = numCellsZ 
+                chainMesh%numCellsZ = numCellsZ
+
+                !allocate(chainMesh%fft_array(numCellsX, numCellsY, numCellsZ),stat=stat)
+                chainMesh%fft_array_ptr = fftw_alloc_real(int(numCellsX*numCellsY*(2*(numCellsZ/2+1)),C_SIZE_T))
+                call c_f_pointer(chainMesh%fft_array_ptr,chainMesh%fft_array,[numCellsX,numCellsY,numCellsZ])
+                call c_f_pointer(chainMesh%fft_array_ptr,chainMesh%fft_c_view,[numCellsX,numCellsY,numCellsZ/2 + 1])
+                if (stat /= 0) error stop "Failed to allocate fft_array"
+                call create_chainMesh_plan(chainMesh)
 
                 numChainMeshCells = numCellsX*numCellsY*numCellsZ 
                 numAtoms = numAtomsPerUnitCell*numChainMeshCells
