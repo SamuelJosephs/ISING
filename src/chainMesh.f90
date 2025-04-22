@@ -14,9 +14,9 @@ type ChainMesh_t
         real ::  latticeParameter
         integer :: numCellsX, numCellsY, numCellsZ   
         integer, allocatable, dimension(:,:,:) :: derivativeList !(i,j,k) : i=atomInex, j=dim (1,2,3), k = lower,higher (1,2)
-        type(C_ptr) :: forwardPlan, backwardPlan
-        real(kind=c_double), pointer :: fft_array(:,:,:)
-        complex(kind=c_double_complex), pointer :: fft_c_view(:,:,:)
+        type(C_ptr) :: forwardPlanX, forwardPlanY, forwardPlanZ, backwardPlanX, backwardPlanY, backwardPlanZ
+        real(kind=c_double), pointer :: fft_array_x(:,:,:), fft_array_y(:,:,:), fft_array_z(:,:,:)
+        complex(kind=c_double_complex), pointer :: fft_c_view_x(:,:,:), fft_c_view_y(:,:,:), fft_c_view_z(:,:,:)
         type(C_ptr) :: fft_array_ptr
 end type ChainMesh_t 
 
@@ -428,8 +428,16 @@ end type ChainMesh_t
                 L = chainMesh%numCellsY 
                 M = chainMesh%numCellsZ 
 
-                chainMesh%forwardPlan = fftw_plan_dft_r2c_3d(M,L,N,chainMesh%fft_array,chainMesh%fft_c_view,FFTW_ESTIMATE)
-                chainMesh%backwardPlan = fftw_plan_dft_c2r_3d(M,L,N,chainMesh%fft_c_view,chainMesh%fft_array,FFTW_ESTIMATE)
+                chainMesh%forwardPlanX = fftw_plan_dft_r2c_3d(M,L,N,chainMesh%fft_array_x,chainMesh%fft_c_view_x,FFTW_ESTIMATE)
+                chainMesh%backwardPlanX = fftw_plan_dft_c2r_3d(M,L,N,chainMesh%fft_c_view_x,chainMesh%fft_array_x,FFTW_ESTIMATE)
+
+
+                chainMesh%forwardPlanY = fftw_plan_dft_r2c_3d(M,L,N,chainMesh%fft_array_y,chainMesh%fft_c_view_y,FFTW_ESTIMATE)
+                chainMesh%backwardPlanY = fftw_plan_dft_c2r_3d(M,L,N,chainMesh%fft_c_view_y,chainMesh%fft_array_y,FFTW_ESTIMATE)
+
+
+                chainMesh%forwardPlanZ = fftw_plan_dft_r2c_3d(M,L,N,chainMesh%fft_array_z,chainMesh%fft_c_view_z,FFTW_ESTIMATE)
+                chainMesh%backwardPlanZ = fftw_plan_dft_c2r_3d(M,L,N,chainMesh%fft_c_view_z,chainMesh%fft_array_z,FFTW_ESTIMATE)
         end subroutine create_chainMesh_plan
 
         function makeChainMesh(numAtomsPerUnitCell, numCellsX, numCellsY, numCellsZ, & 
@@ -454,12 +462,19 @@ end type ChainMesh_t
                 chainMesh%numCellsZ = numCellsZ
 
                 !allocate(chainMesh%fft_array(numCellsX, numCellsY, numCellsZ),stat=stat)
-                chainMesh%fft_array_ptr = fftw_alloc_real(int(numCellsX*numCellsY*(2*(numCellsZ/2+1)),C_SIZE_T))
-                call c_f_pointer(chainMesh%fft_array_ptr,chainMesh%fft_array,[numCellsX,numCellsY,numCellsZ])
-                call c_f_pointer(chainMesh%fft_array_ptr,chainMesh%fft_c_view,[numCellsX,numCellsY,numCellsZ/2 + 1])
-                if (stat /= 0) error stop "Failed to allocate fft_array"
-                call create_chainMesh_plan(chainMesh)
+                chainMesh%fft_array_ptr = fftw_alloc_real(int(2*numCellsX*numCellsY*((numCellsZ/2+1)),C_SIZE_T))
+                call c_f_pointer(chainMesh%fft_array_ptr,chainMesh%fft_array_x,[numCellsX,numCellsY,numCellsZ])
+                call c_f_pointer(chainMesh%fft_array_ptr,chainMesh%fft_c_view_x,[numCellsX,numCellsY,numCellsZ/2 + 1])
 
+                chainMesh%fft_array_ptr = fftw_alloc_real(int(2*numCellsX*numCellsY*((numCellsZ/2+1)),C_SIZE_T))
+                call c_f_pointer(chainMesh%fft_array_ptr,chainMesh%fft_array_y,[numCellsX,numCellsY,numCellsZ])
+                call c_f_pointer(chainMesh%fft_array_ptr,chainMesh%fft_c_view_y,[numCellsX,numCellsY,numCellsZ/2 + 1])
+
+                chainMesh%fft_array_ptr = fftw_alloc_real(int(2*numCellsX*numCellsY*((numCellsZ/2+1)),C_SIZE_T))
+                call c_f_pointer(chainMesh%fft_array_ptr,chainMesh%fft_array_z,[numCellsX,numCellsY,numCellsZ])
+                call c_f_pointer(chainMesh%fft_array_ptr,chainMesh%fft_c_view_z,[numCellsX,numCellsY,numCellsZ/2 + 1])
+
+                call create_chainMesh_plan(chainMesh)
                 numChainMeshCells = numCellsX*numCellsY*numCellsZ 
                 numAtoms = numAtomsPerUnitCell*numChainMeshCells
                 chainMesh%numChainMeshCells = numChainMeshCells
@@ -475,8 +490,14 @@ end type ChainMesh_t
                         ! it
                         chainMesh%chainMeshCells(j) = tempChainMeshCell ! Just so that it isn't initialised to garbage  
              
-
+                        
                         call coordinatesFromIndex(chainMesh,j,icoord,jcoord,kcoord) ! icoord, jcoord, kcoord integer
+                        chainMesh%chainMeshCells(j)%centreX = dble(iCoord)*dble(chainMesh%latticeParameter) + &
+                                                        dble(chainMesh%latticeParameter)/2.0_8
+                        chainMesh%chainMeshCells(j)%centreY = dble(jCoord)*dble(chainMesh%latticeParameter) + &
+                                                        dble(chainMesh%latticeParameter)/2.0_8
+                        chainMesh%chainMeshCells(j)%centreZ = dble(kCoord)*dble(chainMesh%latticeParameter) + &
+                                                        dble(chainMesh%latticeParameter)/2.0_8
                         do i=1,size(AtomsInUnitCell)
                                 !chainMesh%atoms(j,j+atoms) = AtomsInUnitCell ! Assuming they are all initialised properly
                                 ! coordinates for the chain mesh cell 

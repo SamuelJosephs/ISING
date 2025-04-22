@@ -53,7 +53,7 @@ $(OBJDIR)/vecNd.o:
 $(OBJDIR)/constants.o:
 $(OBJDIR)/LLG.o: $(OBJDIR)/chainMesh.o $(OBJDIR)/vecNd.o $(OBJDIR)/StereographicProjection.o 
 $(OBJDIR)/StereographicProjection.o: $(OBJDIR)/vecNd.o
-$(OBJDIR)/reciprocalSpaceProcesses.0: $(OBJDIR)/chainMesh.o
+$(OBJDIR)/reciprocalSpaceProcesses.0: $(OBJDIR)/chainMesh.o $(OBJDIR)/vecNd.o
 # Clean target
 clean:
 	rm -f $(OBJDIR)/*.o $(OBJDIR)/*.mod $(BINDIR)/ISING
