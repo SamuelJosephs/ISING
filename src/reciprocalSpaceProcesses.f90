@@ -129,4 +129,50 @@ module reciprocal_space_processes
                 call fftw_execute_dft_c2r(chainMesh%backwardPlanZ, chainMesh%fft_c_view_z, chainMesh%fft_array_z)
 
         end subroutine fft_backwards_chainMesh
+
+
+        subroutine calculate_demagnetisation_field(chainMesh, array)
+                type(chainMesh_t), intent(inout) :: chainMesh 
+                real(kind=8), allocatable, dimension(:,:,:,:), intent(inout) :: array 
+                
+                integer :: N,L,M, stat, i, j, k  
+                complex(kind=C_DOUBLE_COMPLEX) :: kx, ky, kz
+                complex(kind=C_DOUBLE_COMPLEX) :: scaleFactorX, scaleFactorY, scaleFactorZ 
+                
+                scaleFactorX = cmplx(2.0_08,0.0_08,C_DOUBLE) * cmplx(3.14159265358979323846_08, 0.0_08, C_DOUBLE) / & !2 pi / N is
+                                        cmplx(dble(chainMesh%numCellsX),0.0_8,C_DOUBLE)                               ! used to
+                                                                                                                      ! calculate k values         
+                                        
+
+                scaleFactorY = cmplx(2.0_08,0.0_08,C_DOUBLE) * cmplx(3.14159265358979323846_08, 0.0_08, C_DOUBLE) / &
+                                        cmplx(dble(chainMesh%numCellsY),0.0_8,C_DOUBLE)
+
+                scaleFactorZ = cmplx(2.0_08,0.0_08,C_DOUBLE) * cmplx(3.14159265358979323846_08, 0.0_08, C_DOUBLE) / &
+                                        cmplx(dble(chainMesh%numCellsZ),0.0_8,C_DOUBLE)
+                N = chainMesh%numCellsX 
+                L = chainMesh%numCellsY 
+                M = chainMesh%numcellsZ 
+                if (.not. allocated(array)) then 
+                        allocate(array(N,L,M,3),stat=stat)
+                        if (stat /= 0) error stop "Failed to allocate array"
+                else if (any(shape(array) /= [N,L,M,3])) then
+                        deallocate(array)
+                        allocate(array(N,L,M,3), stat=stat)
+                        if (stat /= 0) error stop "Failed to allocate array"
+                end if 
+
+                call interpolate_to_fft_array(chainMesh)
+                call fft_forward_chainMesh(chainMesh)
+                ! Now process data using the complex array view into the in place fft array 
+                
+                do i = 1, N 
+                        
+                        do j = 1, L 
+                                do k = 1,M 
+                                        
+                                
+                                end do 
+                        end do 
+                end do 
+        end subroutine calculate_demagnetisation_field
 end module reciprocal_space_processes 
