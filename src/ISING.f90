@@ -106,7 +106,7 @@ program main
         dt = 1e-3
         total_time = 30.0d0
         num_frames = 20
-        numMetropolisSteps = 9200000
+        numMetropolisSteps = 92000
         numBetaSteps = 10000
         
         ! Main evolution loop
