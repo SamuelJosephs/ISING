@@ -422,12 +422,15 @@ end type ChainMesh_t
                 type(chainmesh_t), intent(inout) :: chainMesh 
                 type(C_ptr) :: plan 
                 
-                integer :: N,L,M 
+                integer :: N,L,M, status
                 
                 N = chainMesh%numCellsX
                 L = chainMesh%numCellsY 
                 M = chainMesh%numCellsZ 
-
+                
+                status = fftw_init_threads()
+                if (status  == 0) error stop "Error initialising threads for fftw"
+                call fftw_plan_with_nthreads(omp_get_max_threads())
                 chainMesh%forwardPlanX = fftw_plan_dft_r2c_3d(M,L,N,chainMesh%fft_array_x,chainMesh%fft_c_view_x,FFTW_ESTIMATE)
                 chainMesh%backwardPlanX = fftw_plan_dft_c2r_3d(M,L,N,chainMesh%fft_c_view_x,chainMesh%fft_array_x,FFTW_ESTIMATE)
 
