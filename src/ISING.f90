@@ -27,10 +27,11 @@ program main
         ! Metropolis parameters 
         real(kind=8) :: betaMin, betaMax, beta, J, J_prime,Dz, Dz_prime, B, tempReal, T, Tmax, Tmin  
         integer(kind=OMP_LOCK_KIND), allocatable :: lockArray(:) 
-        integer :: numBetaSteps 
+        integer :: numBetaSteps, fftw_status 
         character(len=90) :: filepath_output
         
-        
+        fftw_status = fftw_init_threads()
+        if (fftw_status == 0) error stop "Error initialising fftw threads"
         argc = command_argument_count() 
         if (argc /= 6) error stop "Must have three command line arguments: J J_prime Dz Dz_prime B outputFile"
         call get_command_argument(1,arg)
