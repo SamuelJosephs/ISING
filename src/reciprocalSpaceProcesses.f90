@@ -138,6 +138,10 @@ module reciprocal_space_processes
                 complex(kind=C_DOUBLE_COMPLEX) :: kx, ky, kz, displacement_phase
                 real(kind=C_DOUBLE) :: scaleFactorX, scaleFactorY, scaleFactorZ, displacement_vector
                 complex(kind = C_DOUBLE_COMPLEX) :: Mx, My, Mz, kdotM, k_squared
+
+                integer :: startClock, endClock, clockRate
+                real(kind = C_DOUBLE) :: elapsed_time
+                call system_clock(startClock, clockRate)
                 displacement_vector = chainMesh%latticeParameter / 2.0_8
                 N = chainMesh%numCellsX 
                 L = chainMesh%numCellsY 
@@ -199,5 +203,9 @@ module reciprocal_space_processes
                 chainMesh%fft_array_x = chainMesh%fft_array_x / (N*L*M)
                 chainMesh%fft_array_y = chainMesh%fft_array_y / (N*L*M)
                 chainMesh%fft_array_z = chainMesh%fft_array_z / (N*L*M)
+
+                call system_clock(endClock, clockRate)
+                elapsed_time = real(endClock - startClock, C_DOUBLE) / real(clockRate, C_DOUBLE)
+                print *, "Computed demag field in ", elapsed_time, "seconds"
         end subroutine calculate_demagnetisation_field
 end module reciprocal_space_processes 

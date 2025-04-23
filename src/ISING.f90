@@ -6,6 +6,7 @@ program main
         use LLG
         use omp_lib
         use EnergyMin
+        use reciprocal_space_processes
         use constants, only: Kb, gyromagnetic_ratio, bohr_magneton
         implicit none
         integer :: numCellsX, numCellsY, numCellsZ, i, skyrmion_type, frame, num_frames, numMetropolisSteps
@@ -105,8 +106,8 @@ program main
         dt = 1e-3
         total_time = 30.0d0
         num_frames = 20
-        numMetropolisSteps = 9200
-        numBetaSteps = 100
+        numMetropolisSteps = 9200000
+        numBetaSteps = 10000
         
         ! Main evolution loop
         p => H_eff_Heisenberg
@@ -122,7 +123,7 @@ program main
                 Tmin = 0.001_8
                 T = Tmax - (Tmax - Tmin)*(dble(i)/dble(numBetaSteps)) 
                 beta = 1.0_8 / (T)
-        
+                call calculate_demagnetisation_field(testMesh)
                 call MetropolisMixed(testMesh,beta,numMetropolisSteps,J,J_prime,Dz,Dz_prime,B, lockArray)
                 if (mod(i,10) == 0) then 
                         write(frame_filename, '(A,A,I5.5,A)') trim(output_dir), "/frame_", counter-1, ".csv"
