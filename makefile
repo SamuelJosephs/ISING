@@ -34,11 +34,11 @@ all: $(BINDIR)/ISING
 
 # Linking the final executable
 $(BINDIR)/ISING: $(OBJECTS)
-	$(FC) $(FCFLAGS) -o $@ $^ -lfftw3
+	$(FC) $(FCFLAGS) -o $@ $^ -lfftw3_omp -lfftw3
 
 # Generic rule for object files
 $(OBJDIR)/%.o: $(SRCDIR)/%.f90
-	$(FC) $(FCFLAGS) $(MODDIR) -c $< -o $@ -lfftw3
+	$(FC) $(FCFLAGS) $(MODDIR) -c $< -o $@ -lfftw3_omp -lfftw3
 
 # Dependencies
 $(OBJDIR)/ISING.o: $(OBJDIR)/rand.o $(OBJDIR)/CubePartition.o $(OBJDIR)/RGFlow.o $(OBJDIR)/atom.o $(OBJDIR)/chainMeshCell.o $(OBJDIR)/chainMesh.o $(OBJDIR)/energyMin.o $(OBJDIR)/LLG.o $(OBJDIR)/reciprocalSpaceProcesses.o 

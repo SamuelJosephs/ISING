@@ -131,20 +131,20 @@ module reciprocal_space_processes
         end subroutine fft_backwards_chainMesh
 
 
-        subroutine calculate_demagnetisation_field(chainMesh, array)
+        subroutine calculate_demagnetisation_field(chainMesh)
                 type(chainMesh_t), intent(inout) :: chainMesh 
-                real(kind=8), allocatable, dimension(:,:,:,:), intent(inout) :: array 
                 
                 integer :: N,L,M, stat, i, j, k , waveIndexX, waveIndexY, waveIndexZ
-                complex(kind=C_DOUBLE_COMPLEX) :: kx, ky, kz
-                real(kind=C_DOUBLE) :: scaleFactorX, scaleFactorY, scaleFactorZ 
-                
+                complex(kind=C_DOUBLE_COMPLEX) :: kx, ky, kz, displacement_phase
+                real(kind=C_DOUBLE) :: scaleFactorX, scaleFactorY, scaleFactorZ, displacement_vector
+                complex(kind = C_DOUBLE_COMPLEX) :: Mx, My, Mz, kdotM, k_squared
+                displacement_vector = chainMesh%latticeParameter / 2.0_8
                 N = chainMesh%numCellsX 
                 L = chainMesh%numCellsY 
                 M = chainMesh%numcellsZ     
                 scaleFactorX = real(2.0_08,C_DOUBLE) * real(3.14159265358979323846_08, C_DOUBLE) / & !2 pi / N is
                                         real(N,C_DOUBLE)                               ! used to
-                                                                                                                      ! calculate k values         
+                                                                                       ! calculate k values         
                                         
 
                 scaleFactorY = real(2.0,C_DOUBLE) * real(3.14159265358979323846, C_DOUBLE) / &
@@ -153,14 +153,7 @@ module reciprocal_space_processes
                 scaleFactorZ = real(2.0_08,C_DOUBLE) * real(3.14159265358979323846, C_DOUBLE) / &
                                         real(M,C_DOUBLE)
 
-                if (.not. allocated(array)) then 
-                        allocate(array(N,L,M,3),stat=stat)
-                        if (stat /= 0) error stop "Failed to allocate array"
-                else if (any(shape(array) /= [N,L,M,3])) then
-                        deallocate(array)
-                        allocate(array(N,L,M,3), stat=stat)
-                        if (stat /= 0) error stop "Failed to allocate array"
-                end if 
+
 
                 call interpolate_to_fft_array(chainMesh)
                 call fft_forward_chainMesh(chainMesh)
@@ -185,10 +178,26 @@ module reciprocal_space_processes
                                         kz = scaleFactorZ*(waveIndexZ - M)
                                     end if  
                                     
-
+                                    displacement_phase = exp(-cmplx(0.0_8,1.0_8) * (kx + ky + kz)*displacement_vector)
+                                    Mx = chainMesh%fft_c_view_x(i,j,k)
+                                    My = chainMesh%fft_c_view_y(i,j,k)
+                                    Mz = chainMesh%fft_c_view_z(i,j,k)
+                                    ! demagnetisation kernel is given by - (k.m / k^2) k
+                                    kdotM = (kx*Mx + ky*My + kz*Mz)
+                                    k_squared = kx*kx + ky*ky + kz*kz
+                                    chainMesh%fft_array_x(i,j,k) = - displacement_phase*(kdotM / k_squared) * kx
+                                    chainMesh%fft_array_y(i,j,k) = - displacement_phase*(kdotM / k_squared) * ky
+                                    chainMesh%fft_array_z(i,j,k) = - displacement_phase*(kdotM / k_squared) * kz
 
                                 end do 
                         end do 
                 end do 
+                chainMesh%fft_c_view_x(1,1,1) = cmplx(0.0,0.0,C_DOUBLE_COMPLEX)
+                chainMesh%fft_c_view_y(1,1,1) = cmplx(0.0,0.0,C_DOUBLE_COMPLEX)
+                chainMesh%fft_c_view_z(1,1,1) = cmplx(0.0,0.0,C_DOUBLE_COMPLEX)
+                call fft_backwards_chainMesh(chainMesh) ! Demagnetising field is now in the three fft_arrays in chainMesh.
+                chainMesh%fft_array_x = chainMesh%fft_array_x / (N*L*M)
+                chainMesh%fft_array_y = chainMesh%fft_array_y / (N*L*M)
+                chainMesh%fft_array_z = chainMesh%fft_array_z / (N*L*M)
         end subroutine calculate_demagnetisation_field
 end module reciprocal_space_processes 
