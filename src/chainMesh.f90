@@ -480,6 +480,7 @@ end type ChainMesh_t
                 call create_chainMesh_plan(chainMesh)
                 numChainMeshCells = numCellsX*numCellsY*numCellsZ 
                 numAtoms = numAtomsPerUnitCell*numChainMeshCells
+                chainMesh%numAtoms = numAtoms
                 chainMesh%numChainMeshCells = numChainMeshCells
                 allocate(chainMesh%chainMeshCells(numChainMeshCells))
                 allocate(chainMesh%atoms(numAtoms))

@@ -131,9 +131,9 @@ module reciprocal_space_processes
         end subroutine fft_backwards_chainMesh
 
 
-        subroutine calculate_demagnetisation_field(chainMesh)
+        subroutine calculate_demagnetisation_field(chainMesh, outputArray)
                 type(chainMesh_t), intent(inout) :: chainMesh 
-                
+                real(kind=8), allocatable, dimension(:,:), intent(out) :: outputArray
                 integer :: N,L,M, stat, i, j, k , waveIndexX, waveIndexY, waveIndexZ
                 complex(kind=C_DOUBLE_COMPLEX) :: kx, ky, kz, displacement_phase
                 real(kind=C_DOUBLE) :: scaleFactorX, scaleFactorY, scaleFactorZ, displacement_vector
@@ -142,10 +142,21 @@ module reciprocal_space_processes
                 integer :: startClock, endClock, clockRate
                 real(kind = C_DOUBLE) :: elapsed_time
                 call system_clock(startClock, clockRate)
+
+
+
                 displacement_vector = chainMesh%latticeParameter / 2.0_8
                 N = chainMesh%numCellsX 
                 L = chainMesh%numCellsY 
-                M = chainMesh%numcellsZ     
+                M = chainMesh%numcellsZ 
+
+                if (allocated(outputArray)) then 
+                        if (any(shape(outputArray) /= [chainMesh%numAtoms,3])) then 
+                                deallocate(outputArray)
+                                allocate(outputArray(chainMesh%numAtoms,3))
+                        end if 
+                end if 
+
                 scaleFactorX = real(2.0_08,C_DOUBLE) * real(3.14159265358979323846_08, C_DOUBLE) / & !2 pi / N is
                                         real(N,C_DOUBLE)                               ! used to
                                                                                        ! calculate k values         
@@ -204,6 +215,7 @@ module reciprocal_space_processes
                 chainMesh%fft_array_y = chainMesh%fft_array_y / (N*L*M)
                 chainMesh%fft_array_z = chainMesh%fft_array_z / (N*L*M)
 
+                call interpolate_fft_to_atoms(chainMesh,outputArray)
                 call system_clock(endClock, clockRate)
                 elapsed_time = real(endClock - startClock, C_DOUBLE) / real(clockRate, C_DOUBLE)
                 print *, "Computed demag field in ", elapsed_time, "seconds"

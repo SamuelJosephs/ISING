@@ -29,6 +29,9 @@ program main
         integer(kind=OMP_LOCK_KIND), allocatable :: lockArray(:) 
         integer :: numBetaSteps, fftw_status 
         character(len=90) :: filepath_output
+
+        real(kind=8), allocatable, dimension(:,:) :: demagnetisation_array
+
         
         fftw_status = fftw_init_threads()
         if (fftw_status == 0) error stop "Error initialising fftw threads"
@@ -69,7 +72,9 @@ program main
         numCellsZ = 6
         ! Create the chain mesh
         testMesh = makeChainMesh(2, numCellsX, numCellsY, numCellsZ, latticeParam, AtomsInUnitCell)
-        
+        print *, "Attempting to allocate ", testMesh%numAtoms, "atoms"
+        allocate(demagnetisation_array(testMesh%numAtoms,3))
+        print *, "Allocated demagnetisation array"
         ! Assign nearest neighbors
         call assignNearestNeighbors(testMesh)
         call DerivativeList(testMesh,testMesh%derivativeList)       
@@ -124,7 +129,7 @@ program main
                 Tmin = 0.001_8
                 T = Tmax - (Tmax - Tmin)*(dble(i)/dble(numBetaSteps)) 
                 beta = 1.0_8 / (T)
-                call calculate_demagnetisation_field(testMesh)
+                call calculate_demagnetisation_field(testMesh,demagnetisation_array)
                 call MetropolisMixed(testMesh,beta,numMetropolisSteps,J,J_prime,Dz,Dz_prime,B, lockArray)
                 if (mod(i,10) == 0) then 
                         write(frame_filename, '(A,A,I5.5,A)') trim(output_dir), "/frame_", counter-1, ".csv"
