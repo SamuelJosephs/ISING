@@ -135,23 +135,24 @@ module reciprocal_space_processes
                 type(chainMesh_t), intent(inout) :: chainMesh 
                 real(kind=8), allocatable, dimension(:,:,:,:), intent(inout) :: array 
                 
-                integer :: N,L,M, stat, i, j, k  
+                integer :: N,L,M, stat, i, j, k , waveIndexX, waveIndexY, waveIndexZ
                 complex(kind=C_DOUBLE_COMPLEX) :: kx, ky, kz
-                complex(kind=C_DOUBLE_COMPLEX) :: scaleFactorX, scaleFactorY, scaleFactorZ 
+                real(kind=C_DOUBLE) :: scaleFactorX, scaleFactorY, scaleFactorZ 
                 
-                scaleFactorX = cmplx(2.0_08,0.0_08,C_DOUBLE) * cmplx(3.14159265358979323846_08, 0.0_08, C_DOUBLE) / & !2 pi / N is
-                                        cmplx(dble(chainMesh%numCellsX),0.0_8,C_DOUBLE)                               ! used to
+                N = chainMesh%numCellsX 
+                L = chainMesh%numCellsY 
+                M = chainMesh%numcellsZ     
+                scaleFactorX = real(2.0_08,C_DOUBLE) * real(3.14159265358979323846_08, C_DOUBLE) / & !2 pi / N is
+                                        real(N,C_DOUBLE)                               ! used to
                                                                                                                       ! calculate k values         
                                         
 
-                scaleFactorY = cmplx(2.0_08,0.0_08,C_DOUBLE) * cmplx(3.14159265358979323846_08, 0.0_08, C_DOUBLE) / &
-                                        cmplx(dble(chainMesh%numCellsY),0.0_8,C_DOUBLE)
+                scaleFactorY = real(2.0,C_DOUBLE) * real(3.14159265358979323846, C_DOUBLE) / &
+                                        real(L,C_DOUBLE)
 
-                scaleFactorZ = cmplx(2.0_08,0.0_08,C_DOUBLE) * cmplx(3.14159265358979323846_08, 0.0_08, C_DOUBLE) / &
-                                        cmplx(dble(chainMesh%numCellsZ),0.0_8,C_DOUBLE)
-                N = chainMesh%numCellsX 
-                L = chainMesh%numCellsY 
-                M = chainMesh%numcellsZ 
+                scaleFactorZ = real(2.0_08,C_DOUBLE) * real(3.14159265358979323846, C_DOUBLE) / &
+                                        real(M,C_DOUBLE)
+
                 if (.not. allocated(array)) then 
                         allocate(array(N,L,M,3),stat=stat)
                         if (stat /= 0) error stop "Failed to allocate array"
@@ -165,12 +166,27 @@ module reciprocal_space_processes
                 call fft_forward_chainMesh(chainMesh)
                 ! Now process data using the complex array view into the in place fft array 
                 
-                do i = 1, N 
-                        
-                        do j = 1, L 
+                do i = 1, N/2 + 1
+                        waveIndexX = i-1
+                        kx = scaleFactorX*(waveIndexX)
+                        do j = 1,L
+                                waveIndexY = j-1
+                                if (waveIndexY <= L/2)  then 
+                                        ky = scaleFactorY*waveIndexY
+
+                                else  
+                                        ky = scaleFactorY*(waveIndexY-L)
+                                end if 
                                 do k = 1,M 
-                                        
-                                
+                                    waveIndexZ = k-1
+                                    if (waveIndexZ <= M/2) then 
+                                        kz = scaleFactorZ*waveIndexZ
+                                    else  
+                                        kz = scaleFactorZ*(waveIndexZ - M)
+                                    end if  
+                                    
+
+
                                 end do 
                         end do 
                 end do 

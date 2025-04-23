@@ -462,17 +462,17 @@ end type ChainMesh_t
                 chainMesh%numCellsZ = numCellsZ
 
                 !allocate(chainMesh%fft_array(numCellsX, numCellsY, numCellsZ),stat=stat)
-                chainMesh%fft_array_ptr = fftw_alloc_real(int(2*numCellsX*numCellsY*((numCellsZ/2+1)),C_SIZE_T))
+                chainMesh%fft_array_ptr = fftw_alloc_real(int(2*(numCellsX/2 + 1)*numCellsY*numCellsZ,C_SIZE_T))
                 call c_f_pointer(chainMesh%fft_array_ptr,chainMesh%fft_array_x,[numCellsX,numCellsY,numCellsZ])
-                call c_f_pointer(chainMesh%fft_array_ptr,chainMesh%fft_c_view_x,[numCellsX,numCellsY,numCellsZ/2 + 1])
+                call c_f_pointer(chainMesh%fft_array_ptr,chainMesh%fft_c_view_x,[numCellsX/2 + 1,numCellsY,numCellsZ])
 
-                chainMesh%fft_array_ptr = fftw_alloc_real(int(2*numCellsX*numCellsY*((numCellsZ/2+1)),C_SIZE_T))
+                chainMesh%fft_array_ptr = fftw_alloc_real(int(2*(numCellsX/2 + 1)*numCellsY*numCellsZ,C_SIZE_T))
                 call c_f_pointer(chainMesh%fft_array_ptr,chainMesh%fft_array_y,[numCellsX,numCellsY,numCellsZ])
-                call c_f_pointer(chainMesh%fft_array_ptr,chainMesh%fft_c_view_y,[numCellsX,numCellsY,numCellsZ/2 + 1])
+                call c_f_pointer(chainMesh%fft_array_ptr,chainMesh%fft_c_view_y,[numCellsX/2+1,numCellsY,numCellsZ])
 
-                chainMesh%fft_array_ptr = fftw_alloc_real(int(2*numCellsX*numCellsY*((numCellsZ/2+1)),C_SIZE_T))
+                chainMesh%fft_array_ptr = fftw_alloc_real(int(2*(numCellsX/2 + 1)*numCellsY*numCellsZ,C_SIZE_T))
                 call c_f_pointer(chainMesh%fft_array_ptr,chainMesh%fft_array_z,[numCellsX,numCellsY,numCellsZ])
-                call c_f_pointer(chainMesh%fft_array_ptr,chainMesh%fft_c_view_z,[numCellsX,numCellsY,numCellsZ/2 + 1])
+                call c_f_pointer(chainMesh%fft_array_ptr,chainMesh%fft_c_view_z,[numCellsX/2+1,numCellsY,numCellsZ])
 
                 call create_chainMesh_plan(chainMesh)
                 numChainMeshCells = numCellsX*numCellsY*numCellsZ 
