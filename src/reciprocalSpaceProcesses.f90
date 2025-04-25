@@ -123,18 +123,7 @@ module reciprocal_space_processes
         
         subroutine fft_backwards_chainMesh(chainMesh)
                 type(chainMesh_t), intent(inout) :: chainMesh 
-                if (any(chainMesh%fft_c_view_x /= chainMesh%fft_c_view_x)) then
-                        print *, chainMesh%fft_c_view_x 
-                        error stop "c_view_x contains NaN's"
-                end if 
-                if (any(chainMesh%fft_c_view_y /= chainMesh%fft_c_view_y)) then
-                        print *, chainMesh%fft_c_view_y 
-                        error stop "c_view_y contains NaN's"
-                end if 
-                if (any(chainMesh%fft_c_view_z /= chainMesh%fft_c_view_z)) then
-                        print *, chainMesh%fft_c_view_z 
-                        error stop "c_view_z contains NaN's"
-                end if 
+
                 call fftw_execute_dft_c2r(chainMesh%backwardPlanX, chainMesh%fft_c_view_x, chainMesh%fft_array_x)
                 call fftw_execute_dft_c2r(chainMesh%backwardPlanY, chainMesh%fft_c_view_y, chainMesh%fft_array_y)
                 call fftw_execute_dft_c2r(chainMesh%backwardPlanZ, chainMesh%fft_c_view_z, chainMesh%fft_array_z)
