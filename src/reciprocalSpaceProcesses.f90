@@ -72,7 +72,7 @@ module reciprocal_space_processes
                 L = chainMesh%numCellsY 
                 M = chainMesh%numCellsZ 
                 allocate(outputArray(size(chainMesh%atoms),3), stat=stat) 
-                outputArray = 0.0_8
+                outputArray(:,:) = 0.0_8
                 if (stat /= 0) error stop "failed to allocate output array"
                 do CellIndex = 1,chainMesh%numChainMeshCells
                         call getNeighboringCells(chainMesh,CellIndex,nearestNeighborCellList)
@@ -218,6 +218,6 @@ module reciprocal_space_processes
                 call interpolate_fft_to_atoms(chainMesh,outputArray)
                 call system_clock(endClock, clockRate)
                 elapsed_time = real(endClock - startClock, C_DOUBLE) / real(clockRate, C_DOUBLE)
-                print *, "Computed demag field in ", elapsed_time, "seconds"
+                !print *, "Computed demag field in ", elapsed_time, "seconds"
         end subroutine calculate_demagnetisation_field
 end module reciprocal_space_processes 

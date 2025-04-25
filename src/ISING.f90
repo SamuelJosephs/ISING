@@ -9,7 +9,7 @@ program main
         use reciprocal_space_processes
         use constants, only: Kb, gyromagnetic_ratio, bohr_magneton
         implicit none
-        integer :: numCellsX, numCellsY, numCellsZ, i, skyrmion_type, frame, num_frames, numMetropolisSteps
+        integer :: numCellsX, numCellsY, numCellsZ, i, skyrmion_type, frame, num_frames, numMetropolisStepsTotal, numMetropolisSteps
         type(ChainMesh_t) :: testMesh
         type(Atom_t) :: AtomsInUnitCell(2)
         type(vecNd_t) :: skyrmion_center
@@ -19,7 +19,8 @@ program main
         logical :: z_localized
         procedure(H_eff_class), pointer :: p
         integer :: argc, counter 
-        character(len=50) :: arg         
+        character(len=50) :: arg      
+        real(kind=8) :: totalEnergy1, totalEnergy2
         ! LLG evolution parameters
         real(kind=8) :: dt, total_time
         real(kind=8) :: H_field(3)
@@ -27,7 +28,7 @@ program main
         ! Metropolis parameters 
         real(kind=8) :: betaMin, betaMax, beta, J, J_prime,Dz, Dz_prime, B, tempReal, T, Tmax, Tmin  
         integer(kind=OMP_LOCK_KIND), allocatable :: lockArray(:) 
-        integer :: numBetaSteps, fftw_status 
+        integer :: numBetaSteps, fftw_status
         character(len=90) :: filepath_output
 
         real(kind=8), allocatable, dimension(:,:) :: demagnetisation_array
@@ -109,11 +110,12 @@ program main
         
         ! Time evolution parameters
         ! dt = 0.00000000000002_8
-        dt = 1e-3
+        dt = 1e-19_08
         total_time = 30.0d0
-        num_frames = 20
-        numMetropolisSteps = 92000
-        numBetaSteps = 10000
+        num_frames = 0
+        numMetropolisStepsTotal = 220000
+        numMetropolisSteps = 1000
+        numBetaSteps = 500
         
         ! Main evolution loop
         p => H_eff_Heisenberg
@@ -124,13 +126,17 @@ program main
         end do 
         counter = 1 
         do i = 0,numBetaSteps
-                Tmax = 200.0_8 
+                Tmax = 10.0_8 
                 !Tmin = 0.1*(0.76*8*J)/(3*Kb)
                 Tmin = 0.001_8
                 T = Tmax - (Tmax - Tmin)*(dble(i)/dble(numBetaSteps)) 
                 beta = 1.0_8 / (T)
-                call calculate_demagnetisation_field(testMesh,demagnetisation_array)
-                call MetropolisMixed(testMesh,beta,numMetropolisSteps,J,J_prime,Dz,Dz_prime,B, lockArray)
+                !call calculate_demagnetisation_field(testMesh,demagnetisation_array)
+                call TotalHeisenbergEnergy(testMesh,J,J_prime,Dz,Dz_prime,B,lockArray,totalEnergy1)
+                call Metropolis_demag(testMesh,beta,numMetropolisSteps, numMetropolisStepsTotal,&
+                                                J,J_prime,Dz,Dz_prime,B, lockArray)
+                call TotalHeisenbergEnergy(testMesh,J,J_prime,Dz,Dz_prime,B,lockArray,totalEnergy2)
+                print *, "Delta E = ", totalEnergy2 - totalEnergy1, "T = ", T, "oldEnergy, newEnergy = ", totalEnergy1, totalEnergy2
                 if (mod(i,10) == 0) then 
                         write(frame_filename, '(A,A,I5.5,A)') trim(output_dir), "/frame_", counter-1, ".csv"
                         call write_spins_to_file(testMesh, frame_filename)

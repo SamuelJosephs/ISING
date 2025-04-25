@@ -7,6 +7,7 @@ module EnergyMin
         use Rand, only: makeRandom, algor_uniform_random, random, Normal
         use cube_partition, only: bounds_type, partition_unit_cube, dp 
         use constants, only: gyromagnetic_ratio, Kb, Bohr_magneton
+        use reciprocal_space_processes
         use omp_lib 
         implicit none 
         contains 
@@ -89,7 +90,7 @@ end function AtomEnergy
         end subroutine GaussianStep 
 
         subroutine calculateHeisenbergEnergy(chainMesh,atomIndex, J, J_prime, Dz, Dz_prime ,B , & 
-                        lockArray, S_proposed, oldEnergy, newEnergy)
+                        lockArray, S_proposed, oldEnergy, newEnergy, demagnetisation_array)
                 implicit none
                 type(ChainMesh_t), intent(in) :: chainMesh 
                 integer, intent(in) :: atomIndex 
@@ -97,7 +98,8 @@ end function AtomEnergy
                 integer(kind=OMP_LOCK_KIND), intent(inout) :: lockArray(:)
                 type(vecNd_t), intent(in) :: S_proposed 
                 real(kind=8), intent(inout) ::  oldEnergy, newEnergy 
-                real(kind = 8) :: Energy, x,y,z, tempEnergy 
+                real(kind=8), dimension(:,:), intent(in) :: demagnetisation_array
+                real(kind = 8) :: Energy, x,y,z, tempEnergy, Hx, Hy, Hz, MdotH, MdotH_proposed
                 integer :: i, atomIndexTemp, dim_i, nn , nn_index  
                 type(vecNd_t) :: S, S_prime, atomPos1, atomPos2, tempVec,r, D, D_prime
                 !call OMP_SET_LOCK(lockArray(atomIndex))
@@ -109,6 +111,13 @@ end function AtomEnergy
                 z = chainMesh%atoms(atomIndex)%z 
                 atomPos1 = makeVecNd([x,y,z]) 
                 tempVec = makeVecNdCheck(tempVec, [0.0_8, 0.0_8, Dz])
+
+                Hx = demagnetisation_array(atomIndex,1)
+                Hy = demagnetisation_array(atomIndex,2)
+                Hz = demagnetisation_array(atomIndex,3)
+                MdotH = S%coords(1)* Hx + S%coords(2)* Hy + S%coords(3)* Hz 
+                MdotH_proposed = S_proposed%coords(1)* Hx + S_proposed%coords(2)* Hy + S_proposed%coords(3)* Hz
+
                 do i = 1,size(chainMesh%atoms(atomIndex)%NeighborList)
                         atomIndexTemp = chainMesh%atoms(atomIndex)%NeighborList(i)
                         if (atomIndexTemp == atomIndex) error stop "Encountered self interaction"
@@ -124,14 +133,12 @@ end function AtomEnergy
                         r = (-1.0_8) * r / abs(r)
                         D = tempVec .x. r
                         !D = Dz*r
-                        oldEnergy = oldEnergy + (J* S*S_prime) + (D*(S .x. S_prime)) !+ &
-                        !B*S%coords(3) this is probably wrong, should only do this once
+                        oldEnergy = oldEnergy + (J* S*S_prime) + (D*(S .x. S_prime))
                         
-                        newEnergy = newEnergy + (J* S_proposed*S_prime) + (D*(S_proposed .x. S_prime))! + &
-                                !B*S_proposed%coords(3)
+                        newEnergy = newEnergy + (J* S_proposed*S_prime) + (D*(S_proposed .x. S_prime))
                 end do 
-                oldEnergy = oldEnergy + B*s%coords(3)
-                newEnergy = newEnergy + B*S_proposed%coords(3)
+                oldEnergy = oldEnergy + B*s%coords(3) - MdotH 
+                newEnergy = newEnergy + B*S_proposed%coords(3) - MdotH_proposed
                 
                 ! Now add contributions from next - nearest in plane neighbors in the x and y axis
                 if (.not. allocated(chainMesh%derivativeList)) error stop "DerivativeList is not allocated"
@@ -165,19 +172,31 @@ end function AtomEnergy
         end subroutine calculateHeisenbergEnergy
 
 
-        subroutine MetropolisMixed(chainMesh, beta, nsteps, J, J_prime,  Dz, Dz_prime, B, lockArray)
+        subroutine MetropolisMixed(chainMesh, beta, nsteps, J, J_prime,  Dz, Dz_prime, B, lockArray, demagnetisation_array)
                 ! Each thread will randomly select an atom nsteps times and determine whether to flip the spin 
                 implicit none
                 type(ChainMesh_t), intent(inout) :: chainMesh 
                 real(kind=8), intent(in) :: beta, J, J_prime, Dz, Dz_prime, B 
                 integer, intent(in) :: nsteps 
                 integer(kind=OMP_LOCK_KIND), intent(inout) :: lockArray(:)
+                real(kind=8), dimension(:,:), allocatable, intent(inout) :: demagnetisation_array
 
                 type(random) :: rand 
                 integer :: threadID, time, i, atomIndex, counter
                 real(kind=8) :: rand_num, oldEnergy, newEnergy, P, Z  
                 type(vecNd_t) :: S, S_proposed
-                !$omp parallel default(private) firstprivate(nsteps,beta, J,J_prime, Dz,Dz_prime, B) shared(chainMesh, lockArray)
+
+                if (allocated(demagnetisation_array)) then 
+                        if (any(shape(demagnetisation_array) /= [chainMesh%numAtoms,3])) then 
+                                deallocate(demagnetisation_array)
+                                allocate(demagnetisation_array(chainMesh%numAtoms,3))
+                        end if 
+                else 
+                        allocate(demagnetisation_array(chainMesh%numAtoms,3))
+                end if 
+
+                !$omp parallel default(private) firstprivate(nsteps,beta, J,J_prime, Dz,Dz_prime, B) shared(chainMesh, lockArray,&
+                !$omp&  demagnetisation_array)
                 block 
 
                 threadID = omp_get_thread_num()
@@ -210,7 +229,7 @@ end function AtomEnergy
                                 !newEnergy = calculateHeisenbergEnergy(chainMesh, atomIndex,J,Dz,B,lockArray)
                                 !chainMesh%atoms(atomIndex)%AtomParameters = S%coords
                                 call calculateHeisenbergEnergy(chainMesh,atomIndex,J,J_prime,Dz,Dz_prime,&
-                                        B,lockArray,S_proposed,oldEnergy,newEnergy)
+                                        B,lockArray,S_proposed,oldEnergy,newEnergy,demagnetisation_array)
                                 if (newEnergy < oldEnergy) then 
                                         Z = 1.0_8 
                                 else 
@@ -238,6 +257,76 @@ end function AtomEnergy
 
         end subroutine MetropolisMixed
 
+        subroutine Metropolis_demag(chainMesh, beta, nsteps, nsteps_total, J, J_prime,  Dz, Dz_prime, B, lockArray)
+                ! Each thread will randomly select an atom nsteps times and determine whether to flip the spin 
+                implicit none
+                type(ChainMesh_t), intent(inout) :: chainMesh 
+                real(kind=8), intent(in) :: beta, J, J_prime, Dz, Dz_prime, B 
+                integer, intent(in) :: nsteps, nsteps_total
+                integer(kind=OMP_LOCK_KIND), intent(inout) :: lockArray(:)
+                real(kind=8), dimension(:,:), allocatable, save :: demagnetisation_array
+
+                type(random) :: rand 
+                integer :: threadID, time, i, atomIndex, counter
+                real(kind=8) :: rand_num, oldEnergy, newEnergy, P, Z  
+                type(vecNd_t) :: S, S_proposed
+
+                counter = 0
+                if (allocated(demagnetisation_array)) then 
+                        if (any(shape(demagnetisation_array) /= [chainMesh%numAtoms,3])) then 
+                                deallocate(demagnetisation_array)
+                                allocate(demagnetisation_array(chainMesh%numAtoms,3))
+                        end if 
+                else 
+                        allocate(demagnetisation_array(chainMesh%numAtoms,3))
+                end if 
+
+                do while (counter < nsteps_total)
+                        call calculate_demagnetisation_field(chainMesh,demagnetisation_array)
+                        call MetropolisMixed(chainMesh, beta, nsteps, J, J_prime,  Dz, Dz_prime, B, lockArray,demagnetisation_array)
+                        counter = counter + nsteps
+                end do 
+
+        end subroutine Metropolis_demag
+        
+
+        subroutine TotalHeisenbergEnergy(chainMesh, J, J_prime, Dz, Dz_prime, B, lockArray, totalEnergy)
+        implicit none
+
+        type(ChainMesh_t), intent(inout)            :: chainMesh
+        real(kind=8),     intent(in)                :: J, J_prime, Dz, Dz_prime, B
+        integer(kind=OMP_LOCK_KIND), intent(inout)  :: lockArray(:)
+        real(kind=8),     intent(out)               :: totalEnergy
+
+        integer :: atomIndex
+        real(kind=8) :: oldE, newE
+        type(vecNd_t) :: S_dummy
+        real(kind=8), dimension(:,:), allocatable :: demagnetisation_array
+        allocate(demagnetisation_array(chainMesh%numAtoms,3))
+
+        call calculate_demagnetisation_field(chainMesh,demagnetisation_array)
+        ! Initialize
+        totalEnergy = 0.0_8
+        ! create a dummy 3-vector (only used for newEnergy, which we ignore)
+        S_dummy = makeVecNdCheck(S_dummy, [0.0_8, 0.0_8, 0.0_8])
+
+        do atomIndex = 1, size(chainMesh%atoms)
+                oldE = 0.0_8
+                newE = 0.0_8
+                call calculateHeisenbergEnergy( &
+                     chainMesh, atomIndex,      &
+                     J, J_prime, Dz, Dz_prime, B, &
+                     lockArray,                 &
+                     S_dummy,                   & ! dummy S_proposed
+                     oldE, newE,                & ! only oldE is used
+                     demagnetisation_array &
+                )
+                totalEnergy = totalEnergy + oldE
+         end do
+
+        ! each pair was counted twice
+           totalEnergy = totalEnergy / 2.0_8
+        end subroutine TotalHeisenbergEnergy
         subroutine Metropolis2(chainMesh, sigma, beta, nsteps)
                 ! Each thread will randomly select an atom nsteps times and determine whether to flip the spin 
                 type(ChainMesh_t), intent(inout), target :: chainMesh 
