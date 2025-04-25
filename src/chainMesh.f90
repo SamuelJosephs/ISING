@@ -451,7 +451,7 @@ end type ChainMesh_t
                 type(Atom_t), intent(in) :: AtomsInUnitCell(numAtomsPerUnitCell)
                 ! Need to create all the atoms, create all the ChainMeshCells, then allocate all of the atoms to a chain mesh cell 
                 type(ChainMesh_t), target :: chainMesh 
-                integer :: numChainMeshCells 
+                integer :: numChainMeshCells, padX
                 integer :: numAtoms, stride 
                 integer :: i,j,k, icoord, jcoord, kcoord, stat 
                 type(ChainMeshCell_t) :: tempChainMeshCell
@@ -463,18 +463,18 @@ end type ChainMesh_t
                 chainMesh%numCellsX = numCellsX 
                 chainMesh%numCellsY = numCellsY 
                 chainMesh%numCellsZ = numCellsZ
-
+                padX = 2*(numCellsX / 2 + 1)
                 !allocate(chainMesh%fft_array(numCellsX, numCellsY, numCellsZ),stat=stat)
                 chainMesh%fft_array_ptr = fftw_alloc_real(int(2*(numCellsX/2 + 1)*numCellsY*numCellsZ,C_SIZE_T))
-                call c_f_pointer(chainMesh%fft_array_ptr,chainMesh%fft_array_x,[numCellsX,numCellsY,numCellsZ])
+                call c_f_pointer(chainMesh%fft_array_ptr,chainMesh%fft_array_x,[padX,numCellsY,numCellsZ])
                 call c_f_pointer(chainMesh%fft_array_ptr,chainMesh%fft_c_view_x,[numCellsX/2 + 1,numCellsY,numCellsZ])
 
                 chainMesh%fft_array_ptr = fftw_alloc_real(int(2*(numCellsX/2 + 1)*numCellsY*numCellsZ,C_SIZE_T))
-                call c_f_pointer(chainMesh%fft_array_ptr,chainMesh%fft_array_y,[numCellsX,numCellsY,numCellsZ])
+                call c_f_pointer(chainMesh%fft_array_ptr,chainMesh%fft_array_y,[padX,numCellsY,numCellsZ])
                 call c_f_pointer(chainMesh%fft_array_ptr,chainMesh%fft_c_view_y,[numCellsX/2+1,numCellsY,numCellsZ])
 
                 chainMesh%fft_array_ptr = fftw_alloc_real(int(2*(numCellsX/2 + 1)*numCellsY*numCellsZ,C_SIZE_T))
-                call c_f_pointer(chainMesh%fft_array_ptr,chainMesh%fft_array_z,[numCellsX,numCellsY,numCellsZ])
+                call c_f_pointer(chainMesh%fft_array_ptr,chainMesh%fft_array_z,[padX,numCellsY,numCellsZ])
                 call c_f_pointer(chainMesh%fft_array_ptr,chainMesh%fft_c_view_z,[numCellsX/2+1,numCellsY,numCellsZ])
 
                 call create_chainMesh_plan(chainMesh)
@@ -668,5 +668,7 @@ end function H
                 end if 
                 
         end subroutine calculatePartialDerivative
+
+
 end module ChainMesh 
 

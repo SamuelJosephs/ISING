@@ -282,9 +282,13 @@ end function AtomEnergy
                 end if 
 
                 do while (counter < nsteps_total)
+
+                        
+
                         call calculate_demagnetisation_field(chainMesh,demagnetisation_array)
                         call MetropolisMixed(chainMesh, beta, nsteps, J, J_prime,  Dz, Dz_prime, B, lockArray,demagnetisation_array)
                         counter = counter + nsteps
+                        print *, "Completed metropolis step with counter, total = ", counter, nsteps_total
                 end do 
 
         end subroutine Metropolis_demag

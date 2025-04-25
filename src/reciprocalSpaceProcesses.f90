@@ -123,7 +123,18 @@ module reciprocal_space_processes
         
         subroutine fft_backwards_chainMesh(chainMesh)
                 type(chainMesh_t), intent(inout) :: chainMesh 
-
+                if (any(chainMesh%fft_c_view_x /= chainMesh%fft_c_view_x)) then
+                        print *, chainMesh%fft_c_view_x 
+                        error stop "c_view_x contains NaN's"
+                end if 
+                if (any(chainMesh%fft_c_view_y /= chainMesh%fft_c_view_y)) then
+                        print *, chainMesh%fft_c_view_y 
+                        error stop "c_view_y contains NaN's"
+                end if 
+                if (any(chainMesh%fft_c_view_z /= chainMesh%fft_c_view_z)) then
+                        print *, chainMesh%fft_c_view_z 
+                        error stop "c_view_z contains NaN's"
+                end if 
                 call fftw_execute_dft_c2r(chainMesh%backwardPlanX, chainMesh%fft_c_view_x, chainMesh%fft_array_x)
                 call fftw_execute_dft_c2r(chainMesh%backwardPlanY, chainMesh%fft_c_view_y, chainMesh%fft_array_y)
                 call fftw_execute_dft_c2r(chainMesh%backwardPlanZ, chainMesh%fft_c_view_z, chainMesh%fft_array_z)
@@ -200,9 +211,12 @@ module reciprocal_space_processes
                                     ! demagnetisation kernel is given by - (k.m / k^2) k
                                     kdotM = (kx*Mx + ky*My + kz*Mz)
                                     k_squared = kx*kx + ky*ky + kz*kz
-                                    chainMesh%fft_array_x(i,j,k) = - displacement_phase*(kdotM / k_squared) * kx
-                                    chainMesh%fft_array_y(i,j,k) = - displacement_phase*(kdotM / k_squared) * ky
-                                    chainMesh%fft_array_z(i,j,k) = - displacement_phase*(kdotM / k_squared) * kz
+                                    if ((i == 1 .and. j == 1 .and. k == 1)) cycle
+                                    chainMesh%fft_c_view_x(i,j,k) = - displacement_phase*(kdotM / k_squared) * kx
+                                    chainMesh%fft_c_view_y(i,j,k) = - displacement_phase*(kdotM / k_squared) * ky
+                                    chainMesh%fft_c_view_z(i,j,k) = - displacement_phase*(kdotM / k_squared) * kz
+
+
 
                                 end do 
                         end do 
@@ -218,6 +232,6 @@ module reciprocal_space_processes
                 call interpolate_fft_to_atoms(chainMesh,outputArray)
                 call system_clock(endClock, clockRate)
                 elapsed_time = real(endClock - startClock, C_DOUBLE) / real(clockRate, C_DOUBLE)
-                !print *, "Computed demag field in ", elapsed_time, "seconds"
+                print *, "Computed demag field in ", elapsed_time, "seconds"
         end subroutine calculate_demagnetisation_field
 end module reciprocal_space_processes 
