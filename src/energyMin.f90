@@ -137,8 +137,8 @@ end function AtomEnergy
                         
                         newEnergy = newEnergy + (J* S_proposed*S_prime) + (D*(S_proposed .x. S_prime))
                 end do 
-                oldEnergy = oldEnergy + B*s%coords(3) - MdotH 
-                newEnergy = newEnergy + B*S_proposed%coords(3) - MdotH_proposed
+                oldEnergy = oldEnergy + B*s%coords(3) - (0.5_8*MdotH) 
+                newEnergy = newEnergy + B*S_proposed%coords(3) - (0.5_8*MdotH_proposed)
                 
                 ! Now add contributions from next - nearest in plane neighbors in the x and y axis
                 if (.not. allocated(chainMesh%derivativeList)) error stop "DerivativeList is not allocated"
