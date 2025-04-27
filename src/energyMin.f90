@@ -76,7 +76,7 @@ end function AtomEnergy
         end subroutine UniformRandomSpin 
 
         subroutine UniformRandomInSphere(vec3d, rand, R)
-                type(vecNd_t), intent(out)   :: vec3d
+                type(vecNd_t), intent(inout)   :: vec3d
                 type(random), intent(inout)  :: rand
                 real(kind=8), intent(in)     :: R
                 real(kind=8) :: theta, phi, u, r_lower
@@ -222,9 +222,10 @@ end function AtomEnergy
                 demag_update_interval = int((pi * sqrt(5.0_8)) / (2.0_8*r))
                 call calculate_demagnetisation_field(chainMesh,demagnetisation_array)
 
-                !$omp parallel default(private) firstprivate(nsteps,beta, J,J_prime, Dz,Dz_prime, B, r,& 
-                !$omp& demag_update_interval) & 
+                !$omp parallel default(private) & 
+                !$omp& firstprivate(nsteps,beta, J,J_prime, Dz,Dz_prime, B, r, demag_update_interval, numMCSSweeps) & 
                 !$omp&  shared(chainMesh, lockArray, demagnetisation_array)
+                print *, "demag_update_interval", demag_update_interval
                 numThreads = omp_get_num_threads()
                 threadID = omp_get_thread_num()
 
@@ -241,9 +242,8 @@ end function AtomEnergy
 
 
 
-
                 
-                !$omp do
+                !$omp do 
                 do i = 1,nsteps / numThreads
                                 atomIndex = int((algor_uniform_random(rand)*dble(size(chainMesh%atoms)))/&
                                         (dble(size(chainMesh%atoms))+1) * dble(size(chainMesh%atoms)-1)) + 1 
@@ -251,7 +251,7 @@ end function AtomEnergy
                                 call OMP_SET_LOCK(lockArray(atomIndex))
                                 S = makeVecNdCheck(S,dble(chainMesh%atoms(atomIndex)%AtomParameters))
                                 call OMP_UNSET_LOCK(lockArray(atomIndex))
-
+                                S_proposed = S
                                 call UniformRandomInSphere(S_proposed,rand,r)
                                 S_proposed = S_proposed + S
                                 S_proposed = S_proposed / abs(S_proposed)
@@ -280,9 +280,11 @@ end function AtomEnergy
 
 
                 end do
-                !$omp end do 
-
+                !$omp end do nowait
+                !$omp barrier
                 if (mod(MCScounter,demag_update_interval) == 0) then 
+                        print *, "MCS sweep ", MCScounter , "completed put of", numMCSSweeps
+                        
                         !$omp single
                         call calculate_demagnetisation_field(chainMesh,demagnetisation_array)
                         !$omp end single
