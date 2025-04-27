@@ -75,6 +75,29 @@ end function AtomEnergy
 
         end subroutine UniformRandomSpin 
 
+        subroutine UniformRandomInSphere(vec3d, rand, R)
+                type(vecNd_t), intent(out)   :: vec3d
+                type(random), intent(inout)  :: rand
+                real(kind=8), intent(in)     :: R
+                real(kind=8) :: theta, phi, u, r_lower
+                real(kind=8), parameter :: pi = 3.14159265358979323846
+                ! First pick a uniformly random direction on the unit sphere
+                u = 2.0_8*algor_uniform_random(rand) - 1.0_8
+                theta = acos(u)
+                phi = 2.0_8*pi*algor_uniform_random(rand)
+
+                ! Now pick radius with the r^2 weight built in
+                u = algor_uniform_random(rand)
+                r_lower = R * u**(1.0_8/3.0_8)
+
+                ! Combine into a point in the ball
+                vec3d%coords(1) = r_lower * sin(theta)*cos(phi)
+                vec3d%coords(2) = r_lower * sin(theta)*sin(phi)
+                vec3d%coords(3) = r_lower * cos(theta)
+        end subroutine UniformRandomInSphere
+
+
+
         subroutine GaussianStep(vec3d, rand, beta)
                 type(vecNd_t), intent(inout) :: vec3d 
                 type(random), intent(inout) :: rand 
@@ -170,6 +193,105 @@ end function AtomEnergy
                 ! Don't need to add magnetic field contributions again as they have already been added 
                 !call OMP_UNSET_LOCK(lockArray(atomIndex))
         end subroutine calculateHeisenbergEnergy
+
+
+        subroutine Metropolis_mcs(chainMesh, beta,numMCSSweeps, J, J_prime,  Dz, Dz_prime, B, r, lockArray, demagnetisation_array)
+                ! Each thread will randomly select an atom nsteps times and determine whether to flip the spin 
+                implicit none
+                type(ChainMesh_t), intent(inout) :: chainMesh 
+                real(kind=8), intent(in) :: beta, J, J_prime, Dz, Dz_prime, B, r
+                integer, intent(in) :: numMCSSweeps
+                integer(kind=OMP_LOCK_KIND), intent(inout) :: lockArray(:)
+                real(kind=8), dimension(:,:), allocatable, intent(inout) :: demagnetisation_array
+
+                type(random) :: rand 
+                integer :: threadID, time, i, atomIndex, numThreads
+                real(kind=8) :: rand_num, oldEnergy, newEnergy, P, Z  
+                type(vecNd_t) :: S, S_proposed
+                integer :: nsteps, MCScounter, demag_update_interval
+                real(kind=8), parameter :: pi = 3.14159265358979323846_8
+                if (allocated(demagnetisation_array)) then 
+                        if (any(shape(demagnetisation_array) /= [chainMesh%numAtoms,3])) then 
+                                deallocate(demagnetisation_array)
+                                allocate(demagnetisation_array(chainMesh%numAtoms,3))
+                        end if 
+                else 
+                        allocate(demagnetisation_array(chainMesh%numAtoms,3))
+                end if 
+
+                demag_update_interval = int((pi * sqrt(5.0_8)) / (2.0_8*r))
+                call calculate_demagnetisation_field(chainMesh,demagnetisation_array)
+
+                !$omp parallel default(private) firstprivate(nsteps,beta, J,J_prime, Dz,Dz_prime, B, r,& 
+                !$omp& demag_update_interval) & 
+                !$omp&  shared(chainMesh, lockArray, demagnetisation_array)
+                numThreads = omp_get_num_threads()
+                threadID = omp_get_thread_num()
+
+                call system_clock(time)
+                rand = makeRandom(time*threadID + modulo(threadID,time))
+
+                do i = 1,100
+                        rand_num = algor_uniform_random(rand) ! Warm up the generator
+                end do 
+                nsteps = chainMesh%numAtoms
+
+                do MCScounter = 1,numMCSSweeps
+
+
+
+
+
+                
+                !$omp do
+                do i = 1,nsteps / numThreads
+                                atomIndex = int((algor_uniform_random(rand)*dble(size(chainMesh%atoms)))/&
+                                        (dble(size(chainMesh%atoms))+1) * dble(size(chainMesh%atoms)-1)) + 1 
+                                ! Given atomIndex, propose a new spin then accept/reject based on the energy
+                                call OMP_SET_LOCK(lockArray(atomIndex))
+                                S = makeVecNdCheck(S,dble(chainMesh%atoms(atomIndex)%AtomParameters))
+                                call OMP_UNSET_LOCK(lockArray(atomIndex))
+
+                                call UniformRandomInSphere(S_proposed,rand,r)
+                                S_proposed = S_proposed + S
+                                S_proposed = S_proposed / abs(S_proposed)
+                                if (any(S_proposed%coords /= S_proposed%coords)) error stop "NaN in MetropolisMixed"
+                                if (any(S%coords /= S%coords)) error stop "NaN in MetropolisMixed"
+  
+                                call calculateHeisenbergEnergy(chainMesh,atomIndex,J,J_prime,Dz,Dz_prime,&
+                                        B,lockArray,S_proposed,oldEnergy,newEnergy,demagnetisation_array)
+                                if (newEnergy < oldEnergy) then 
+                                        Z = 1.0_8 
+                                else 
+                                        Z = exp(- beta * ((newEnergy - oldEnergy)))
+   
+
+                                end if
+                                p = algor_uniform_random(rand)
+                                if (z <= 0.6) then 
+                                !print *, "Z = ", Z, "New Energy - Old energy ", NewEnergy - OldEnergy, &
+                                !                NewEnergy, OldEnergy, "beta = ", beta
+                                end if
+                                if (Z >= p) then 
+                                        call OMP_SET_LOCK(lockArray(atomIndex))
+                                        chainMesh%atoms(atomIndex)%AtomParameters = S_proposed%coords
+                                        call OMP_UNSET_LOCK(lockArray(atomIndex))
+                                end if 
+
+
+                end do
+                !$omp end do 
+
+                if (mod(MCScounter,demag_update_interval) == 0) then 
+                        !$omp single
+                        call calculate_demagnetisation_field(chainMesh,demagnetisation_array)
+                        !$omp end single
+                end if 
+
+                end do 
+                !$omp end parallel 
+
+        end subroutine Metropolis_mcs
 
 
         subroutine MetropolisMixed(chainMesh, beta, nsteps, J, J_prime,  Dz, Dz_prime, B, lockArray, demagnetisation_array)

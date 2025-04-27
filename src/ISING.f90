@@ -133,8 +133,8 @@ program main
                 beta = 1.0_8 / (T)
                 !call calculate_demagnetisation_field(testMesh,demagnetisation_array)
                 call TotalHeisenbergEnergy(testMesh,J,J_prime,Dz,Dz_prime,B,lockArray,totalEnergy1)
-                call Metropolis_demag(testMesh,beta,numMetropolisSteps, numMetropolisStepsTotal,&
-                                                J,J_prime,Dz,Dz_prime,B, lockArray)
+                call Metropolis_mcs(testMesh,beta,numMetropolisSteps,&
+                                                J,J_prime,Dz,Dz_prime,B,0.2_8, lockArray,demagnetisation_array)
                 call TotalHeisenbergEnergy(testMesh,J,J_prime,Dz,Dz_prime,B,lockArray,totalEnergy2)
                 print *, "Delta E = ", totalEnergy2 - totalEnergy1, "T = ", T, "oldEnergy, newEnergy = ", totalEnergy1, totalEnergy2
                 if (mod(i,10) == 0) then 
