@@ -282,9 +282,7 @@ end function AtomEnergy
                 end do
                 !$omp end do nowait
                 !$omp barrier
-                if (mod(MCScounter,demag_update_interval) == 0) then 
-                        print *, "MCS sweep ", MCScounter , "completed put of", numMCSSweeps
-                        
+                if (mod(MCScounter,demag_update_interval) == 0) then                         
                         !$omp single
                         call calculate_demagnetisation_field(chainMesh,demagnetisation_array)
                         !$omp end single
