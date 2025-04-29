@@ -11,7 +11,7 @@
 
 # Compiler settings
 FC = gfortran
-FCFLAGS =  -I/usr/include -Wno-line-truncation -fopenmp -O3
+FCFLAGS =  -I/usr/include -Wno-line-truncation -fopenmp -g -O3 -march=native
 MODDIR = -J./obj
 INCDIR = -I./obj 
 
