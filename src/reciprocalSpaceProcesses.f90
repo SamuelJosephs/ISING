@@ -225,6 +225,7 @@ module reciprocal_space_processes
         end subroutine calculate_demagnetisation_field
 
         subroutine calculate_magnetisation_gradient(chainMesh, outputArray)
+                implicit none
                 type(chainMesh_t), intent(inout) :: chainMesh 
                 real(kind=8), allocatable, dimension(:,:,:), intent(out) :: outputArray
                 integer :: N,L,M, stat, i, j, k , waveIndexX, waveIndexY, waveIndexZ
@@ -256,7 +257,7 @@ module reciprocal_space_processes
                                 allocate(outputArray(chainMesh%numAtoms,3,3))
                         end if 
                 else 
-                        allocate(outputArray(numAtoms,3,3))
+                        allocate(outputArray(chainMesh%numAtoms,3,3))
                 end if 
                 allocate(tempArray(chainMesh%numAtoms,3))
                 scaleFactorX = real(2.0_08,C_DOUBLE) * real(3.14159265358979323846_08, C_DOUBLE) / & !2 pi / N is
