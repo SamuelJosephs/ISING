@@ -32,7 +32,7 @@ program main
         character(len=90) :: filepath_output
 
         real(kind=8), allocatable, dimension(:,:) :: demagnetisation_array
-
+        real(kind=8), allocatable, dimension(:,:,:) :: test_grad_array
         
         fftw_status = fftw_init_threads()
         if (fftw_status == 0) error stop "Error initialising fftw threads"
@@ -136,6 +136,7 @@ program main
                 call Metropolis_mcs(testMesh,beta,numMetropolisSteps,&
                                                 J,J_prime,Dz,Dz_prime,B,0.2_8, lockArray,demagnetisation_array)
                 call TotalHeisenbergEnergy(testMesh,J,J_prime,Dz,Dz_prime,B,lockArray,totalEnergy2)
+                call calculate_magnetisation_gradient(testMesh,test_grad_array)
                 print *, "Delta E = ", totalEnergy2 - totalEnergy1, "T = ", T, "oldEnergy, newEnergy = ", totalEnergy1, totalEnergy2
                 if (mod(i,10) == 0) then 
                         write(frame_filename, '(A,A,I5.5,A)') trim(output_dir), "/frame_", counter-1, ".csv"

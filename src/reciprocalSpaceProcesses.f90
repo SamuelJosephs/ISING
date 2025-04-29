@@ -225,6 +225,8 @@ module reciprocal_space_processes
         end subroutine calculate_demagnetisation_field
 
         subroutine calculate_magnetisation_gradient(chainMesh, outputArray)
+                ! outputArray contains the gradient of M, with output(atomIndex,i,j) returning 
+                ! partial_i M_j for the specified atom index
                 implicit none
                 type(chainMesh_t), intent(inout) :: chainMesh 
                 real(kind=8), allocatable, dimension(:,:,:), intent(out) :: outputArray
@@ -322,7 +324,7 @@ module reciprocal_space_processes
                         chainMesh%fft_array_z = chainMesh%fft_array_z / (N*L*M)
                         call interpolate_fft_to_atoms(chainMesh,tempArray)
                         
-                        outputArray(:,d,:) = tempArray(:,:)
+                        outputArray(:,:,d) = tempArray(:,:)
                         
                         
                         
