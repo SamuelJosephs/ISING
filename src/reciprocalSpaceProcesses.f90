@@ -223,4 +223,116 @@ module reciprocal_space_processes
                 elapsed_time = real(endClock - startClock, C_DOUBLE) / real(clockRate, C_DOUBLE)
                 print *, "Computed demag field in ", elapsed_time, "seconds"
         end subroutine calculate_demagnetisation_field
+
+        subroutine calculate_magnetisation_gradient(chainMesh, outputArray)
+                type(chainMesh_t), intent(inout) :: chainMesh 
+                real(kind=8), allocatable, dimension(:,:,:), intent(out) :: outputArray
+                integer :: N,L,M, stat, i, j, k , waveIndexX, waveIndexY, waveIndexZ
+                complex(kind=C_DOUBLE_COMPLEX) :: kx, ky, kz, displacement_phase
+                real(kind=C_DOUBLE) :: scaleFactorX, scaleFactorY, scaleFactorZ, displacement_vector
+                complex(kind = C_DOUBLE_COMPLEX) :: Mx, My, Mz, kdotM, k_squared
+
+                integer :: startClock, endClock, clockRate, d, atomIndex, stat1, stat2, stat3  
+                real(kind = C_DOUBLE) :: elapsed_time
+                complex(kind = C_DOUBLE_COMPLEX), dimension(3) :: k_array
+                real(kind=8), allocatable, dimension(:,:) :: tempArray
+                complex(kind=C_DOUBLE_COMPLEX), allocatable, dimension(:,:,:) :: temp_x, temp_y, temp_z
+                call system_clock(startClock, clockRate)
+
+                
+                displacement_vector = chainMesh%latticeParameter / 2.0_8
+                N = chainMesh%numCellsX 
+                L = chainMesh%numCellsY 
+                M = chainMesh%numcellsZ 
+                allocate(temp_x(N/2 + 1, L, M), stat=stat1)
+                allocate(temp_y(N/2 + 1, L, M), stat=stat2)
+                allocate(temp_z(N/2 + 1, L, M), stat=stat3)
+
+                if(any([stat1,stat2,stat3] /= 0)) error stop "Failed to allocate temporary reciprocal space buffers"
+
+                if (allocated(outputArray)) then 
+                        if (any(shape(outputArray) /= [chainMesh%numAtoms,3,3])) then 
+                                deallocate(outputArray)
+                                allocate(outputArray(chainMesh%numAtoms,3,3))
+                        end if 
+                else 
+                        allocate(outputArray(numAtoms,3,3))
+                end if 
+                allocate(tempArray(chainMesh%numAtoms,3))
+                scaleFactorX = real(2.0_08,C_DOUBLE) * real(3.14159265358979323846_08, C_DOUBLE) / & !2 pi / N is
+                                        real(N,C_DOUBLE)                               ! used to
+                                                                                       ! calculate k values         
+                                        
+
+                scaleFactorY = real(2.0,C_DOUBLE) * real(3.14159265358979323846, C_DOUBLE) / &
+                                        real(L,C_DOUBLE)
+
+                scaleFactorZ = real(2.0_08,C_DOUBLE) * real(3.14159265358979323846, C_DOUBLE) / &
+                                        real(M,C_DOUBLE)
+
+
+                call interpolate_to_fft_array(chainMesh) ! interpolates the spins to a grid 
+                call fft_forward_chainMesh(chainMesh) ! FFT's these internal chainmesh grids for x,y,z 
+                
+                temp_x = chainMesh%fft_c_view_x
+                temp_y = chainMesh%fft_c_view_y
+                temp_z = chainMesh%fft_c_view_z
+                ! Now process data using the complex array view into the in place fft array 
+                do d = 1,3 
+
+                        do i = 1, N/2 + 1
+                                waveIndexX = i-1
+                                kx = scaleFactorX*(waveIndexX)
+                                do j = 1,L
+                                        waveIndexY = j-1
+                                        if (waveIndexY <= L/2)  then 
+                                                ky = scaleFactorY*waveIndexY
+
+                                        else  
+                                                ky = scaleFactorY*(waveIndexY-L)
+                                        end if 
+                                        do k = 1,M 
+                                            waveIndexZ = k-1
+                                            if (waveIndexZ <= M/2) then 
+                                                kz = scaleFactorZ*waveIndexZ
+                                            else  
+                                                kz = scaleFactorZ*(waveIndexZ - M)
+                                            end if  
+                                            
+                                            k_array = [kx,ky,kz]
+                                            displacement_phase = exp(-cmplx(0.0_8,1.0_8) * (kx + ky + kz)*displacement_vector)
+                                            Mx = temp_x(i,j,k)
+                                            My = temp_y(i,j,k)
+                                            Mz = temp_z(i,j,k)
+                                            ! gradient is given by i k_d M_j where d and j are indices
+                                            chainMesh%fft_c_view_x(i,j,k) = cmplx(0.0,1.0,C_DOUBLE_COMPLEX)*displacement_phase*k_array(d)*Mx
+                                            chainMesh%fft_c_view_y(i,j,k) = cmplx(0.0,1.0,C_DOUBLE_COMPLEX)*displacement_phase*k_array(d)*My 
+                                            chainMesh%fft_c_view_z(i,j,k) = cmplx(0.0,1.0,C_DOUBLE_COMPLEX)*displacement_phase*k_array(d)*Mz
+
+
+
+                                        end do 
+                                end do 
+                        end do 
+                        
+                        call fft_backwards_chainMesh(chainMesh)
+                        chainMesh%fft_array_x = chainMesh%fft_array_x / (N*L*M)
+                        chainMesh%fft_array_y = chainMesh%fft_array_y / (N*L*M)
+                        chainMesh%fft_array_z = chainMesh%fft_array_z / (N*L*M)
+                        call interpolate_fft_to_atoms(chainMesh,tempArray)
+                        
+                        outputArray(:,d,:) = tempArray(:,:)
+                        
+                        
+                        
+
+                end do 
+                
+
+                call system_clock(endClock, clockRate)
+                elapsed_time = real(endClock - startClock, C_DOUBLE) / real(clockRate, C_DOUBLE)
+                print *, "Computed magnetisation gradient in ", elapsed_time, "seconds"
+        end subroutine calculate_magnetisation_gradient 
+
+
 end module reciprocal_space_processes 
