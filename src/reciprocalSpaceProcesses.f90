@@ -1,6 +1,7 @@
 module reciprocal_space_processes 
         use chainMesh 
         use vecNd
+        use constants
         use, intrinsic :: iso_c_binding 
         !include 'fftw3.f03' !This is included in chainMesh, annoying I would like header files with #pragma once
         
@@ -227,6 +228,7 @@ module reciprocal_space_processes
         subroutine calculate_magnetisation_gradient(chainMesh, outputArray)
                 ! outputArray contains the gradient of M, with output(atomIndex,i,j) returning 
                 ! partial_i M_j for the specified atom index
+                ! This routine was not optimised to be called in a loop so do so at your own performance peril.
                 implicit none
                 type(chainMesh_t), intent(inout) :: chainMesh 
                 real(kind=8), allocatable, dimension(:,:,:), intent(out) :: outputArray
@@ -280,7 +282,6 @@ module reciprocal_space_processes
                 temp_x = chainMesh%fft_c_view_x
                 temp_y = chainMesh%fft_c_view_y
                 temp_z = chainMesh%fft_c_view_z
-                ! Now process data using the complex array view into the in place fft array 
                 do d = 1,3 
 
                         do i = 1, N/2 + 1
@@ -337,5 +338,41 @@ module reciprocal_space_processes
                 print *, "Computed magnetisation gradient in ", elapsed_time, "seconds"
         end subroutine calculate_magnetisation_gradient 
 
+        function calculate_winding_number(chainMesh) result(winding_number)
+                implicit none
+                type(ChainMesh_t), intent(inout) :: chainMesh 
+                real(kind=8) :: winding_number 
 
+                real(kind=8), allocatable, dimension(:,:,:) :: grad_array 
+                real(kind = 8) :: acc 
+                integer :: Z_index, numCellsX, numCellsY, numCellsZ, iCell, jCell, i,j, atomIndex, chainCellIndex
+                type(vecNd_t) :: spin, spin_grad_x, spin_grad_y  
+                call calculate_magnetisation_gradient(chainMesh,grad_array)
+
+                ! For now we will just calculate it at Z = numCellsZ / 2 
+                numCellsZ = chainMesh%numCellsZ 
+                numCellsX = chainMesh%numCellsX 
+                numCellsY = chainMesh%numCellsY
+                Z_index = numCellsZ / 2 
+                
+                acc = 0.0_08
+                do i = 1, numCellsX 
+                        do j = 1,numCellsY 
+                                chainCellIndex = IndexFromCoordinates(chainMesh,i,j,Z_index)
+                                atomIndex = chainMesh%chainMeshCells(chainCellIndex)%firstAtomInMeshCell
+                                spin = makeVecNdCheck(spin,dble(chainMesh%atoms(atomIndex)%AtomParameters))
+                                spin_grad_x = makeVecNdCheck(spin_grad_x,[grad_array(atomIndex,1,1), & ! x derivative 
+                                                                                grad_array(atomIndex,2,1), & 
+                                                                                        grad_array(atomIndex,3,1)])
+                                spin_grad_y = makeVecNdCheck(spin_grad_y,[grad_array(atomIndex,1,2), & ! y derivative 
+                                                                                grad_array(atomIndex,2,2), &
+                                                                                        grad_array(atomIndex,3,2)])
+
+                                acc = acc + spin * (spin_grad_x .x. spin_grad_y)
+                        end do 
+                end do 
+                acc = acc * chainMesh%latticeParameter * chainMesh%latticeParameter ! dx*dy 
+                acc = acc / (4*pi)
+                winding_number = acc
+        end function calculate_winding_number
 end module reciprocal_space_processes 
