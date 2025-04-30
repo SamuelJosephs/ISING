@@ -222,7 +222,6 @@ module reciprocal_space_processes
                 call interpolate_fft_to_atoms(chainMesh,outputArray)
                 call system_clock(endClock, clockRate)
                 elapsed_time = real(endClock - startClock, C_DOUBLE) / real(clockRate, C_DOUBLE)
-                print *, "Computed demag field in ", elapsed_time, "seconds"
         end subroutine calculate_demagnetisation_field
 
         subroutine calculate_magnetisation_gradient(chainMesh, outputArray)
@@ -335,7 +334,6 @@ module reciprocal_space_processes
 
                 call system_clock(endClock, clockRate)
                 elapsed_time = real(endClock - startClock, C_DOUBLE) / real(clockRate, C_DOUBLE)
-                print *, "Computed magnetisation gradient in ", elapsed_time, "seconds"
         end subroutine calculate_magnetisation_gradient 
 
         function calculate_winding_number(chainMesh) result(winding_number)

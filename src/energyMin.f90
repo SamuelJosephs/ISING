@@ -225,7 +225,6 @@ end function AtomEnergy
                 !$omp parallel default(private) & 
                 !$omp& firstprivate(nsteps,beta, J,J_prime, Dz,Dz_prime, B, r, demag_update_interval, numMCSSweeps) & 
                 !$omp&  shared(chainMesh, lockArray, demagnetisation_array)
-                print *, "demag_update_interval", demag_update_interval
                 numThreads = omp_get_num_threads()
                 threadID = omp_get_thread_num()
 

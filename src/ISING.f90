@@ -26,7 +26,8 @@ program main
         real(kind=8) :: H_field(3)
 
         ! Metropolis parameters 
-        real(kind=8) :: betaMin, betaMax, beta, J, J_prime,Dz, Dz_prime, B, tempReal, T, Tmax, Tmin  
+        real(kind=8) :: betaMin, betaMax, beta, J, J_prime,Dz, Dz_prime, B, tempReal, T, Tmax, Tmin
+        real(kind = 8) :: winding_number 
         integer(kind=OMP_LOCK_KIND), allocatable :: lockArray(:) 
         integer :: numBetaSteps, fftw_status
         character(len=90) :: filepath_output
@@ -136,7 +137,8 @@ program main
                 call Metropolis_mcs(testMesh,beta,numMetropolisSteps,&
                                                 J,J_prime,Dz,Dz_prime,B,0.2_8, lockArray,demagnetisation_array)
                 call TotalHeisenbergEnergy(testMesh,J,J_prime,Dz,Dz_prime,B,lockArray,totalEnergy2)
-                call calculate_magnetisation_gradient(testMesh,test_grad_array)
+                winding_number = calculate_winding_number(testMesh)
+                print *, "Winding number = ", winding_number
                 print *, "Delta E = ", totalEnergy2 - totalEnergy1, "T = ", T, "oldEnergy, newEnergy = ", totalEnergy1, totalEnergy2
                 if (mod(i,10) == 0) then 
                         write(frame_filename, '(A,A,I5.5,A)') trim(output_dir), "/frame_", counter-1, ".csv"
