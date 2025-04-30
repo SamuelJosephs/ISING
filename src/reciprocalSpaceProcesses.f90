@@ -308,9 +308,12 @@ module reciprocal_space_processes
                                             My = temp_y(i,j,k)
                                             Mz = temp_z(i,j,k)
                                             ! gradient is given by i k_d M_j where d and j are indices
-                                            chainMesh%fft_c_view_x(i,j,k) = cmplx(0.0,1.0,C_DOUBLE_COMPLEX)*displacement_phase*k_array(d)*Mx
-                                            chainMesh%fft_c_view_y(i,j,k) = cmplx(0.0,1.0,C_DOUBLE_COMPLEX)*displacement_phase*k_array(d)*My 
-                                            chainMesh%fft_c_view_z(i,j,k) = cmplx(0.0,1.0,C_DOUBLE_COMPLEX)*displacement_phase*k_array(d)*Mz
+                                            chainMesh%fft_c_view_x(i,j,k) = cmplx(0.0,1.0,C_DOUBLE_COMPLEX)*&
+                                                                        displacement_phase*k_array(d)*Mx
+                                            chainMesh%fft_c_view_y(i,j,k) = cmplx(0.0,1.0,C_DOUBLE_COMPLEX)*&
+                                                                        displacement_phase*k_array(d)*My 
+                                            chainMesh%fft_c_view_z(i,j,k) = cmplx(0.0,1.0,C_DOUBLE_COMPLEX)*&
+                                                                        displacement_phase*k_array(d)*Mz
 
 
 
