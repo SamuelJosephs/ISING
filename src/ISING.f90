@@ -27,7 +27,8 @@ program main
 
         ! Metropolis parameters 
         real(kind=8) :: betaMin, betaMax, beta, J, J_prime,Dz, Dz_prime, B, tempReal, T, Tmax, Tmin
-        real(kind = 8) :: winding_number 
+        real(kind = 8) :: winding_number_middle, winding_number_bottom, winding_number_top, winding_number_2
+        real(kind=8), dimension(3) :: winding_number_array
         integer(kind=OMP_LOCK_KIND), allocatable :: lockArray(:) 
         integer :: numBetaSteps, fftw_status
         character(len=90) :: filepath_output
@@ -115,8 +116,8 @@ program main
         total_time = 30.0d0
         num_frames = 0
         numMetropolisStepsTotal = 220000
-        numMetropolisSteps = 1000
-        numBetaSteps = 500
+        numMetropolisSteps = 800
+        numBetaSteps = 100
         
         ! Main evolution loop
         p => H_eff_Heisenberg
@@ -129,7 +130,7 @@ program main
         do i = 0,numBetaSteps
                 Tmax = 10.0_8 
                 !Tmin = 0.1*(0.76*8*J)/(3*Kb)
-                Tmin = 0.001_8
+                Tmin = 0.0001_8
                 T = Tmax - (Tmax - Tmin)*(dble(i)/dble(numBetaSteps)) 
                 beta = 1.0_8 / (T)
                 !call calculate_demagnetisation_field(testMesh,demagnetisation_array)
@@ -137,8 +138,13 @@ program main
                 call Metropolis_mcs(testMesh,beta,numMetropolisSteps,&
                                                 J,J_prime,Dz,Dz_prime,B,0.2_8, lockArray,demagnetisation_array)
                 call TotalHeisenbergEnergy(testMesh,J,J_prime,Dz,Dz_prime,B,lockArray,totalEnergy2)
-                winding_number = calculate_winding_number(testMesh)
-                print *, "Winding number = ", winding_number
+                winding_number_middle = calculate_winding_number(testMesh,testMesh%numCellsZ/2)
+                winding_number_bottom = calculate_winding_number(testMesh,1)
+                winding_number_top = calculate_winding_number(testMesh,testMesh%numCellsZ)
+                winding_number_array = [winding_number_bottom, winding_number_middle, winding_number_top]
+                print *, "Winding Numbers = ", winding_number_array 
+                print *, "Range of winding numbers = ", maxval(winding_number_array) - minval(winding_number_array)
+
                 print *, "Delta E = ", totalEnergy2 - totalEnergy1, "T = ", T, "oldEnergy, newEnergy = ", totalEnergy1, totalEnergy2
                 if (mod(i,10) == 0) then 
                         write(frame_filename, '(A,A,I5.5,A)') trim(output_dir), "/frame_", counter-1, ".csv"

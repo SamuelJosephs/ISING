@@ -339,14 +339,15 @@ module reciprocal_space_processes
                 elapsed_time = real(endClock - startClock, C_DOUBLE) / real(clockRate, C_DOUBLE)
         end subroutine calculate_magnetisation_gradient 
 
-        function calculate_winding_number(chainMesh) result(winding_number)
+        function calculate_winding_number(chainMesh,Z_index) result(winding_number)
                 implicit none
                 type(ChainMesh_t), intent(inout) :: chainMesh 
+                integer, intent(in) :: Z_index
                 real(kind=8) :: winding_number 
 
                 real(kind=8), allocatable, dimension(:,:,:) :: grad_array 
                 real(kind = 8) :: acc 
-                integer :: Z_index, numCellsX, numCellsY, numCellsZ, iCell, jCell, i,j, atomIndex, chainCellIndex
+                integer :: numCellsX, numCellsY, numCellsZ, iCell, jCell, i,j, atomIndex, chainCellIndex
                 type(vecNd_t) :: spin, spin_grad_x, spin_grad_y  
                 call calculate_magnetisation_gradient(chainMesh,grad_array)
 
@@ -354,8 +355,7 @@ module reciprocal_space_processes
                 numCellsZ = chainMesh%numCellsZ 
                 numCellsX = chainMesh%numCellsX 
                 numCellsY = chainMesh%numCellsY
-                Z_index = numCellsZ / 2 
-                
+                if (Z_index < 1 .or. Z_index > chainMesh%numCellsZ) error stop "Z index out of range"                
                 acc = 0.0_08
                 do i = 1, numCellsX 
                         do j = 1,numCellsY 
