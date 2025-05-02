@@ -138,9 +138,9 @@ program main
                 call Metropolis_mcs(testMesh,beta,numMetropolisSteps,&
                                                 J,J_prime,Dz,Dz_prime,B,0.2_8, lockArray,demagnetisation_array)
                 call TotalHeisenbergEnergy(testMesh,J,J_prime,Dz,Dz_prime,B,lockArray,totalEnergy2)
-                winding_number_middle = calculate_winding_number(testMesh,testMesh%numCellsZ/2)
-                winding_number_bottom = calculate_winding_number(testMesh,1)
-                winding_number_top = calculate_winding_number(testMesh,testMesh%numCellsZ)
+                winding_number_middle = calculate_winding_number2(testMesh,testMesh%numCellsZ/2)
+                winding_number_bottom = calculate_winding_number2(testMesh,1)
+                winding_number_top = calculate_winding_number2(testMesh,testMesh%numCellsZ)
                 winding_number_array = [winding_number_bottom, winding_number_middle, winding_number_top]
                 print *, "Winding Numbers = ", winding_number_array 
                 print *, "Range of winding numbers = ", maxval(winding_number_array) - minval(winding_number_array)

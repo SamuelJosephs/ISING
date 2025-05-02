@@ -28,7 +28,7 @@ module vecNd
 
         interface assignment(=)
                 module procedure vecNDINIT
-
+                module procedure VECNdINIT_array
         end interface
         
         interface operator(/)
@@ -463,4 +463,26 @@ module vecNd
                 return
                 
         end subroutine vecNDINIT
+
+        subroutine vecNdINIT_array(lhs,rhs) ! input1 = input2
+                type(vecNd_t), intent(inout) :: lhs
+                real(kind=8), intent(in) :: rhs(:) 
+                if (allocated(lhs%coords)) then 
+                        if (size(lhs%coords) == size(rhs)) then 
+                                lhs%coords = rhs 
+                                return 
+                        else 
+                                deallocate(lhs%coords)
+                                allocate(lhs%coords(size(rhs)))
+                                lhs%coords = rhs 
+                                return 
+                        end if
+
+                end if
+                allocate(lhs%coords(size(rhs)))
+
+                lhs%coords = rhs
+                return
+                
+        end subroutine vecNdINIT_array 
 end module vecNd
