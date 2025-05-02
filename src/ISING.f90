@@ -8,6 +8,7 @@ program main
         use EnergyMin
         use reciprocal_space_processes
         use constants, only: Kb, gyromagnetic_ratio, bohr_magneton
+        use iso_fortran_env, only : output_unit
         implicit none
         integer :: numCellsX, numCellsY, numCellsZ, i, skyrmion_type, frame, num_frames, numMetropolisStepsTotal, numMetropolisSteps
         type(ChainMesh_t) :: testMesh
@@ -153,6 +154,7 @@ program main
                         
                         counter = counter + 1
                 end if 
+                call flush(output_unit)
                 
         end do 
         print *, "Completed Mixed Metropolis, beggining Heun evolution"
