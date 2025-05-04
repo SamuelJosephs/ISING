@@ -28,7 +28,7 @@ program main
 
         ! Metropolis parameters 
         real(kind=8) :: betaMin, betaMax, beta, J, J_prime,Dz, Dz_prime, B, tempReal, T, Tmax, Tmin
-        real(kind = 8) :: winding_number_middle, winding_number_bottom, winding_number_top, winding_number_2
+        real(kind=8) :: winding_number_middle, winding_number_bottom, winding_number_top, winding_number_2
         real(kind=8), dimension(3) :: winding_number_array
         integer(kind=OMP_LOCK_KIND), allocatable :: lockArray(:) 
         integer :: numBetaSteps, fftw_status
@@ -91,8 +91,13 @@ program main
         skyrmion_radius = 1.0_8*testMesh%latticeParameter 
         
         ! Initialize the skyrmion
-        !call initialise_skyrmion_sp(testMesh, skyrmion_center, skyrmion_radius,3.12_8/2.0_08,1)
+        call initialise_skyrmion_sp(testMesh, skyrmion_center, skyrmion_radius,3.12_8/2.0_08,3)
+        winding_number_middle = calculate_winding_number2(testMesh,testMesh%numCellsZ / 2)
+        print *, "Test winding number = ", winding_number_middle 
+        print *, "*************************************"
         !call initialise_skyrmion_sp(testMesh, skyrmion_center, skyrmion_radius,0.0_08,1)
+
+        
         do i = 1, size(testMesh%atoms)
                 if (any(testMesh%atoms(i)%AtomParameters /= testMesh%atoms(i)%AtomParameters)) then 
                         print *, "atom ", i, " has atom parameters ", testMesh%atoms(i)%AtomParameters

@@ -377,13 +377,27 @@ module reciprocal_space_processes
                 winding_number = acc
         end function calculate_winding_number
 
+        function arc_winding(s1,s2,s3) result(sigma_area)
+                implicit none
+                type(vecNd_t), intent(in) :: s1, s2, s3
+                real(kind=8) :: sigma_area, denominator
+                complex(kind=8) :: num, numerator
+
+                
+                denominator = sqrt(2*(1 + s1*s2)*(1 + s2*s3)*(1+s3*s1))
+                numerator = 1 + s1*s2 + s2*s3 + s3*s1 + cmplx(0.0_8,s1*(s2 .x. s3))
+                num = numerator / denominator
+
+                sigma_area = 2*atan2(aimag(num),real(num))
+        end function arc_winding
+
         function calculate_winding_number2(chainMesh,Z_index) result(winding_number)
                 implicit none
                 type(ChainMesh_t), intent(inout) :: chainMesh 
                 integer, intent(in) :: Z_index
                 real(kind=8) :: winding_number 
                 
-                integer :: i, j
+                integer :: i, j, i_index, j_index
                 complex(kind=8) :: num1, num2, numerator1, numerator2  
                 type(VecNd_t) :: s1, s2, s3, s4
                 real(kind=8) :: x1,x2_1,x2_2,x3,y1,y2_1,y2_2,y3,z1,z2_1,z2_2,z3
@@ -394,22 +408,34 @@ module reciprocal_space_processes
                 num2 = 0.0_8
                 call interpolate_to_fft_array(chainMesh)
 
-                do i = 1, chainMesh%numCellsX - 1 
-                        do j = 1, chainMesh%numCellsY - 1
+                do i = 1, chainMesh%numCellsX
+                        do j = 1, chainMesh%numCellsY
+
+                                if (i == chainMesh%numCellsX) then 
+                                        i_index = 1 
+                                else 
+                                        i_index = i + 1 
+                                end if
+
+                                if (j == chainMesh%numCellsY) then 
+                                        j_index = 1 
+                                else 
+                                        j_index = j + 1 
+                                end if 
                                x1 = chainMesh%fft_array_x(i,j,Z_index)  
-                               x2_1 = chainMesh%fft_array_x(i,j+1,Z_index)
-                               x2_2 = chainMesh%fft_array_x(i+1,j,Z_index)
-                               x3 = chainMesh%fft_array_x(i+1,j+1,Z_index)
+                               x2_1 = chainMesh%fft_array_x(i,j_index,Z_index)
+                               x2_2 = chainMesh%fft_array_x(i_index,j,Z_index)
+                               x3 = chainMesh%fft_array_x(i_index,j_index,Z_index)
 
                                y1 = chainMesh%fft_array_y(i,j,Z_index)  
-                               y2_1 = chainMesh%fft_array_y(i,j+1,Z_index)
-                               y2_2 = chainMesh%fft_array_y(i+1,j,Z_index)
-                               y3 = chainMesh%fft_array_y(i+1,j+1,Z_index)
+                               y2_1 = chainMesh%fft_array_y(i,j_index,Z_index)
+                               y2_2 = chainMesh%fft_array_y(i_index,j,Z_index)
+                               y3 = chainMesh%fft_array_y(i_index,j_index,Z_index)
 
                                z1 = chainMesh%fft_array_z(i,j,Z_index)  
-                               z2_1 = chainMesh%fft_array_z(i,j+1,Z_index)
-                               z2_2 = chainMesh%fft_array_z(i+1,j,Z_index)
-                               z3 = chainMesh%fft_array_z(i+1,j+1,Z_index)
+                               z2_1 = chainMesh%fft_array_z(i,j_index,Z_index)
+                               z2_2 = chainMesh%fft_array_z(i_index,j,Z_index)
+                               z3 = chainMesh%fft_array_z(i_index,j_index,Z_index)
 
                                s1 = [x1,y1,z1]
                                s2 = [x2_1,y2_1,z2_1]
@@ -420,21 +446,24 @@ module reciprocal_space_processes
                                s2 = s2 / abs(s2)
                                s3 = s3 / abs(s3) 
                                s4 = s4 / abs(s4)
-                               denominator1 = sqrt(2*(1 + s1*s2)*(1 + s2*s4)*(1+s4*s1))
-                               denominator2 = sqrt(2*(1 + s1*s3)*(1 + s3*s4)*(1+s4*s1))
+                        !        denominator1 = sqrt(2*(1 + s1*s2)*(1 + s2*s4)*(1+s4*s1))
+                        !        denominator2 = sqrt(2*(1 + s1*s3)*(1 + s3*s4)*(1+s4*s1))
 
-                               numerator1 = 1 + s1*s2 + s2*s4 + s4*s1 + cmplx(0.0_8,s1*(s2 .x. s4))
-                               numerator2 = 1 + s1*s3 + s3*s4 + s4*s1 + cmplx(0.0_8,s1*(s3 .x. s4))
+                        !        numerator1 = 1 + s1*s2 + s2*s4 + s4*s1 + cmplx(0.0_8,s1*(s2 .x. s4))
+                        !        numerator2 = 1 + s1*s3 + s3*s4 + s4*s1 + cmplx(0.0_8,s1*(s3 .x. s4))
 
-                               num1 = numerator1 / denominator1 
-                               num2 = numerator2 / denominator2
+                        !        num1 = numerator1 / denominator1 
+                        !        num2 = numerator2 / denominator2
 
-                               arg1 = atan2(aimag(num1),real(num1))
-                               arg2 = atan2(aimag(num2),real(num2))
+                        !        arg1 = atan2(aimag(num1),real(num1))
+                        !        arg2 = atan2(aimag(num2),real(num2))
 
                                
-                               sigma1_area1 = 2*arg1
-                               sigma2_area2 = 2*arg2
+                        !        sigma1_area1 = 2*arg1
+                        !        sigma2_area2 = 2*arg2
+
+                                sigma1_area1 = arc_winding(s1,s2,s4)
+                                sigma2_area2 = arc_winding(s1,s4,s3)
                                
                                winding_number = winding_number + sigma1_area1 + sigma2_area2 
                         end do 
