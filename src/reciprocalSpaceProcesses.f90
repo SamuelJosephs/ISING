@@ -446,28 +446,86 @@ module reciprocal_space_processes
                                s2 = s2 / abs(s2)
                                s3 = s3 / abs(s3) 
                                s4 = s4 / abs(s4)
-                        !        denominator1 = sqrt(2*(1 + s1*s2)*(1 + s2*s4)*(1+s4*s1))
-                        !        denominator2 = sqrt(2*(1 + s1*s3)*(1 + s3*s4)*(1+s4*s1))
-
-                        !        numerator1 = 1 + s1*s2 + s2*s4 + s4*s1 + cmplx(0.0_8,s1*(s2 .x. s4))
-                        !        numerator2 = 1 + s1*s3 + s3*s4 + s4*s1 + cmplx(0.0_8,s1*(s3 .x. s4))
-
-                        !        num1 = numerator1 / denominator1 
-                        !        num2 = numerator2 / denominator2
-
-                        !        arg1 = atan2(aimag(num1),real(num1))
-                        !        arg2 = atan2(aimag(num2),real(num2))
-
-                               
-                        !        sigma1_area1 = 2*arg1
-                        !        sigma2_area2 = 2*arg2
-
-                                sigma1_area1 = arc_winding(s1,s2,s4)
-                                sigma2_area2 = arc_winding(s1,s4,s3)
+                               sigma1_area1 = arc_winding(s1,s2,s4)
+                               sigma2_area2 = arc_winding(s1,s4,s3)
                                
                                winding_number = winding_number + sigma1_area1 + sigma2_area2 
                         end do 
                 end do 
                 winding_number = winding_number / (4*pi)
         end function calculate_winding_number2
+
+
+        subroutine calculate_winding_number_density(chainMesh,Z_index, density_matrix)
+                implicit none
+                type(ChainMesh_t), intent(inout) :: chainMesh 
+                integer, intent(in) :: Z_index
+                real(kind=8), dimension(:,:), allocatable, intent(inout) :: density_matrix 
+                
+                integer :: i, j, i_index, j_index, N, L 
+                type(VecNd_t) :: s1, s2, s3, s4
+                real(kind=8) :: x1,x2_1,x2_2,x3,y1,y2_1,y2_2,y3,z1,z2_1,z2_2,z3
+                real(kind=8) :: sigma1_area1, sigma2_area2
+
+                N = chainMesh%numCellsX 
+                L = chainMesh%numcellsY 
+
+                if (allocated(density_matrix)) then 
+                        if (any(shape(density_matrix) /= [N,L])) then 
+                                deallocate(density_matrix)
+                                allocate(density_matrix(N,L))
+                        end if 
+                else 
+                        allocate(density_matrix(N,L))
+                end if
+                density_matrix(:,:) = 0.0_8
+
+                call interpolate_to_fft_array(chainMesh)
+
+                do i = 1, chainMesh%numCellsX
+                        do j = 1, chainMesh%numCellsY
+
+                                if (i == chainMesh%numCellsX) then 
+                                        i_index = 1 
+                                else 
+                                        i_index = i + 1 
+                                end if
+
+                                if (j == chainMesh%numCellsY) then 
+                                        j_index = 1 
+                                else 
+                                        j_index = j + 1 
+                                end if 
+                               x1 = chainMesh%fft_array_x(i,j,Z_index)  
+                               x2_1 = chainMesh%fft_array_x(i,j_index,Z_index)
+                               x2_2 = chainMesh%fft_array_x(i_index,j,Z_index)
+                               x3 = chainMesh%fft_array_x(i_index,j_index,Z_index)
+
+                               y1 = chainMesh%fft_array_y(i,j,Z_index)  
+                               y2_1 = chainMesh%fft_array_y(i,j_index,Z_index)
+                               y2_2 = chainMesh%fft_array_y(i_index,j,Z_index)
+                               y3 = chainMesh%fft_array_y(i_index,j_index,Z_index)
+
+                               z1 = chainMesh%fft_array_z(i,j,Z_index)  
+                               z2_1 = chainMesh%fft_array_z(i,j_index,Z_index)
+                               z2_2 = chainMesh%fft_array_z(i_index,j,Z_index)
+                               z3 = chainMesh%fft_array_z(i_index,j_index,Z_index)
+
+                               s1 = [x1,y1,z1]
+                               s2 = [x2_1,y2_1,z2_1]
+                               s3 = [x2_2,y2_2,z2_2] 
+                               s4 = [x3,y3,z3]
+
+                               s1 = s1 / abs(s1)
+                               s2 = s2 / abs(s2)
+                               s3 = s3 / abs(s3) 
+                               s4 = s4 / abs(s4)
+                               sigma1_area1 = arc_winding(s1,s2,s4)
+                               sigma2_area2 = arc_winding(s1,s4,s3)
+                               
+                               density_matrix(i,j) = sigma1_area1 + sigma2_area2 
+                        end do 
+                end do 
+                density_matrix = density_matrix / (4*pi) ! Leaving this at the end hoping the compiler will vectorise it
+        end subroutine calculate_winding_number_density
 end module reciprocal_space_processes 
