@@ -578,7 +578,7 @@ module reciprocal_space_processes
                 
                 integer, allocatable, dimension(:,:) :: stack_array ! stack_array(stack_ptr, (i,j))
                 integer :: stack_ptr
-                integer, parameter :: stack_len = 200 
+                integer, parameter :: stack_len = 2000 
 
                 integer :: i, j, i_neighbor, j_neighbor, itemp, jtemp
                 real(kind=8) :: acc

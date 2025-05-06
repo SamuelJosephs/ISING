@@ -37,6 +37,7 @@ program main
         real(kind=8), allocatable, dimension(:,:) :: demagnetisation_array
         real(kind=8), allocatable, dimension(:,:,:) :: test_grad_array
         
+        integer :: skyrmion_number
         fftw_status = fftw_init_threads()
         if (fftw_status == 0) error stop "Error initialising fftw threads"
         argc = command_argument_count() 
@@ -91,10 +92,12 @@ program main
         skyrmion_radius = 1.0_8*testMesh%latticeParameter 
         
         ! Initialize the skyrmion
-        call initialise_skyrmion_sp(testMesh, skyrmion_center, skyrmion_radius,3.12_8/2.0_08,3)
+        call initialise_skyrmion_sp(testMesh, skyrmion_center, skyrmion_radius,3.12_8/2.0_08,1)
         winding_number_middle = calculate_winding_number2(testMesh,testMesh%numCellsZ / 2)
+        skyrmion_number = calculate_skyrmion_number(testMesh,testMesh%numCellsZ/2,0.00005_8)
         print *, "Test winding number = ", winding_number_middle 
         print *, "*************************************"
+        print *, "Skyrmion number = ", skyrmion_number
         !call initialise_skyrmion_sp(testMesh, skyrmion_center, skyrmion_radius,0.0_08,1)
 
         
@@ -177,7 +180,8 @@ program main
             
              print *, "Completed frame", frame, "of", num_frames
          end do
-        
+         skyrmion_number = calculate_skyrmion_number(testMesh,testMesh%numCellsZ / 2, 0.1_8)
+        print *, "Skyrmion Number = ", skyrmion_number 
         ! Write information for Python visualization script
         output_filename = trim(output_dir) // "/info.txt"
         open(unit=10, file=output_filename, status='replace')
