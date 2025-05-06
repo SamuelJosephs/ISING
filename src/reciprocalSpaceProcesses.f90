@@ -460,7 +460,7 @@ module reciprocal_space_processes
                 implicit none
                 type(ChainMesh_t), intent(inout) :: chainMesh 
                 integer, intent(in) :: Z_index
-                real(kind=8), dimension(:,:), allocatable, intent(inout) :: density_matrix 
+                real(kind=8), dimension(:,:), allocatable, intent(out) :: density_matrix 
                 
                 integer :: i, j, i_index, j_index, N, L 
                 type(VecNd_t) :: s1, s2, s3, s4
@@ -528,4 +528,140 @@ module reciprocal_space_processes
                 end do 
                 density_matrix = density_matrix / (4*pi) ! Leaving this at the end hoping the compiler will vectorise it
         end subroutine calculate_winding_number_density
+
+
+        subroutine add_neighbors_to_stack(chainMesh, i,j,stack_array, stack_ptr, visited_array, density_mask, in_stack_array)
+                implicit none
+                type(chainMesh_t), intent(in) :: chainMesh 
+                integer, intent(in) :: i,j
+                integer, dimension(:,:), intent(inout) :: stack_array
+                integer, intent(inout) :: stack_ptr 
+                logical, dimension(:,:), intent(in) :: visited_array, density_mask 
+                logical, dimension(:,:), intent(inout) :: in_stack_array
+
+                integer :: i_neighbor, j_neighbor, itemp, jtemp, N, L 
+                integer, dimension(2) :: stack_array_shape 
+                stack_array_shape = shape(stack_array)
+                N = chainMesh%numCellsX 
+                L = chainMesh%numCellsY
+                  do i_neighbor = -1,1 
+                        do j_neighbor = -1,1 
+                                itemp = i + i_neighbor
+                                jtemp = j + j_neighbor
+                                if (itemp < 1) itemp = N ! Periodic boundaries 
+                                if (itemp > N) itemp = 1 
+                                
+                                if (jtemp < 1) jtemp = L 
+                                if (jtemp > L) jtemp = 1 
+                                if (in_stack_array(itemp,jtemp)) cycle 
+                                if ((.not. visited_array(itemp,jtemp)) .and. density_mask(itemp,jtemp)) then 
+                                        if (stack_ptr + 1 > stack_array_shape(1)) error stop "Stack array capacity exceeded"
+                                        stack_array(stack_ptr,1) = itemp ! stack_ptr points to where the next entry
+                                        ! should be written and equals the existing number of entries + 1.
+                                        stack_array(stack_ptr,2) = jtemp 
+                                        stack_ptr = stack_ptr + 1
+                                        in_stack_array(itemp,jtemp) = .True.
+                                        
+                                end if 
+                        end do 
+                  end do
+        end subroutine add_neighbors_to_stack
+
+        function calculate_skyrmion_number(chainMesh,Z_index,q_threshold) result(skyrmion_number)
+                type(chainMesh_t), intent(inout) :: chainmesh
+                integer, intent(in) :: Z_index
+                real(kind=8), intent(in) :: q_threshold
+                
+                real(kind=8), dimension(:,:), allocatable :: density_matrix
+                logical, dimension(:,:), allocatable :: density_mask, visited_array, in_stack_array
+                integer :: N,L, stat, skyrmion_number
+                
+                integer, allocatable, dimension(:,:) :: stack_array ! stack_array(stack_ptr, (i,j))
+                integer :: stack_ptr
+                integer, parameter :: stack_len = 200 
+
+                integer :: i, j, i_neighbor, j_neighbor, itemp, jtemp
+                real(kind=8) :: acc
+                N = chainMesh%numCellsX 
+                L = chainMesh%numCellsY 
+
+                allocate(density_matrix(N,L), stat=stat)
+                if (stat /= 0) error stop "Error allocating topological charge density matrix"
+
+                allocate(density_mask(N,L), stat=stat)
+                if (stat/=0) error stop "Error allocating density mask"
+
+                allocate(visited_array(N,L), stat=stat)
+                if (stat/=0) error stop "Error allocating visited_array"
+
+                allocate(in_stack_array(N,L),stat=stat)
+                if (stat/=0) error stop "Error allocating in_stack_array"
+                
+                allocate(stack_array(stack_len,2), stat=stat)
+                if (stat /= 0) error stop "Error allocating stack array"
+                stack_ptr = 1 
+
+                if (abs(q_threshold) > 1.0_8 .or. q_threshold < 0.0_8) error stop "q_threshold must be between 0 and 1"
+
+                call calculate_winding_number_density(chainMesh, Z_index, density_matrix)
+
+                density_mask(:,:) = density_matrix > (q_threshold * maxval(abs(density_matrix)))
+                visited_array(:,:) = .False.
+                in_stack_Array(:,:) = .False.
+                stack_array(:,:) = 0 
+                skyrmion_number = 0 
+
+                do i = 1,N 
+                        do j = 1,L 
+                                if (density_mask(i,j) .and. (.not. visited_array(i,j))) then 
+                                  acc = density_matrix(i,j)
+                                  visited_array(i,j) = .True.
+                                  ! Loop through neighbors, if they are above the theshold and have not been visited or put in the
+                                  ! stack then add them to the stack
+
+                                
+                                  !do i_neighbor = -1,1 
+                                  !      do j_neighbor = -1,1 
+                                  !              itemp = i + i_neighbor
+                                  !              jtemp = j + j_neighbor
+                                  !              if (itemp < 1) itemp = N ! Periodic boundaries 
+                                  !              if (itemp > N) itemp = 1 
+                                  !              
+                                  !              if (jtemp < 1) jtemp = L 
+                                  !              if (jtemp > L) jtemp = 1 
+
+                                  !              if ((.not. visited_array(itemp,jtemp)) .and. density_mask(itemp,jtemp)) then 
+                                  !                      stack_array(stack_ptr,1) = itemp ! stack_ptr points to where the next entry
+                                  !                      ! should be written and equals the existing number of entries + 1.
+                                  !                      stack_array(stack_ptr,2) = jtemp 
+                                  !                      stack_ptr = stack_ptr + 1
+                                  !              end if 
+                                  !      end do 
+                                  !end do 
+                                  stack_ptr = 1
+                                  call add_neighbors_to_stack(chainMesh,i,j,stack_array,stack_ptr,visited_array,density_mask, in_stack_array)
+                                  
+                                  ! Now for each neighbor in the stack, visit it if not already visited and add it's density to the
+                                  ! accumulator. Then add it's unvisited neighbors over the density threshold to the stack, repeat
+                                  ! until stack_ptr - 1 == 0
+
+                                  do while (stack_ptr - 1 /= 0)
+                                        ! pop cell off of the stack 
+                                        itemp = stack_array(stack_ptr - 1,1)
+                                        jtemp = stack_array(stack_ptr - 1,2)
+                                        stack_ptr = stack_ptr - 1
+                                        if (.not. visited_array(itemp,jtemp)) then
+                                                acc = acc + density_matrix(itemp,jtemp)
+                                                visited_array(itemp,jtemp) = .True.
+                                                call add_neighbors_to_stack(chainMesh,itemp,jtemp,& 
+                                                        stack_array,stack_ptr,visited_array,density_mask, in_stack_array)
+                                        end if 
+                                  end do
+
+                                  if (abs(abs(acc) - 1) < 1e-3) skyrmion_number = skyrmion_number + 1
+                                end if 
+
+                        end do
+                end do 
+        end function calculate_skyrmion_number
 end module reciprocal_space_processes 
