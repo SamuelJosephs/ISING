@@ -126,7 +126,7 @@ program main
         num_frames = 0
         numMetropolisStepsTotal = 220000
         numMetropolisSteps = 800
-        numBetaSteps = 100
+        numBetaSteps = 20
         
         ! Main evolution loop
         p => H_eff_Heisenberg
@@ -151,6 +151,8 @@ program main
                 winding_number_bottom = calculate_winding_number2(testMesh,1)
                 winding_number_top = calculate_winding_number2(testMesh,testMesh%numCellsZ)
                 winding_number_array = [winding_number_bottom, winding_number_middle, winding_number_top]
+                 skyrmion_number = calculate_skyrmion_number(testMesh,testMesh%numCellsZ / 2, 0.1_8)
+                print *, "Skyrmion Number = ", skyrmion_number 
                 print *, "Winding Numbers = ", winding_number_array 
                 print *, "Range of winding numbers = ", maxval(winding_number_array) - minval(winding_number_array)
 

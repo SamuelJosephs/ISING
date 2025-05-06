@@ -639,7 +639,8 @@ module reciprocal_space_processes
                                   !      end do 
                                   !end do 
                                   stack_ptr = 1
-                                  call add_neighbors_to_stack(chainMesh,i,j,stack_array,stack_ptr,visited_array,density_mask, in_stack_array)
+                                  call add_neighbors_to_stack(chainMesh,i,j,stack_array,stack_ptr, &
+                                                 visited_array,density_mask, in_stack_array)
                                   
                                   ! Now for each neighbor in the stack, visit it if not already visited and add it's density to the
                                   ! accumulator. Then add it's unvisited neighbors over the density threshold to the stack, repeat
