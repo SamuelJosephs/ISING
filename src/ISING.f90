@@ -37,7 +37,7 @@ program main
         real(kind=8), allocatable, dimension(:,:) :: demagnetisation_array
         real(kind=8), allocatable, dimension(:,:,:) :: test_grad_array
         
-        integer :: skyrmion_number, skyrmion_index
+        integer :: skyrmion_number_1, skyrmion_number_2, skyrmion_index
         fftw_status = fftw_init_threads()
         if (fftw_status == 0) error stop "Error initialising fftw threads"
         argc = command_argument_count() 
@@ -94,10 +94,8 @@ program main
         ! Initialize the skyrmion
         call initialise_skyrmion_sp(testMesh, skyrmion_center, skyrmion_radius,3.12_8/2.0_08,1)
         winding_number_middle = calculate_winding_number2(testMesh,testMesh%numCellsZ / 2)
-        skyrmion_number = calculate_skyrmion_number(testMesh,testMesh%numCellsZ/2,0.00005_8)
         print *, "Test winding number = ", winding_number_middle 
         print *, "*************************************"
-        print *, "Skyrmion number = ", skyrmion_number
         !call initialise_skyrmion_sp(testMesh, skyrmion_center, skyrmion_radius,0.0_08,1)
 
         
@@ -125,7 +123,7 @@ program main
         total_time = 30.0d0
         num_frames = 0
         numMetropolisStepsTotal = 220000
-        numMetropolisSteps = 800
+        numMetropolisSteps = 1000
         numBetaSteps = 10
         
         ! Main evolution loop
@@ -156,12 +154,17 @@ program main
                 print *, "Range of winding numbers = ", maxval(winding_number_array) - minval(winding_number_array)
 
                 print *, "Delta E = ", totalEnergy2 - totalEnergy1, "T = ", T, "oldEnergy, newEnergy = ", totalEnergy1, totalEnergy2
-                ! do skyrmion_index = 1,10
-                        skyrmion_number = calculate_skyrmion_number(testMesh,testMesh%numCellsZ / 2, &
-                                                        dble(skyrmion_index+0.001_8)/15.0)
-                        print *, "Skyrmion Number = ", skyrmion_number 
-                ! end do 
+
                 if (mod(i,10) == 0) then 
+                        do skyrmion_index = 1,20 
+                                skyrmion_number_1 = calculate_skyrmion_number(testMesh,testMesh%numCellsZ / 2, &
+                                                                dble(skyrmion_index)/20.0_8 * (0.4-0.01) + 0.01, 1)
+                                skyrmion_number_2 = calculate_skyrmion_number(testMesh,testMesh%numCellsZ / 2, &
+                                                                dble(skyrmion_index)/20.0_8 * (0.4-0.01) + 0.01, 2)
+                                print *, "SkN1, SkN2 = ", skyrmion_number_1, skyrmion_number_2, &
+                                                        dble(skyrmion_index)/20.0_8 * (0.4-0.01) + 0.01 
+
+                        end do 
                         write(frame_filename, '(A,A,I5.5,A)') trim(output_dir), "/frame_", counter-1, ".csv"
                         call write_spins_to_file(testMesh, frame_filename)
                         print *, "Completed metropolis run at beta = ", beta 
@@ -186,8 +189,6 @@ program main
             
              print *, "Completed frame", frame, "of", num_frames
          end do
-         skyrmion_number = calculate_skyrmion_number(testMesh,testMesh%numCellsZ / 2, 0.1_8)
-        print *, "Skyrmion Number = ", skyrmion_number 
         ! Write information for Python visualization script
         output_filename = trim(output_dir) // "/info.txt"
         open(unit=10, file=output_filename, status='replace')

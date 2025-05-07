@@ -567,10 +567,10 @@ module reciprocal_space_processes
                   end do
         end subroutine add_neighbors_to_stack
 
-        function calculate_skyrmion_number(chainMesh,Z_index,q_threshold) result(skyrmion_number)
+        function calculate_skyrmion_number(chainMesh,Z_index,q_threshold,particle_number) result(skyrmion_number)
                 implicit none
                 type(chainMesh_t), intent(inout) :: chainmesh
-                integer, intent(in) :: Z_index
+                integer, intent(in) :: Z_index, particle_number
                 real(kind=8), intent(in) :: q_threshold
                 
                 real(kind=8), dimension(:,:), allocatable :: density_matrix
@@ -607,25 +607,21 @@ module reciprocal_space_processes
                 if (abs(q_threshold) > 1.0_8 .or. q_threshold < 0.0_8) error stop "q_threshold must be between 0 and 1"
 
                 call calculate_winding_number_density(chainMesh, Z_index, density_matrix)
-                print *, "Minval / Maxval in winding array = ", minval(abs(density_matrix)) / maxval(abs(density_matrix))
+                !print *, "Minval / Maxval in winding array = ", minval(abs(density_matrix)) / maxval(abs(density_matrix))
                 ! density_mask(:,:) = density_matrix > (q_threshold * maxval(abs(density_matrix)))
-                density_mask = density_matrix > (1e-4 * maxval(abs(density_matrix)))
+                density_mask = abs(density_matrix) > (q_threshold * maxval(abs(density_matrix)))
                 visited_array(:,:) = .False.
                 in_stack_Array(:,:) = .False.
                 stack_array(:,:) = 0 
                 skyrmion_number = 0 
                 candidate_counter = 0
                 is_candidate = .False.
-                upper_threshold = 0.4*maxval(abs(density_matrix))
                 do i = 1,N 
                         do j = 1,L 
                                 if (density_mask(i,j) .and. (.not. visited_array(i,j))) then 
                                   acc = density_matrix(i,j)
                                   visited_array(i,j) = .True.
-                                  if (abs(acc) > upper_threshold) then 
-                                        is_candidate = .True.
-                                        candidate_counter = candidate_counter + 1
-                                  end if 
+ 
                                   ! Loop through neighbors, if they are above the theshold and have not been visited or put in the
                                   ! stack then add them to the stack
 
@@ -662,26 +658,92 @@ module reciprocal_space_processes
                                         itemp = stack_array(stack_ptr - 1,1)
                                         jtemp = stack_array(stack_ptr - 1,2)
                                         stack_ptr = stack_ptr - 1
-                                        print *, "itemp, jtemp = ", itemp, jtemp
+                                        !print *, "itemp, jtemp = ", itemp, jtemp
                                         if (.not. visited_array(itemp,jtemp)) then
 
-                                        if (abs(density_matrix(itemp,jtemp)) > upper_threshold) then 
-                                                is_candidate = .True.
-                                                candidate_counter = candidate_counter + 1
-                                        end if 
                                                 acc = acc + density_matrix(itemp,jtemp)
                                                 visited_array(itemp,jtemp) = .True.
                                                 call add_neighbors_to_stack(chainMesh,itemp,jtemp,& 
                                                         stack_array,stack_ptr,visited_array,density_mask, in_stack_array)
                                         end if 
                                   end do
-                                  print *, "acc, skyrmion_number = ", acc, skyrmion_number, "q_theshold = ", q_threshold, &
-                                                candidate_counter
-                                !   if (abs(abs(acc) - 1) < 1e-3) skyrmion_number = skyrmion_number + 1
-                                if (is_candidate) skyrmion_number = skyrmion_number + 1
+                                  !print *, "acc, skyrmion_number = ", acc, skyrmion_number, "q_theshold = ", q_threshold, &
+                                  !              candidate_counter
+                                  if (abs(abs(acc) - particle_number) < 0.3) skyrmion_number = skyrmion_number + 1
                                 end if 
                                 stack_array = 0
                         end do
                 end do 
+
+                !call write_2d_real_array_to_file(density_matrix, "./density_matrix.csv")
+                !call write_2d_logical_array_to_file(visited_array,"./visited_array.csv")
+                !call write_2d_logical_array_to_file(density_mask,"./density_mask.csv")
         end function calculate_skyrmion_number
+
+        subroutine write_2d_real_array_to_file(array, filename)
+                implicit none
+                real(kind=8), intent(in), dimension(:,:) :: array 
+                character(len=*), intent(in) :: filename 
+                
+                integer :: N, L, i, j 
+                integer, dimension(2) :: shape_array
+                character(len=100) :: real_buffer
+                character(len=:), allocatable :: buffer
+                shape_array = shape(array)
+                
+                N = shape_array(1)
+                L = shape_array(2)
+                print *, "N, L = ", N, L 
+                open(unit=231,file=trim(filename),status="replace",action="write")                 
+                allocate(character(len=100) :: buffer)
+                real_buffer = ' '
+                buffer = ' '
+
+
+                do i = 1,N 
+                        buffer = ' '
+                        do j = 1,L
+                                real_buffer = ' '
+                                write(real_buffer,'(ES12.5)') array(i,j) 
+                                buffer = buffer // trim(adjustl(real_buffer))
+                                if (j /= L) buffer = buffer // ','
+                        end do 
+                        write(231,'(A)') buffer
+                end do 
+                close(231)
+        end subroutine write_2d_real_array_to_file
+
+
+        subroutine write_2d_logical_array_to_file(array, filename)
+                implicit none
+                logical, intent(in), dimension(:,:) :: array 
+                character(len=*), intent(in) :: filename 
+                
+                integer :: N, L, i, j 
+                integer, dimension(2) :: shape_array
+                character(len=100) :: real_buffer
+                character(len=:), allocatable :: buffer
+                shape_array = shape(array)
+                
+                N = shape_array(1)
+                L = shape_array(2)
+                
+                open(unit=231,file=trim(filename),status="replace",action="write")                 
+                allocate(character(len=100) :: buffer)
+                real_buffer = ' '
+                buffer = ' '
+
+
+                do i = 1,N 
+                        buffer = ' '
+                        do j = 1,L 
+                                real_buffer = ' '
+                                write(real_buffer,'(I5.5)') merge(1,0,array(i,j)) 
+                                buffer = buffer // trim(adjustl(real_buffer))
+                                if (j /= L) buffer = buffer // ','
+                        end do 
+                        write(231,'(A)') buffer
+                end do 
+                close(231)
+        end subroutine write_2d_logical_array_to_file
 end module reciprocal_space_processes 
