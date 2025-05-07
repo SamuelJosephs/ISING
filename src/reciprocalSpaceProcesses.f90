@@ -669,7 +669,7 @@ module reciprocal_space_processes
                                   end do
                                   !print *, "acc, skyrmion_number = ", acc, skyrmion_number, "q_theshold = ", q_threshold, &
                                   !              candidate_counter
-                                  if (abs(abs(acc) - particle_number) < 0.3) skyrmion_number = skyrmion_number + 1
+                                  if (abs(abs(acc) - particle_number) < 0.1) skyrmion_number = skyrmion_number + 1
                                 end if 
                                 stack_array = 0
                         end do
@@ -746,4 +746,43 @@ module reciprocal_space_processes
                 end do 
                 close(231)
         end subroutine write_2d_logical_array_to_file
+
+
+        subroutine compute_skyrmion_distribution(chainMesh,N,winding_array,min_threshold,max_threshold,num_thresholds, Z_index)
+                implicit none
+                type(chainMesh_t), intent(inout) :: chainMesh 
+                integer, intent(in) :: N ! Will compute the number of particles with winding numbers 1...N
+                integer, dimension(:), allocatable, intent(inout) :: winding_array
+                real(kind=8), intent(in) :: min_threshold, max_threshold 
+                integer,intent(in) :: num_thresholds, Z_index
+
+                integer :: i, j
+                real(kind=8) :: total_charge, threshold, winding
+                if (max_threshold < min_threshold) error stop "max_threshold must be greater than min_threshold"
+                if (allocated(winding_array)) then 
+                        if (size(winding_array) /= N) then 
+                                deallocate(winding_array)
+                                allocate(winding_array(N))
+                        end if 
+
+                else 
+                        allocate(winding_array(N))
+                end if 
+
+                total_charge = calculate_winding_number2(chainMesh, Z_index)
+                winding_array = 0.0_8
+                do i = 1,num_thresholds
+                        winding = 0.0_8
+                        threshold = (dble(i) / dble(num_thresholds)) * (max_threshold - min_threshold) + min_threshold
+                        do j = 1, N 
+                                winding_array(j) = calculate_skyrmion_number(chainMesh,Z_index,threshold,j)
+                                winding = winding + j * winding_array(j)
+                        end do 
+
+                        if (abs(abs(winding) - abs(total_charge)) < 0.1) then 
+                                return
+                        end if 
+                end do 
+                winding_array = 0 
+        end subroutine compute_skyrmion_distribution
 end module reciprocal_space_processes 

@@ -37,7 +37,8 @@ program main
         real(kind=8), allocatable, dimension(:,:) :: demagnetisation_array
         real(kind=8), allocatable, dimension(:,:,:) :: test_grad_array
         
-        integer :: skyrmion_number_1, skyrmion_number_2, skyrmion_index
+        integer ::  skyrmion_index
+        integer, allocatable, dimension(:) :: winding_array
         fftw_status = fftw_init_threads()
         if (fftw_status == 0) error stop "Error initialising fftw threads"
         argc = command_argument_count() 
@@ -156,15 +157,8 @@ program main
                 print *, "Delta E = ", totalEnergy2 - totalEnergy1, "T = ", T, "oldEnergy, newEnergy = ", totalEnergy1, totalEnergy2
 
                 if (mod(i,10) == 0) then 
-                        do skyrmion_index = 1,20 
-                                skyrmion_number_1 = calculate_skyrmion_number(testMesh,testMesh%numCellsZ / 2, &
-                                                                dble(skyrmion_index)/20.0_8 * (0.4-0.01) + 0.01, 1)
-                                skyrmion_number_2 = calculate_skyrmion_number(testMesh,testMesh%numCellsZ / 2, &
-                                                                dble(skyrmion_index)/20.0_8 * (0.4-0.01) + 0.01, 2)
-                                print *, "SkN1, SkN2 = ", skyrmion_number_1, skyrmion_number_2, &
-                                                        dble(skyrmion_index)/20.0_8 * (0.4-0.01) + 0.01 
-
-                        end do 
+                        call compute_skyrmion_distribution(testMesh,3,winding_array,0.001_8,0.4_8,40,testmesh%numCellsZ / 2)
+                        print *, "Skyrmion Distribution = ", winding_array
                         write(frame_filename, '(A,A,I5.5,A)') trim(output_dir), "/frame_", counter-1, ".csv"
                         call write_spins_to_file(testMesh, frame_filename)
                         print *, "Completed metropolis run at beta = ", beta 
