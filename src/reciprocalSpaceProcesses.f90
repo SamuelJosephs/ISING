@@ -568,6 +568,7 @@ module reciprocal_space_processes
         end subroutine add_neighbors_to_stack
 
         function calculate_skyrmion_number(chainMesh,Z_index,q_threshold) result(skyrmion_number)
+                implicit none
                 type(chainMesh_t), intent(inout) :: chainmesh
                 integer, intent(in) :: Z_index
                 real(kind=8), intent(in) :: q_threshold
@@ -578,10 +579,12 @@ module reciprocal_space_processes
                 
                 integer, allocatable, dimension(:,:) :: stack_array ! stack_array(stack_ptr, (i,j))
                 integer :: stack_ptr
-                integer, parameter :: stack_len = 2000 
+                integer, parameter :: stack_len = 10000
 
-                integer :: i, j, i_neighbor, j_neighbor, itemp, jtemp
+                integer :: i, j, i_neighbor, j_neighbor, itemp, jtemp, candidate_counter
                 real(kind=8) :: acc
+                logical :: is_candidate
+                real(kind=8) :: upper_threshold
                 N = chainMesh%numCellsX 
                 L = chainMesh%numCellsY 
 
@@ -604,18 +607,25 @@ module reciprocal_space_processes
                 if (abs(q_threshold) > 1.0_8 .or. q_threshold < 0.0_8) error stop "q_threshold must be between 0 and 1"
 
                 call calculate_winding_number_density(chainMesh, Z_index, density_matrix)
-
-                density_mask(:,:) = density_matrix > (q_threshold * maxval(abs(density_matrix)))
+                print *, "Minval / Maxval in winding array = ", minval(abs(density_matrix)) / maxval(abs(density_matrix))
+                ! density_mask(:,:) = density_matrix > (q_threshold * maxval(abs(density_matrix)))
+                density_mask = density_matrix > (1e-4 * maxval(abs(density_matrix)))
                 visited_array(:,:) = .False.
                 in_stack_Array(:,:) = .False.
                 stack_array(:,:) = 0 
                 skyrmion_number = 0 
-
+                candidate_counter = 0
+                is_candidate = .False.
+                upper_threshold = 0.4*maxval(abs(density_matrix))
                 do i = 1,N 
                         do j = 1,L 
                                 if (density_mask(i,j) .and. (.not. visited_array(i,j))) then 
                                   acc = density_matrix(i,j)
                                   visited_array(i,j) = .True.
+                                  if (abs(acc) > upper_threshold) then 
+                                        is_candidate = .True.
+                                        candidate_counter = candidate_counter + 1
+                                  end if 
                                   ! Loop through neighbors, if they are above the theshold and have not been visited or put in the
                                   ! stack then add them to the stack
 
@@ -639,29 +649,38 @@ module reciprocal_space_processes
                                   !      end do 
                                   !end do 
                                   stack_ptr = 1
+                                  in_stack_array = .False.
+                                  
                                   call add_neighbors_to_stack(chainMesh,i,j,stack_array,stack_ptr, &
                                                  visited_array,density_mask, in_stack_array)
                                   
                                   ! Now for each neighbor in the stack, visit it if not already visited and add it's density to the
                                   ! accumulator. Then add it's unvisited neighbors over the density threshold to the stack, repeat
                                   ! until stack_ptr - 1 == 0
-
                                   do while (stack_ptr - 1 /= 0)
                                         ! pop cell off of the stack 
                                         itemp = stack_array(stack_ptr - 1,1)
                                         jtemp = stack_array(stack_ptr - 1,2)
                                         stack_ptr = stack_ptr - 1
+                                        print *, "itemp, jtemp = ", itemp, jtemp
                                         if (.not. visited_array(itemp,jtemp)) then
+
+                                        if (abs(density_matrix(itemp,jtemp)) > upper_threshold) then 
+                                                is_candidate = .True.
+                                                candidate_counter = candidate_counter + 1
+                                        end if 
                                                 acc = acc + density_matrix(itemp,jtemp)
                                                 visited_array(itemp,jtemp) = .True.
                                                 call add_neighbors_to_stack(chainMesh,itemp,jtemp,& 
                                                         stack_array,stack_ptr,visited_array,density_mask, in_stack_array)
                                         end if 
                                   end do
-
-                                  if (abs(abs(acc) - 1) < 1e-3) skyrmion_number = skyrmion_number + 1
+                                  print *, "acc, skyrmion_number = ", acc, skyrmion_number, "q_theshold = ", q_threshold, &
+                                                candidate_counter
+                                !   if (abs(abs(acc) - 1) < 1e-3) skyrmion_number = skyrmion_number + 1
+                                if (is_candidate) skyrmion_number = skyrmion_number + 1
                                 end if 
-
+                                stack_array = 0
                         end do
                 end do 
         end function calculate_skyrmion_number
