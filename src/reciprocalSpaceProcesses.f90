@@ -567,11 +567,11 @@ module reciprocal_space_processes
                   end do
         end subroutine add_neighbors_to_stack
 
-        function calculate_skyrmion_number(chainMesh,Z_index,q_threshold,particle_number) result(skyrmion_number)
+        function calculate_skyrmion_number(chainMesh,Z_index,q_threshold,particle_number, sigma) result(skyrmion_number)
                 implicit none
                 type(chainMesh_t), intent(inout) :: chainmesh
                 integer, intent(in) :: Z_index, particle_number
-                real(kind=8), intent(in) :: q_threshold
+                real(kind=8), intent(in) :: q_threshold, sigma
                 
                 real(kind=8), dimension(:,:), allocatable :: density_matrix
                 logical, dimension(:,:), allocatable :: density_mask, visited_array, in_stack_array
@@ -609,6 +609,7 @@ module reciprocal_space_processes
                 call calculate_winding_number_density(chainMesh, Z_index, density_matrix)
                 !print *, "Minval / Maxval in winding array = ", minval(abs(density_matrix)) / maxval(abs(density_matrix))
                 ! density_mask(:,:) = density_matrix > (q_threshold * maxval(abs(density_matrix)))
+                call Gaussian_filter_2d(density_matrix,sigma)
                 density_mask = abs(density_matrix) > (q_threshold * maxval(abs(density_matrix)))
                 visited_array(:,:) = .False.
                 in_stack_Array(:,:) = .False.
@@ -680,6 +681,53 @@ module reciprocal_space_processes
                 call write_2d_logical_array_to_file(density_mask,"./density_mask.csv")
         end function calculate_skyrmion_number
 
+        subroutine Gaussian_filter_2d(array,sigma)
+                real(kind=8), dimension(:,:), intent(inout) :: array 
+                real(kind=8), intent(in) :: sigma
+                real(kind=8), dimension(:,:), allocatable :: buffer
+                real(kind = 8), dimension(:,:), allocatable :: G 
+                integer, parameter :: k = 1 ! k functions as a cutoff
+                real(kind = 8) :: acc
+                integer :: stat, i, Nx, Ny, index_i, index_j, l,m
+                acc = 0.0_8 
+                allocate(G(2*k + 1,2*k+1),stat = stat)
+                if (stat /= 0) error stop "Error allocating G array"
+
+                Nx = size(array,1)
+                Ny = size(array,2)
+
+                allocate(buffer(Nx, Ny), stat = stat)
+                if (stat /= 0) error stop "Error allocating Buffer"
+                do i = 1, 2*k + 1
+                        do j = 1, 2*k + 1 
+                                G(i,j) = exp(- ((i - k - 1)**2 +(j - k - 1)**2)/(2*sigma**2))
+                                acc = acc + G(i,j)
+                        end do 
+                end do 
+                G = G / acc
+                buffer = 0.0_8
+                do i = 1, Nx
+                        do j = 1, Ny 
+                                do l = 1, 2*k + 1 
+                                        do m = 1, 2*k + 1
+                                        ! Going to compute array \conv G 
+                                        ! This is given mathematically (for a 1d array) as (array conv G)[i] = sum_n array[i-n] * G[n]
+                                        ! We just need to handle periodic boundaries for i - n that are out of bounds 
+                                        index_i = i - l 
+                                        index_j = j - m 
+                                        if (index_i > Nx) index_i = index_i - Nx 
+                                        if (index_i < 1) index_i = Nx - abs(index_i)
+
+                                        if (index_j > Ny) index_j = index_j - Ny 
+                                        if (index_j < 1) index_j = Ny - abs(index_j)
+                                        buffer(i,j) = buffer(i,j) + array(index_i, index_j)*G(l,m)
+                                        end do 
+                                end do 
+                        end do 
+                end do 
+                array = buffer
+        end subroutine Gaussian_filter_2d
+
         subroutine write_2d_real_array_to_file(array, filename)
                 implicit none
                 real(kind=8), intent(in), dimension(:,:) :: array 
@@ -747,6 +795,8 @@ module reciprocal_space_processes
         end subroutine write_2d_logical_array_to_file
 
 
+
+
         subroutine compute_skyrmion_distribution(chainMesh,N,winding_array,min_threshold,max_threshold,num_thresholds, Z_index)
                 implicit none
                 type(chainMesh_t), intent(inout) :: chainMesh 
@@ -755,8 +805,8 @@ module reciprocal_space_processes
                 real(kind=8), intent(in) :: min_threshold, max_threshold 
                 integer,intent(in) :: num_thresholds, Z_index
 
-                integer :: i, j
-                real(kind=8) :: total_charge, threshold, winding
+                integer :: i, j, sigma_index
+                real(kind=8) :: total_charge, threshold, winding, sigma
                 
                 if (max_threshold < min_threshold) error stop "max_threshold must be greater than min_threshold"
                 if (allocated(winding_array)) then 
@@ -772,18 +822,21 @@ module reciprocal_space_processes
                 total_charge = calculate_winding_number2(chainMesh, Z_index)
                 winding_array = 0.0_8
                 do i = 1,num_thresholds
+                        do sigma_index = 1,10
+                        sigma = (dble(sigma_index)/10.0_8) * (1.0_8 - 0.1_8) + 0.1_8
                         winding = 0.0_8
                         !threshold = (dble(i) / dble(num_thresholds)) * (max_threshold - min_threshold) + min_threshold
                         threshold = max_threshold - (dble(i) / dble(num_thresholds)) * (max_threshold - min_threshold)
                         do j = 1, N 
-                                winding_array(j) = calculate_skyrmion_number(chainMesh,Z_index,threshold,j)
+                                winding_array(j) = calculate_skyrmion_number(chainMesh,Z_index,threshold,j,sigma)
                                 winding = winding + j * winding_array(j)
                         end do 
-                        print *, "Winding array = ", winding_array, "threshold = ", threshold
+                        print *, "Winding array = ", winding_array, "threshold = ", threshold, "sigma = ", sigma
                         if (abs(abs(winding) - abs(total_charge)) < 0.1) then 
-                                print *, "Solution found at q_threshold = ", threshold, "threshold = ", threshold
+                                print *, "Solution found at q_threshold = ", threshold, "threshold = ", threshold, "sigma = ", sigma
                                 return
                         end if 
+                        end do
                 end do 
                 winding_array = 0 
         end subroutine compute_skyrmion_distribution
