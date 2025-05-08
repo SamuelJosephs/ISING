@@ -33,7 +33,7 @@ def plot_heatmap_from_csv(filepath: str, save_name: str, cmap: str = 'viridis') 
     plt.close(fig)
 
 
-plot_heatmap_from_csv("./density_mask.csv", "density_mask.pdf")
-plot_heatmap_from_csv("./density_matrix.csv", "density_matrix.pdf")
-plot_heatmap_from_csv("./visited_array.csv", "visited_array.pdf")
+plot_heatmap_from_csv("./density_mask.csv", "density_mask.png")
+plot_heatmap_from_csv("./density_matrix.csv", "density_matrix.png")
+plot_heatmap_from_csv("./visited_array.csv", "visited_array.png")
 
