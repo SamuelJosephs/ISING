@@ -74,8 +74,8 @@ program main
         ! Create atoms in unit cell
         AtomsInUnitCell(1) = makeAtom(0.0, 0.0, 0.0, AtomParam1, 3, -1) 
         AtomsInUnitCell(2) = makeAtom(latticeParam/2, latticeParam/2, latticeParam/2, AtomParam2, 3, -1)
-        numCellsX = 80
-        numCellsY = 80
+        numCellsX = 40
+        numCellsY = 40
         numCellsZ = 6
         ! Create the chain mesh
         testMesh = makeChainMesh(2, numCellsX, numCellsY, numCellsZ, latticeParam, AtomsInUnitCell)
@@ -94,10 +94,10 @@ program main
         skyrmion_radius = 1.0_8*testMesh%latticeParameter 
         
         ! Initialize the skyrmion
-        !call initialise_skyrmion_sp(testMesh, skyrmion_center, skyrmion_radius,3.12_8/2.0_08,1)
-        !winding_number_middle = calculate_winding_number2(testMesh,testMesh%numCellsZ / 2)
-        !print *, "Test winding number = ", winding_number_middle 
-        !print *, "*************************************"
+        call initialise_skyrmion_sp(testMesh, skyrmion_center, skyrmion_radius,3.12_8/2.0_08,1)
+        winding_number_middle = calculate_winding_number2(testMesh,testMesh%numCellsZ / 2)
+        print *, "Test winding number = ", winding_number_middle 
+        print *, "*************************************"
         !call initialise_skyrmion_sp(testMesh, skyrmion_center, skyrmion_radius,0.0_08,1)
 
         
@@ -123,14 +123,14 @@ program main
         ! dt = 0.00000000000002_8
         dt = 1e-17_08
         total_time = 30.0d0
-        num_frames = 20
+        num_frames = 0
         numMetropolisStepsTotal = 220000
         numMetropolisSteps = 1000
         numBetaSteps = 14
         
         lower_bound = 0.01 
         upper_bound = 0.95
-        num_thresholds = 20
+        num_thresholds = 80
         ! Main evolution loop
         p => H_eff_Heisenberg
                 
@@ -142,7 +142,7 @@ program main
         do i = 0,numBetaSteps
                 Tmax = 5.0_8 
                 !Tmin = 0.1*(0.76*8*J)/(3*Kb)
-                Tmin = 0.001_8
+                Tmin = 0.1
                 T = Tmax - (Tmax - Tmin)*(dble(i)/dble(numBetaSteps)) 
                 beta = 1.0_8 / (T)
                 !call calculate_demagnetisation_field(testMesh,demagnetisation_array)

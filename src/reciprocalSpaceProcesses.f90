@@ -669,15 +669,15 @@ module reciprocal_space_processes
                                   end do
                                   !print *, "acc, skyrmion_number = ", acc, skyrmion_number, "q_theshold = ", q_threshold, &
                                   !              candidate_counter
-                                  if (abs(abs(acc) - particle_number) < 0.1) skyrmion_number = skyrmion_number + 1
+                                  if (abs(abs(acc) - particle_number) < 0.15) skyrmion_number = skyrmion_number + 1
                                 end if 
                                 stack_array = 0
                         end do
                 end do 
 
-                !call write_2d_real_array_to_file(density_matrix, "./density_matrix.csv")
-                !call write_2d_logical_array_to_file(visited_array,"./visited_array.csv")
-                !call write_2d_logical_array_to_file(density_mask,"./density_mask.csv")
+                call write_2d_real_array_to_file(density_matrix, "./density_matrix.csv")
+                call write_2d_logical_array_to_file(visited_array,"./visited_array.csv")
+                call write_2d_logical_array_to_file(density_mask,"./density_mask.csv")
         end function calculate_skyrmion_number
 
         subroutine write_2d_real_array_to_file(array, filename)
@@ -693,7 +693,6 @@ module reciprocal_space_processes
                 
                 N = shape_array(1)
                 L = shape_array(2)
-                print *, "N, L = ", N, L 
                 open(unit=231,file=trim(filename),status="replace",action="write")                 
                 allocate(character(len=100) :: buffer)
                 real_buffer = ' '
@@ -758,6 +757,7 @@ module reciprocal_space_processes
 
                 integer :: i, j
                 real(kind=8) :: total_charge, threshold, winding
+                
                 if (max_threshold < min_threshold) error stop "max_threshold must be greater than min_threshold"
                 if (allocated(winding_array)) then 
                         if (size(winding_array) /= N) then 
@@ -779,9 +779,9 @@ module reciprocal_space_processes
                                 winding_array(j) = calculate_skyrmion_number(chainMesh,Z_index,threshold,j)
                                 winding = winding + j * winding_array(j)
                         end do 
-
+                        print *, "Winding array = ", winding_array, "threshold = ", threshold
                         if (abs(abs(winding) - abs(total_charge)) < 0.1) then 
-                                print *, "Solution found at q_threshold = ", threshold
+                                print *, "Solution found at q_threshold = ", threshold, "threshold = ", threshold
                                 return
                         end if 
                 end do 
