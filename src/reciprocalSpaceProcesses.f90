@@ -773,13 +773,15 @@ module reciprocal_space_processes
                 winding_array = 0.0_8
                 do i = 1,num_thresholds
                         winding = 0.0_8
-                        threshold = (dble(i) / dble(num_thresholds)) * (max_threshold - min_threshold) + min_threshold
+                        !threshold = (dble(i) / dble(num_thresholds)) * (max_threshold - min_threshold) + min_threshold
+                        threshold = max_threshold - (dble(i) / dble(num_thresholds)) * (max_threshold - min_threshold)
                         do j = 1, N 
                                 winding_array(j) = calculate_skyrmion_number(chainMesh,Z_index,threshold,j)
                                 winding = winding + j * winding_array(j)
                         end do 
 
                         if (abs(abs(winding) - abs(total_charge)) < 0.1) then 
+                                print *, "Solution found at q_threshold = ", threshold
                                 return
                         end if 
                 end do 

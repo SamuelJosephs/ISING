@@ -125,7 +125,7 @@ program main
         num_frames = 0
         numMetropolisStepsTotal = 220000
         numMetropolisSteps = 1000
-        numBetaSteps = 10
+        numBetaSteps = 12
         
         ! Main evolution loop
         p => H_eff_Heisenberg
@@ -138,7 +138,7 @@ program main
         do i = 0,numBetaSteps
                 Tmax = 5.0_8 
                 !Tmin = 0.1*(0.76*8*J)/(3*Kb)
-                Tmin = 0.0001_8
+                Tmin = 0.000001_8
                 T = Tmax - (Tmax - Tmin)*(dble(i)/dble(numBetaSteps)) 
                 beta = 1.0_8 / (T)
                 !call calculate_demagnetisation_field(testMesh,demagnetisation_array)
@@ -156,8 +156,8 @@ program main
 
                 print *, "Delta E = ", totalEnergy2 - totalEnergy1, "T = ", T, "oldEnergy, newEnergy = ", totalEnergy1, totalEnergy2
 
-                if (mod(i,10) == 0) then 
-                        call compute_skyrmion_distribution(testMesh,3,winding_array,0.001_8,0.4_8,40,testmesh%numCellsZ / 2)
+                if (mod(i,2) == 0) then 
+                        call compute_skyrmion_distribution(testMesh,3,winding_array,0.001_8,0.8_8,100,testmesh%numCellsZ / 2)
                         print *, "Skyrmion Distribution = ", winding_array
                         write(frame_filename, '(A,A,I5.5,A)') trim(output_dir), "/frame_", counter-1, ".csv"
                         call write_spins_to_file(testMesh, frame_filename)
