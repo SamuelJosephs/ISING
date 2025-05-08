@@ -686,7 +686,7 @@ module reciprocal_space_processes
                 real(kind=8), intent(in) :: sigma
                 real(kind=8), dimension(:,:), allocatable :: buffer
                 real(kind = 8), dimension(:,:), allocatable :: G 
-                integer, parameter :: k = 1 ! k functions as a cutoff
+                integer, parameter :: k = 2 ! k functions as a cutoff
                 real(kind = 8) :: acc
                 integer :: stat, i, Nx, Ny, index_i, index_j, l,m
                 acc = 0.0_8 
@@ -822,8 +822,8 @@ module reciprocal_space_processes
                 total_charge = calculate_winding_number2(chainMesh, Z_index)
                 winding_array = 0.0_8
                 do i = 1,num_thresholds
-                        do sigma_index = 1,10
-                        sigma = (dble(sigma_index)/10.0_8) * (1.0_8 - 0.1_8) + 0.1_8
+                        do sigma_index = 1,20
+                        sigma = (dble(sigma_index)/20.0_8) * (0.6_8 - 0.01_8) + 0.01_8
                         winding = 0.0_8
                         !threshold = (dble(i) / dble(num_thresholds)) * (max_threshold - min_threshold) + min_threshold
                         threshold = max_threshold - (dble(i) / dble(num_thresholds)) * (max_threshold - min_threshold)
@@ -831,7 +831,7 @@ module reciprocal_space_processes
                                 winding_array(j) = calculate_skyrmion_number(chainMesh,Z_index,threshold,j,sigma)
                                 winding = winding + j * winding_array(j)
                         end do 
-                        print *, "Winding array = ", winding_array, "threshold = ", threshold, "sigma = ", sigma
+                        !print *, "Winding array = ", winding_array, "threshold = ", threshold, "sigma = ", sigma
                         if (abs(abs(winding) - abs(total_charge)) < 0.1) then 
                                 print *, "Solution found at q_threshold = ", threshold, "threshold = ", threshold, "sigma = ", sigma
                                 return
