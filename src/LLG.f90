@@ -6,10 +6,11 @@ module llg
         use stereographicProjection, only: NSphereProjection
         use omp_lib
         use constants 
+        use reciprocal_space_processes
         implicit none 
         
         abstract interface 
-        function H_eff_class(Mesh, atomIndex,lockArray, J, Dz, B) result(E)
+        function H_eff_class(Mesh, atomIndex,lockArray, J, Dz, B, demagnetisation_array) result(E)
             use chainMesh, only: chainMesh_t
             use vecNd, only: vecNd_t
             use OMP_LIB 
@@ -18,6 +19,7 @@ module llg
             type(vecNd_t) :: E
             integer(kind=OMP_LOCK_KIND), intent(inout) :: lockArray(:)
             real(kind=8), intent(in) :: J, Dz, B 
+            real(kind=8), dimension(:,:), intent(in) :: demagnetisation_array
         end function H_eff_class
         end interface 
         contains  
@@ -293,17 +295,19 @@ subroutine LLGStep(chainMesh, dt, A, B, C, D, H)
     
 end subroutine LLGStep
 
-function H_eff_Heisenberg(Mesh, atomIndex,lockArray, J, Dz, B) result(H_temp)
+function H_eff_Heisenberg(Mesh, atomIndex,lockArray, J, Dz, B, demagnetisation_array) result(H_temp)
     use chainMesh, only: chainMesh_t
     use vecNd, only: vecNd_t
     type(chainMesh_t), intent(inout) :: Mesh
     integer, intent(in) :: atomIndex 
     integer(kind=OMP_LOCK_KIND), intent(inout) :: lockArray(:)
-    real(kind=8), intent(in) :: J, Dz, B 
+    real(kind=8), intent(in) :: J, Dz, B
+    real(kind=8), dimension(:,:), intent(in) :: demagnetisation_array
     type(vecNd_t) :: E
     integer :: atomIndexTemp,i, threadNum
     type(vecNd_t) :: H_temp
     type(vecNd_t) :: D, atomPos1, atomPos2,r, tempVec, S_temp
+    real(kind=8) :: demag_x, demag_y, demag_z 
 
     real(kind=8) :: x,y,z
 
@@ -320,6 +324,9 @@ function H_eff_Heisenberg(Mesh, atomIndex,lockArray, J, Dz, B) result(H_temp)
     z = dble(Mesh%atoms(atomIndexTemp)%z)
     atomPos1 = makeVecNdCheck(atomPos1,[x,y,z])
     tempVec = makeVecNdCheck(tempVec,[0.0_8, 0.0_8, Dz])
+    demag_x = demagnetisation_array(atomIndex,1)
+    demag_y = demagnetisation_array(atomIndex,2)
+    demag_z = demagnetisation_array(atomIndex,3)
     do i = 1,size(Mesh%atoms(atomIndex)%NeighborList)
         !call OMP_SET_LOCK(lockArray(Mesh%atoms(atomIndex)%NeighborList(i)))
         atomIndexTemp = Mesh%atoms(atomIndex)%NeighborList(i) !NeighborList is not written to so don't need to guard against race
@@ -340,6 +347,7 @@ function H_eff_Heisenberg(Mesh, atomIndex,lockArray, J, Dz, B) result(H_temp)
         H_temp = H_temp + (J*S_temp + (S_temp .x. D))
     end do
     H_temp%coords(3) = H_temp%coords(3) + B
+    H_temp%coords = H_temp%coords - 0.5_8 * [demag_x, demag_y, demag_z]
     H_temp = (-1.0_8)*H_temp ! Testing minus signs
 
 end function H_eff_Heisenberg
@@ -352,15 +360,22 @@ subroutine HeunStep(chainMesh, numSteps, dt, H_eff_method, lambda,gamma, J, Dz, 
     real(kind=8), intent(in) :: lambda, gamma, J, Dz, B 
     procedure(H_eff_class), pointer, intent(in) :: H_eff_method
     type(vecNd_t) :: S_prime, S_next, S_temp, H, delta_S, delta_S_prime, H_prime, test_temp
-    integer :: atomIndex, i, threadNum, counter
+    integer :: atomIndex, i, threadNum, counter, stat
     integer(kind=OMP_LOCK_KIND), allocatable :: lockArray(:)
+    real(kind=8), allocatable, dimension(:,:) :: demagnetisation_array
     allocate(lockArray(size(chainMesh%atoms)))
+    allocate(demagnetisation_array(chainMesh%numAtoms,3),stat=stat)
+    if (stat /= 0) error stop "Error allocating demagnetisation_array"
     do i = 1,size(lockArray)
         call OMP_INIT_LOCK(lockArray(i))
     end do 
     counter = 0
     do i = 1, numSteps
-    !$omp parallel do shared(chainMesh,lockArray, H_eff_method) default(private) firstprivate(counter, lambda, gamma,dt,J,Dz,B)
+    print *, "Entered Heun Step" 
+    call calculate_demagnetisation_field(chainMesh,demagnetisation_array)
+    print *, "Heun Step calculated demagnetisation array"
+    !$omp parallel do shared(chainMesh,lockArray, H_eff_method,demagnetisation_array) &
+    !$omp&  default(private) firstprivate(counter, lambda, gamma,dt,J,Dz,B)
 
         do atomIndex = 1,size(chainMesh%atoms)
             S_prime = makeVecNdCheck(S_prime,[0.0_8,0.0_8,0.0_8])
@@ -372,7 +387,7 @@ subroutine HeunStep(chainMesh, numSteps, dt, H_eff_method, lambda,gamma, J, Dz, 
             threadNum = OMP_GET_THREAD_NUM()
             ! For each atom, calculate H_eff using H_eff_method. Then calculate S' and S'' before doing updating the spins
             S_temp = makeVecNdCheck(S_temp,dble(chainMesh%atoms(atomIndex)%atomParameters))
-            H = H_eff_method(chainMesh,atomIndex,lockArray, J, Dz, B)
+            H = H_eff_method(chainMesh,atomIndex,lockArray, J, Dz, B,demagnetisation_array)
             delta_S = (- gamma / (1 + lambda**2))*((S_temp .x. H )+ ((lambda*S_temp) .x. (S_temp .x. H))) 
             if (.not. allocated(S_temp%coords)) print *, "S_temp is not allocated for i = ",i
             if (.not. allocated(S_prime%coords)) print *, "S_prime is not allocated for i = ",i
@@ -383,7 +398,7 @@ subroutine HeunStep(chainMesh, numSteps, dt, H_eff_method, lambda,gamma, J, Dz, 
                 chainMesh%atoms(atomIndex)%AtomParameters = S_prime%coords
                 
             !call OMP_UNSET_LOCK(lockArray(atomIndex))
-            H_prime = H_eff_method(chainMesh,atomIndex,lockArray, J, Dz, B)
+            H_prime = H_eff_method(chainMesh,atomIndex,lockArray, J, Dz, B,demagnetisation_array)
 
             !call OMP_SET_LOCK(lockArray(atomIndex))
                 chainMesh%atoms(atomIndex)%AtomParameters = S_temp%coords

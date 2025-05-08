@@ -37,8 +37,9 @@ program main
         real(kind=8), allocatable, dimension(:,:) :: demagnetisation_array
         real(kind=8), allocatable, dimension(:,:,:) :: test_grad_array
         
-        integer ::  skyrmion_index
+        integer ::  skyrmion_index, num_thresholds
         integer, allocatable, dimension(:) :: winding_array
+        real(kind=8) :: lower_bound, upper_bound
         fftw_status = fftw_init_threads()
         if (fftw_status == 0) error stop "Error initialising fftw threads"
         argc = command_argument_count() 
@@ -93,10 +94,10 @@ program main
         skyrmion_radius = 1.0_8*testMesh%latticeParameter 
         
         ! Initialize the skyrmion
-        call initialise_skyrmion_sp(testMesh, skyrmion_center, skyrmion_radius,3.12_8/2.0_08,1)
-        winding_number_middle = calculate_winding_number2(testMesh,testMesh%numCellsZ / 2)
-        print *, "Test winding number = ", winding_number_middle 
-        print *, "*************************************"
+        !call initialise_skyrmion_sp(testMesh, skyrmion_center, skyrmion_radius,3.12_8/2.0_08,1)
+        !winding_number_middle = calculate_winding_number2(testMesh,testMesh%numCellsZ / 2)
+        !print *, "Test winding number = ", winding_number_middle 
+        !print *, "*************************************"
         !call initialise_skyrmion_sp(testMesh, skyrmion_center, skyrmion_radius,0.0_08,1)
 
         
@@ -120,13 +121,16 @@ program main
         
         ! Time evolution parameters
         ! dt = 0.00000000000002_8
-        dt = 1e-19_08
+        dt = 1e-17_08
         total_time = 30.0d0
-        num_frames = 0
+        num_frames = 20
         numMetropolisStepsTotal = 220000
         numMetropolisSteps = 1000
-        numBetaSteps = 12
+        numBetaSteps = 14
         
+        lower_bound = 0.01 
+        upper_bound = 0.95
+        num_thresholds = 20
         ! Main evolution loop
         p => H_eff_Heisenberg
                 
@@ -138,7 +142,7 @@ program main
         do i = 0,numBetaSteps
                 Tmax = 5.0_8 
                 !Tmin = 0.1*(0.76*8*J)/(3*Kb)
-                Tmin = 0.000001_8
+                Tmin = 0.001_8
                 T = Tmax - (Tmax - Tmin)*(dble(i)/dble(numBetaSteps)) 
                 beta = 1.0_8 / (T)
                 !call calculate_demagnetisation_field(testMesh,demagnetisation_array)
@@ -155,16 +159,18 @@ program main
                 print *, "Range of winding numbers = ", maxval(winding_number_array) - minval(winding_number_array)
 
                 print *, "Delta E = ", totalEnergy2 - totalEnergy1, "T = ", T, "oldEnergy, newEnergy = ", totalEnergy1, totalEnergy2
-
+                call compute_skyrmion_distribution(testMesh,3,winding_array,lower_bound,upper_bound,&
+                                num_thresholds,testmesh%numCellsZ / 2)
+                print *, "Skyrmion Distribution = ", winding_array
                 if (mod(i,2) == 0) then 
-                        call compute_skyrmion_distribution(testMesh,3,winding_array,0.001_8,0.8_8,100,testmesh%numCellsZ / 2)
-                        print *, "Skyrmion Distribution = ", winding_array
+
                         write(frame_filename, '(A,A,I5.5,A)') trim(output_dir), "/frame_", counter-1, ".csv"
                         call write_spins_to_file(testMesh, frame_filename)
                         print *, "Completed metropolis run at beta = ", beta 
                         
                         counter = counter + 1
                 end if 
+                print *, "*************************************"
                 call flush(output_unit)
                 
         end do 
@@ -180,8 +186,10 @@ program main
              print *, "Frame = ", frame, "Counter = ", counter
              write(frame_filename, '(A,A,I5.5,A)') trim(output_dir), "/frame_", frame + counter - 2, ".csv"
              call write_spins_to_file(testMesh, frame_filename)
-            
+             call compute_skyrmion_distribution(testMesh,3,winding_array,lower_bound,upper_bound,&
+                                num_thresholds,testMesh%numCellsZ/2) 
              print *, "Completed frame", frame, "of", num_frames
+             print *, "skyrmion distribution = ", winding_array
          end do
         ! Write information for Python visualization script
         output_filename = trim(output_dir) // "/info.txt"
