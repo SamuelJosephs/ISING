@@ -211,4 +211,6 @@ program main
         do i = 1,size(lockArray)
                 call OMP_DESTROY_LOCK(lockArray(i))
         end do 
+
+        if (any(winding_array /= 0)) print *, "Skyrmions Found!"
 end program main
