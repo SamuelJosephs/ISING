@@ -16,8 +16,8 @@ D_arr = np.linspace(-3, 3, 10)
 J_prime_arr = np.array([0.0])
 D_prime_array = np.array([0.0])
 B_arr = np.array([1.5])
-time_limit = "03:00:00"
-num_threads = 2
+time_limit = "04:00:00"
+num_threads = 1
 submit = True
 
 VISSCRIPT = 'skyrmion_evolution_simple.py'

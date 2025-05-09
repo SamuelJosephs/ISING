@@ -640,9 +640,9 @@ module reciprocal_space_processes
                         end do
                 end do 
 
-                call write_2d_real_array_to_file(density_matrix, "./density_matrix.csv")
-                call write_2d_logical_array_to_file(visited_array,"./visited_array.csv")
-                call write_2d_logical_array_to_file(density_mask,"./density_mask.csv")
+                !call write_2d_real_array_to_file(density_matrix, "./density_matrix.csv")
+                !call write_2d_logical_array_to_file(visited_array,"./visited_array.csv")
+                !call write_2d_logical_array_to_file(density_mask,"./density_mask.csv")
         end function calculate_skyrmion_number
 
         subroutine Gaussian_filter_2d(array,sigma)

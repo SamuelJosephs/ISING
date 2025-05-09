@@ -162,10 +162,10 @@ program main
                 !call compute_skyrmion_distribution(testMesh,3,winding_array,lower_bound,upper_bound,&
                 !                num_thresholds,testmesh%numCellsZ / 2)
                 if (mod(i,2) == 0) then 
-                        call compute_skyrmion_distribution(testMesh,3,winding_array,lower_bound,upper_bound,&
-                                        num_thresholds,testmesh%numCellsZ / 2)                       
+                        !call compute_skyrmion_distribution(testMesh,3,winding_array,lower_bound,upper_bound,&
+                        !                num_thresholds,testmesh%numCellsZ / 2)                       
 
-                        print *, "Skyrmion Distribution = ", winding_array
+                        !print *, "Skyrmion Distribution = ", winding_array
                         write(frame_filename, '(A,A,I5.5,A)') trim(output_dir), "/frame_", counter-1, ".csv"
                         call write_spins_to_file(testMesh, frame_filename)
                         print *, "Completed metropolis run at beta = ", beta 
@@ -193,6 +193,10 @@ program main
              print *, "Completed frame", frame, "of", num_frames
              print *, "skyrmion distribution = ", winding_array
          end do
+        call compute_skyrmion_distribution(testMesh,3,winding_array,lower_bound,upper_bound,&
+                                        num_thresholds,testmesh%numCellsZ / 2)                       
+
+
         ! Write information for Python visualization script
         output_filename = trim(output_dir) // "/info.txt"
         open(unit=10, file=output_filename, status='replace')
@@ -212,5 +216,8 @@ program main
                 call OMP_DESTROY_LOCK(lockArray(i))
         end do 
 
-        if (any(winding_array /= 0)) print *, "Skyrmions Found!"
+        if (any(winding_array /= 0)) then 
+                print *, "Skyrmion Distribution = ", winding_array
+                print *, "Skyrmions Found!"
+        end if
 end program main
