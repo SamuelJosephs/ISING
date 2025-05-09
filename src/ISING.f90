@@ -128,9 +128,9 @@ program main
         numMetropolisSteps = 1000
         numBetaSteps = 14
         
-        lower_bound = 0.01 
+        lower_bound = 0.85
         upper_bound = 0.95
-        num_thresholds = 80
+        num_thresholds = 10
         ! Main evolution loop
         p => H_eff_Heisenberg
                 
@@ -159,11 +159,13 @@ program main
                 print *, "Range of winding numbers = ", maxval(winding_number_array) - minval(winding_number_array)
 
                 print *, "Delta E = ", totalEnergy2 - totalEnergy1, "T = ", T, "oldEnergy, newEnergy = ", totalEnergy1, totalEnergy2
-                call compute_skyrmion_distribution(testMesh,3,winding_array,lower_bound,upper_bound,&
-                                num_thresholds,testmesh%numCellsZ / 2)
-                print *, "Skyrmion Distribution = ", winding_array
+                !call compute_skyrmion_distribution(testMesh,3,winding_array,lower_bound,upper_bound,&
+                !                num_thresholds,testmesh%numCellsZ / 2)
                 if (mod(i,2) == 0) then 
+                        call compute_skyrmion_distribution(testMesh,3,winding_array,lower_bound,upper_bound,&
+                                        num_thresholds,testmesh%numCellsZ / 2)                       
 
+                        print *, "Skyrmion Distribution = ", winding_array
                         write(frame_filename, '(A,A,I5.5,A)') trim(output_dir), "/frame_", counter-1, ".csv"
                         call write_spins_to_file(testMesh, frame_filename)
                         print *, "Completed metropolis run at beta = ", beta 

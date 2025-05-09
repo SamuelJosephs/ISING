@@ -395,52 +395,34 @@ module reciprocal_space_processes
                 implicit none
                 type(ChainMesh_t), intent(inout) :: chainMesh 
                 integer, intent(in) :: Z_index
-                real(kind=8) :: winding_number 
                 
-                integer :: i, j, i_index, j_index
-                complex(kind=8) :: num1, num2, numerator1, numerator2  
+                integer :: i, j, i_index, j_index, N, L, M, atomIndex, cellIndex 
+                integer :: atom2, atom3, atom4
                 type(VecNd_t) :: s1, s2, s3, s4
                 real(kind=8) :: x1,x2_1,x2_2,x3,y1,y2_1,y2_2,y3,z1,z2_1,z2_2,z3
-                real(kind=8) :: denominator1, denominator2, arg1, arg2, sign1, sign2  
-                real(kind=8) :: sigma1_area1, sigma2_area2
-                winding_number = 0.0_08
-                num1 = 0.0_8 
-                num2 = 0.0_8
-                call interpolate_to_fft_array(chainMesh)
+                real(kind=8) :: sigma1_area1, sigma2_area2, winding_number
 
+                N = chainMesh%numCellsX 
+                L = chainMesh%numcellsY 
+                M = chainMesh%numCellsZ
+                if (Z_index < 1 .or. Z_index > M) error stop "Z_index out of bounds"
+                if (.not. allocated(chainMesh%derivativeList)) error stop "Derivative List not initialised"
+                if (any(shape(chainMesh%derivativeList) /= [chainMesh%numAtoms,3,2])) &
+                                                error stop "DerivativeList not initialised with proper shape"
+
+
+                winding_number = 0.0_8
                 do i = 1, chainMesh%numCellsX
                         do j = 1, chainMesh%numCellsY
-
-                                if (i == chainMesh%numCellsX) then 
-                                        i_index = 1 
-                                else 
-                                        i_index = i + 1 
-                                end if
-
-                                if (j == chainMesh%numCellsY) then 
-                                        j_index = 1 
-                                else 
-                                        j_index = j + 1 
-                                end if 
-                               x1 = chainMesh%fft_array_x(i,j,Z_index)  
-                               x2_1 = chainMesh%fft_array_x(i,j_index,Z_index)
-                               x2_2 = chainMesh%fft_array_x(i_index,j,Z_index)
-                               x3 = chainMesh%fft_array_x(i_index,j_index,Z_index)
-
-                               y1 = chainMesh%fft_array_y(i,j,Z_index)  
-                               y2_1 = chainMesh%fft_array_y(i,j_index,Z_index)
-                               y2_2 = chainMesh%fft_array_y(i_index,j,Z_index)
-                               y3 = chainMesh%fft_array_y(i_index,j_index,Z_index)
-
-                               z1 = chainMesh%fft_array_z(i,j,Z_index)  
-                               z2_1 = chainMesh%fft_array_z(i,j_index,Z_index)
-                               z2_2 = chainMesh%fft_array_z(i_index,j,Z_index)
-                               z3 = chainMesh%fft_array_z(i_index,j_index,Z_index)
-
-                               s1 = [x1,y1,z1]
-                               s2 = [x2_1,y2_1,z2_1]
-                               s3 = [x2_2,y2_2,z2_2] 
-                               s4 = [x3,y3,z3]
+                                cellIndex = IndexFromCoordinates(chainMesh,i,j,Z_index)
+                                atomIndex = chainMesh%chainMeshCells(cellIndex)%firstAtomInMeshCell
+                                atom2 = chainMesh%derivativeList(atomIndex,1,2)
+                                atom4 = chainMesh%derivativeList(atom2,2,2)
+                                atom3 = chainMesh%derivativeList(atomIndex,2,2)
+                               s1 = dble(chainMesh%atoms(atomIndex)%AtomParameters)
+                               s2 = dble(chainMesh%atoms(atom2)%AtomParameters)
+                               s3 = dble(chainMesh%atoms(atom3)%AtomParameters)
+                               s4 = dble(chainMesh%atoms(atom4)%AtomParameters)
 
                                s1 = s1 / abs(s1)
                                s2 = s2 / abs(s2)
@@ -452,7 +434,7 @@ module reciprocal_space_processes
                                winding_number = winding_number + sigma1_area1 + sigma2_area2 
                         end do 
                 end do 
-                winding_number = winding_number / (4*pi)
+                winding_number = winding_number / (4*pi) ! Leaving this at the end hoping the compiler will vectorise it
         end function calculate_winding_number2
 
 
@@ -462,14 +444,19 @@ module reciprocal_space_processes
                 integer, intent(in) :: Z_index
                 real(kind=8), dimension(:,:), allocatable, intent(out) :: density_matrix 
                 
-                integer :: i, j, i_index, j_index, N, L 
+                integer :: i, j, i_index, j_index, N, L, M, atomIndex, cellIndex 
+                integer :: atom2, atom3, atom4
                 type(VecNd_t) :: s1, s2, s3, s4
                 real(kind=8) :: x1,x2_1,x2_2,x3,y1,y2_1,y2_2,y3,z1,z2_1,z2_2,z3
                 real(kind=8) :: sigma1_area1, sigma2_area2
 
                 N = chainMesh%numCellsX 
                 L = chainMesh%numcellsY 
-
+                M = chainMesh%numCellsZ
+                if (Z_index < 1 .or. Z_index > M) error stop "Z_index out of bounds"
+                if (.not. allocated(chainMesh%derivativeList)) error stop "Derivative List not initialised"
+                if (any(shape(chainMesh%derivativeList) /= [chainMesh%numAtoms,3,2])) &
+                                                error stop "DerivativeList not initialised with proper shape"
                 if (allocated(density_matrix)) then 
                         if (any(shape(density_matrix) /= [N,L])) then 
                                 deallocate(density_matrix)
@@ -480,41 +467,18 @@ module reciprocal_space_processes
                 end if
                 density_matrix(:,:) = 0.0_8
 
-                call interpolate_to_fft_array(chainMesh)
 
                 do i = 1, chainMesh%numCellsX
                         do j = 1, chainMesh%numCellsY
-
-                                if (i == chainMesh%numCellsX) then 
-                                        i_index = 1 
-                                else 
-                                        i_index = i + 1 
-                                end if
-
-                                if (j == chainMesh%numCellsY) then 
-                                        j_index = 1 
-                                else 
-                                        j_index = j + 1 
-                                end if 
-                               x1 = chainMesh%fft_array_x(i,j,Z_index)  
-                               x2_1 = chainMesh%fft_array_x(i,j_index,Z_index)
-                               x2_2 = chainMesh%fft_array_x(i_index,j,Z_index)
-                               x3 = chainMesh%fft_array_x(i_index,j_index,Z_index)
-
-                               y1 = chainMesh%fft_array_y(i,j,Z_index)  
-                               y2_1 = chainMesh%fft_array_y(i,j_index,Z_index)
-                               y2_2 = chainMesh%fft_array_y(i_index,j,Z_index)
-                               y3 = chainMesh%fft_array_y(i_index,j_index,Z_index)
-
-                               z1 = chainMesh%fft_array_z(i,j,Z_index)  
-                               z2_1 = chainMesh%fft_array_z(i,j_index,Z_index)
-                               z2_2 = chainMesh%fft_array_z(i_index,j,Z_index)
-                               z3 = chainMesh%fft_array_z(i_index,j_index,Z_index)
-
-                               s1 = [x1,y1,z1]
-                               s2 = [x2_1,y2_1,z2_1]
-                               s3 = [x2_2,y2_2,z2_2] 
-                               s4 = [x3,y3,z3]
+                                cellIndex = IndexFromCoordinates(chainMesh,i,j,Z_index)
+                                atomIndex = chainMesh%chainMeshCells(cellIndex)%firstAtomInMeshCell
+                                atom2 = chainMesh%derivativeList(atomIndex,1,2)
+                                atom4 = chainMesh%derivativeList(atom2,2,2)
+                                atom3 = chainMesh%derivativeList(atomIndex,2,2)
+                               s1 = dble(chainMesh%atoms(atomIndex)%AtomParameters)
+                               s2 = dble(chainMesh%atoms(atom2)%AtomParameters)
+                               s3 = dble(chainMesh%atoms(atom3)%AtomParameters)
+                               s4 = dble(chainMesh%atoms(atom4)%AtomParameters)
 
                                s1 = s1 / abs(s1)
                                s2 = s2 / abs(s2)
@@ -823,7 +787,7 @@ module reciprocal_space_processes
                 winding_array = 0.0_8
                 do i = 1,num_thresholds
                         do sigma_index = 1,20
-                        sigma = (dble(sigma_index)/20.0_8) * (0.6_8 - 0.01_8) + 0.01_8
+                        sigma = (dble(sigma_index)/20.0_8) * (1.0_8 - 0.001_8) + 0.001_8 
                         winding = 0.0_8
                         !threshold = (dble(i) / dble(num_thresholds)) * (max_threshold - min_threshold) + min_threshold
                         threshold = max_threshold - (dble(i) / dble(num_thresholds)) * (max_threshold - min_threshold)
