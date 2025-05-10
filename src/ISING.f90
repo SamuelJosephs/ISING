@@ -126,7 +126,7 @@ program main
         num_frames = 0
         numMetropolisStepsTotal = 220000
         numMetropolisSteps = 1000
-        numBetaSteps = 6
+        numBetaSteps = 10
         
         lower_bound = 0.01
         upper_bound = 0.95
@@ -163,12 +163,14 @@ program main
                 !                num_thresholds,testmesh%numCellsZ / 2)
                 ! skyrmion_number = calculate_skyrmion_number(testMesh,testMesh%numCellsZ/2,0.3_8,1,0.0_8)      
                 ! print *, "Skyrmion number = ", skyrmion_number
-                if (mod(i,3) == 0) then 
-                        call compute_skyrmion_distribution(testMesh,3,winding_array,lower_bound,upper_bound,&
+                if (mod(i,5) == 0) then 
+                        if (i /= 0) then
+                                call compute_skyrmion_distribution(testMesh,3,winding_array,lower_bound,upper_bound,&
                                        num_thresholds,testmesh%numCellsZ / 2)                 
-                        ! skyrmion_number = calculate_skyrmion_number(testMesh,testMesh%numCellsZ/2,0.3_8,1,0.0_8)      
-                        ! print *, "Skyrmion number = ", skyrmion_number
-                        print *, "Skyrmion Distribution = ", winding_array
+                                ! skyrmion_number = calculate_skyrmion_number(testMesh,testMesh%numCellsZ/2,0.3_8,1,0.0_8)      
+                                ! print *, "Skyrmion number = ", skyrmion_number
+                                print *, "Skyrmion Distribution = ", winding_array
+                        end if
                         write(frame_filename, '(A,A,I5.5,A)') trim(output_dir), "/frame_", counter-1, ".csv"
                         call write_spins_to_file(testMesh, frame_filename)
                         print *, "Completed metropolis run at beta = ", beta 

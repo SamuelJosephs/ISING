@@ -552,7 +552,7 @@ module reciprocal_space_processes
                 integer, parameter :: stack_len = 10000
 
                 integer :: i, j, i_neighbor, j_neighbor, itemp, jtemp, candidate_counter, Nx, Ny, &
-                                        xIndex, yIndex, seeds_found
+                                        xIndex, yIndex
                 real(kind=8) :: acc
                 logical :: is_candidate, is_local_maxima
                 real(kind=8) :: upper_threshold
@@ -590,7 +590,6 @@ module reciprocal_space_processes
                 is_candidate = .False.
                 Nx = chainMesh%numcellsX 
                 Ny = chainMesh%numCellsY
-                seeds_found = 0
                 do i = 1,N 
                         do j = 1,L 
                                 is_local_maxima = .True.
@@ -603,7 +602,6 @@ module reciprocal_space_processes
                                         end do 
                                 end do 
                                 if (density_mask(i,j) .and. (.not. visited_array(i,j)) .and. is_local_maxima) then 
-                                  seeds_found = seeds_found + 1
                                   acc = density_matrix(i,j)
                                   visited_array(i,j) = .True.
  
@@ -638,12 +636,11 @@ module reciprocal_space_processes
                                   end do
                                 !   print *, "acc, skyrmion_number = ", acc, skyrmion_number, "q_theshold = ", q_threshold, &
                                 !                candidate_counter
-                                  if (abs(abs(acc) - particle_number) < 0.15) skyrmion_number = skyrmion_number + 1
+                                  if (abs(abs(acc) - particle_number) < 0.2) skyrmion_number = skyrmion_number + 1
                                 end if 
                                 stack_array = 0
                         end do
                 end do 
-                print *, "Seeds_found = ", seeds_found
                 call write_2d_real_array_to_file(density_matrix, "./density_matrix.csv")
                 call write_2d_logical_array_to_file(visited_array,"./visited_array.csv")
                 call write_2d_logical_array_to_file(density_mask,"./density_mask.csv")
