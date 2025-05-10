@@ -380,14 +380,15 @@ module reciprocal_space_processes
         function arc_winding(s1,s2,s3) result(sigma_area)
                 implicit none
                 type(vecNd_t), intent(in) :: s1, s2, s3
-                real(kind=8) :: sigma_area, denominator
-                complex(kind=8) :: num, numerator
+                real(kind=8) :: sigma_area
+                complex(kind=8) :: num
 
                 
-                denominator = sqrt(2*(1 + s1*s2)*(1 + s2*s3)*(1+s3*s1))
-                numerator = 1 + s1*s2 + s2*s3 + s3*s1 + cmplx(0.0_8,s1*(s2 .x. s3))
-                num = numerator / denominator
-
+                num = 1 + s1*s2 + s2*s3 + s3*s1 + cmplx(0.0_8,s1*(s2 .x. s3))
+                if (abs(real(num)) < 1e-15 .and. abs(aimag(num)) < 1e-15) then 
+                        sigma_area = 0.0_8 
+                        return 
+                end if 
                 sigma_area = 2*atan2(aimag(num),real(num))
         end function arc_winding
 
@@ -787,7 +788,8 @@ module reciprocal_space_processes
                 winding_array = 0.0_8
                 do i = 1,num_thresholds
                         do sigma_index = 1,20
-                        sigma = (dble(sigma_index)/20.0_8) * (1.0_8 - 0.001_8) + 0.001_8 
+                        ! sigma = (dble(sigma_index)/20.0_8) * (1.0_8 - 0.001_8) + 0.001_8 
+                        sigma = 1.0_8 - (dble(sigma_index)/20.0_8)*(1.0_8 - 0.001_8)
                         winding = 0.0_8
                         !threshold = (dble(i) / dble(num_thresholds)) * (max_threshold - min_threshold) + min_threshold
                         threshold = max_threshold - (dble(i) / dble(num_thresholds)) * (max_threshold - min_threshold)

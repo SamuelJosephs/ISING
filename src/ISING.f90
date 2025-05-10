@@ -37,7 +37,7 @@ program main
         real(kind=8), allocatable, dimension(:,:) :: demagnetisation_array
         real(kind=8), allocatable, dimension(:,:,:) :: test_grad_array
         
-        integer ::  skyrmion_index, num_thresholds
+        integer ::  skyrmion_index, num_thresholds, skyrmion_number
         integer, allocatable, dimension(:) :: winding_array
         real(kind=8) :: lower_bound, upper_bound
         fftw_status = fftw_init_threads()
@@ -126,11 +126,11 @@ program main
         num_frames = 0
         numMetropolisStepsTotal = 220000
         numMetropolisSteps = 1000
-        numBetaSteps = 14
+        numBetaSteps = 8
         
-        lower_bound = 0.85
+        lower_bound = 0.1
         upper_bound = 0.95
-        num_thresholds = 10
+        num_thresholds = 40
         ! Main evolution loop
         p => H_eff_Heisenberg
                 
@@ -142,7 +142,7 @@ program main
         do i = 0,numBetaSteps
                 Tmax = 5.0_8 
                 !Tmin = 0.1*(0.76*8*J)/(3*Kb)
-                Tmin = 0.1
+                Tmin = 0.001
                 T = Tmax - (Tmax - Tmin)*(dble(i)/dble(numBetaSteps)) 
                 beta = 1.0_8 / (T)
                 !call calculate_demagnetisation_field(testMesh,demagnetisation_array)
@@ -161,11 +161,14 @@ program main
                 print *, "Delta E = ", totalEnergy2 - totalEnergy1, "T = ", T, "oldEnergy, newEnergy = ", totalEnergy1, totalEnergy2
                 !call compute_skyrmion_distribution(testMesh,3,winding_array,lower_bound,upper_bound,&
                 !                num_thresholds,testmesh%numCellsZ / 2)
+                ! skyrmion_number = calculate_skyrmion_number(testMesh,testMesh%numCellsZ/2,0.3_8,1,0.0_8)      
+                ! print *, "Skyrmion number = ", skyrmion_number
                 if (mod(i,2) == 0) then 
-                        !call compute_skyrmion_distribution(testMesh,3,winding_array,lower_bound,upper_bound,&
-                        !                num_thresholds,testmesh%numCellsZ / 2)                       
-
-                        !print *, "Skyrmion Distribution = ", winding_array
+                        call compute_skyrmion_distribution(testMesh,3,winding_array,lower_bound,upper_bound,&
+                                       num_thresholds,testmesh%numCellsZ / 2)                 
+                        ! skyrmion_number = calculate_skyrmion_number(testMesh,testMesh%numCellsZ/2,0.3_8,1,0.0_8)      
+                        ! print *, "Skyrmion number = ", skyrmion_number
+                        print *, "Skyrmion Distribution = ", winding_array
                         write(frame_filename, '(A,A,I5.5,A)') trim(output_dir), "/frame_", counter-1, ".csv"
                         call write_spins_to_file(testMesh, frame_filename)
                         print *, "Completed metropolis run at beta = ", beta 
@@ -193,8 +196,7 @@ program main
              print *, "Completed frame", frame, "of", num_frames
              print *, "skyrmion distribution = ", winding_array
          end do
-        call compute_skyrmion_distribution(testMesh,3,winding_array,lower_bound,upper_bound,&
-                                        num_thresholds,testmesh%numCellsZ / 2)                       
+
 
 
         ! Write information for Python visualization script
@@ -215,9 +217,8 @@ program main
         do i = 1,size(lockArray)
                 call OMP_DESTROY_LOCK(lockArray(i))
         end do 
-
         if (any(winding_array /= 0)) then 
-                print *, "Skyrmion Distribution = ", winding_array
                 print *, "Skyrmions Found!"
-        end if
+        end if 
+ 
 end program main

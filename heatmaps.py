@@ -19,7 +19,7 @@ def plot_heatmap_from_csv(filepath: str, save_name: str, cmap: str = 'viridis') 
     data = np.transpose(data)
     # Create the plot
     fig, ax = plt.subplots()
-    cax = ax.imshow(data, aspect='auto', cmap=cmap)
+    cax = ax.imshow(data, aspect='auto', cmap=cmap,origin="lower")
     fig.colorbar(cax, ax=ax)
 
     # Add labels and title if desired
