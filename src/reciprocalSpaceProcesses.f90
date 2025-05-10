@@ -495,7 +495,8 @@ module reciprocal_space_processes
         end subroutine calculate_winding_number_density
 
 
-        subroutine add_neighbors_to_stack(chainMesh, i,j,stack_array, stack_ptr, visited_array, density_mask, in_stack_array)
+        subroutine add_neighbors_to_stack(chainMesh, i,j,stack_array, stack_ptr, visited_array, density_mask, in_stack_array, &
+                                                density_matrix)
                 implicit none
                 type(chainMesh_t), intent(in) :: chainMesh 
                 integer, intent(in) :: i,j
@@ -503,12 +504,14 @@ module reciprocal_space_processes
                 integer, intent(inout) :: stack_ptr 
                 logical, dimension(:,:), intent(in) :: visited_array, density_mask 
                 logical, dimension(:,:), intent(inout) :: in_stack_array
-
+                real(kind=8), dimension(:,:), intent(in) :: density_matrix
+                integer, dimension(2) :: stack_array_shape
                 integer :: i_neighbor, j_neighbor, itemp, jtemp, N, L 
-                integer, dimension(2) :: stack_array_shape 
-                stack_array_shape = shape(stack_array)
+                logical :: downhill
+                
                 N = chainMesh%numCellsX 
                 L = chainMesh%numCellsY
+                stack_array_shape = shape(stack_array)
                   do i_neighbor = -1,1 
                         do j_neighbor = -1,1 
                                 itemp = i + i_neighbor
@@ -519,7 +522,9 @@ module reciprocal_space_processes
                                 if (jtemp < 1) jtemp = L 
                                 if (jtemp > L) jtemp = 1 
                                 if (in_stack_array(itemp,jtemp)) cycle 
-                                if ((.not. visited_array(itemp,jtemp)) .and. density_mask(itemp,jtemp)) then 
+                                downhill = density_matrix(i,j) >= density_matrix(itemp,jtemp) - 1e-10_8
+                                if ((.not. visited_array(itemp,jtemp)) .and. density_mask(itemp,jtemp) .and. &
+                                                                         downhill) then 
                                         if (stack_ptr + 1 > stack_array_shape(1)) error stop "Stack array capacity exceeded"
                                         stack_array(stack_ptr,1) = itemp ! stack_ptr points to where the next entry
                                         ! should be written and equals the existing number of entries + 1.
@@ -546,9 +551,10 @@ module reciprocal_space_processes
                 integer :: stack_ptr
                 integer, parameter :: stack_len = 10000
 
-                integer :: i, j, i_neighbor, j_neighbor, itemp, jtemp, candidate_counter
+                integer :: i, j, i_neighbor, j_neighbor, itemp, jtemp, candidate_counter, Nx, Ny, &
+                                        xIndex, yIndex, seeds_found
                 real(kind=8) :: acc
-                logical :: is_candidate
+                logical :: is_candidate, is_local_maxima
                 real(kind=8) :: upper_threshold
                 N = chainMesh%numCellsX 
                 L = chainMesh%numCellsY 
@@ -582,9 +588,22 @@ module reciprocal_space_processes
                 skyrmion_number = 0 
                 candidate_counter = 0
                 is_candidate = .False.
+                Nx = chainMesh%numcellsX 
+                Ny = chainMesh%numCellsY
+                seeds_found = 0
                 do i = 1,N 
                         do j = 1,L 
-                                if (density_mask(i,j) .and. (.not. visited_array(i,j))) then 
+                                is_local_maxima = .True.
+                                do itemp = -1,1
+                                        do jtemp = -1,1
+                                                xIndex = modulo(i + itemp - 1,Nx) + 1
+                                                yIndex = modulo(j + jtemp - 1,Ny) + 1
+                                                if (itemp == 0 .and. jtemp == 0) cycle
+                                                if (density_matrix(i,j) < density_matrix(xIndex,yIndex)) is_local_maxima = .False.
+                                        end do 
+                                end do 
+                                if (density_mask(i,j) .and. (.not. visited_array(i,j)) .and. is_local_maxima) then 
+                                  seeds_found = seeds_found + 1
                                   acc = density_matrix(i,j)
                                   visited_array(i,j) = .True.
  
@@ -592,29 +611,12 @@ module reciprocal_space_processes
                                   ! stack then add them to the stack
 
                                 
-                                  !do i_neighbor = -1,1 
-                                  !      do j_neighbor = -1,1 
-                                  !              itemp = i + i_neighbor
-                                  !              jtemp = j + j_neighbor
-                                  !              if (itemp < 1) itemp = N ! Periodic boundaries 
-                                  !              if (itemp > N) itemp = 1 
-                                  !              
-                                  !              if (jtemp < 1) jtemp = L 
-                                  !              if (jtemp > L) jtemp = 1 
-
-                                  !              if ((.not. visited_array(itemp,jtemp)) .and. density_mask(itemp,jtemp)) then 
-                                  !                      stack_array(stack_ptr,1) = itemp ! stack_ptr points to where the next entry
-                                  !                      ! should be written and equals the existing number of entries + 1.
-                                  !                      stack_array(stack_ptr,2) = jtemp 
-                                  !                      stack_ptr = stack_ptr + 1
-                                  !              end if 
-                                  !      end do 
-                                  !end do 
+ 
                                   stack_ptr = 1
                                   in_stack_array = .False.
                                   
                                   call add_neighbors_to_stack(chainMesh,i,j,stack_array,stack_ptr, &
-                                                 visited_array,density_mask, in_stack_array)
+                                                 visited_array,density_mask, in_stack_array, density_matrix)
                                   
                                   ! Now for each neighbor in the stack, visit it if not already visited and add it's density to the
                                   ! accumulator. Then add it's unvisited neighbors over the density threshold to the stack, repeat
@@ -630,20 +632,21 @@ module reciprocal_space_processes
                                                 acc = acc + density_matrix(itemp,jtemp)
                                                 visited_array(itemp,jtemp) = .True.
                                                 call add_neighbors_to_stack(chainMesh,itemp,jtemp,& 
-                                                        stack_array,stack_ptr,visited_array,density_mask, in_stack_array)
+                                                        stack_array,stack_ptr,visited_array,density_mask, &
+                                                                in_stack_array, density_matrix)
                                         end if 
                                   end do
-                                  !print *, "acc, skyrmion_number = ", acc, skyrmion_number, "q_theshold = ", q_threshold, &
-                                  !              candidate_counter
+                                !   print *, "acc, skyrmion_number = ", acc, skyrmion_number, "q_theshold = ", q_threshold, &
+                                !                candidate_counter
                                   if (abs(abs(acc) - particle_number) < 0.15) skyrmion_number = skyrmion_number + 1
                                 end if 
                                 stack_array = 0
                         end do
                 end do 
-
-                !call write_2d_real_array_to_file(density_matrix, "./density_matrix.csv")
-                !call write_2d_logical_array_to_file(visited_array,"./visited_array.csv")
-                !call write_2d_logical_array_to_file(density_mask,"./density_mask.csv")
+                print *, "Seeds_found = ", seeds_found
+                call write_2d_real_array_to_file(density_matrix, "./density_matrix.csv")
+                call write_2d_logical_array_to_file(visited_array,"./visited_array.csv")
+                call write_2d_logical_array_to_file(density_mask,"./density_mask.csv")
         end function calculate_skyrmion_number
 
         subroutine Gaussian_filter_2d(array,sigma)
@@ -797,7 +800,7 @@ module reciprocal_space_processes
                                 winding_array(j) = calculate_skyrmion_number(chainMesh,Z_index,threshold,j,sigma)
                                 winding = winding + j * winding_array(j)
                         end do 
-                        !print *, "Winding array = ", winding_array, "threshold = ", threshold, "sigma = ", sigma
+                        print *, "Winding array = ", winding_array, "threshold = ", threshold, "sigma = ", sigma
                         if (abs(abs(winding) - abs(total_charge)) < 0.1) then 
                                 print *, "Solution found at q_threshold = ", threshold, "threshold = ", threshold, "sigma = ", sigma
                                 return

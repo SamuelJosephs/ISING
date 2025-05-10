@@ -126,11 +126,11 @@ program main
         num_frames = 0
         numMetropolisStepsTotal = 220000
         numMetropolisSteps = 1000
-        numBetaSteps = 8
+        numBetaSteps = 6
         
-        lower_bound = 0.1
+        lower_bound = 0.01
         upper_bound = 0.95
-        num_thresholds = 40
+        num_thresholds = 60
         ! Main evolution loop
         p => H_eff_Heisenberg
                 
@@ -163,7 +163,7 @@ program main
                 !                num_thresholds,testmesh%numCellsZ / 2)
                 ! skyrmion_number = calculate_skyrmion_number(testMesh,testMesh%numCellsZ/2,0.3_8,1,0.0_8)      
                 ! print *, "Skyrmion number = ", skyrmion_number
-                if (mod(i,2) == 0) then 
+                if (mod(i,3) == 0) then 
                         call compute_skyrmion_distribution(testMesh,3,winding_array,lower_bound,upper_bound,&
                                        num_thresholds,testmesh%numCellsZ / 2)                 
                         ! skyrmion_number = calculate_skyrmion_number(testMesh,testMesh%numCellsZ/2,0.3_8,1,0.0_8)      
