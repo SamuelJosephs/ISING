@@ -126,7 +126,7 @@ program main
         num_frames = 0
         numMetropolisStepsTotal = 220000
         numMetropolisSteps = 1000
-        numBetaSteps = 10
+        numBetaSteps = 20
         
         lower_bound = 0.01
         upper_bound = 0.95
@@ -142,7 +142,7 @@ program main
         do i = 0,numBetaSteps
                 Tmax = 5.0_8 
                 !Tmin = 0.1*(0.76*8*J)/(3*Kb)
-                Tmin = 0.001
+                Tmin = 0.0001
                 T = Tmax - (Tmax - Tmin)*(dble(i)/dble(numBetaSteps)) 
                 beta = 1.0_8 / (T)
                 !call calculate_demagnetisation_field(testMesh,demagnetisation_array)
@@ -163,7 +163,7 @@ program main
                 !                num_thresholds,testmesh%numCellsZ / 2)
                 ! skyrmion_number = calculate_skyrmion_number(testMesh,testMesh%numCellsZ/2,0.3_8,1,0.0_8)      
                 ! print *, "Skyrmion number = ", skyrmion_number
-                if (mod(i,5) == 0) then 
+                if (mod(i,10) == 0) then 
                         if (i /= 0) then
                                 call compute_skyrmion_distribution(testMesh,3,winding_array,lower_bound,upper_bound,&
                                        num_thresholds,testmesh%numCellsZ / 2)                 
