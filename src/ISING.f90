@@ -148,7 +148,7 @@ program main
                 !call calculate_demagnetisation_field(testMesh,demagnetisation_array)
                 call TotalHeisenbergEnergy(testMesh,J,J_prime,Dz,Dz_prime,B,lockArray,totalEnergy1)
                 call Metropolis_mcs(testMesh,beta,numMetropolisSteps,&
-                                                J,J_prime,Dz,Dz_prime,B,0.2_8, lockArray,demagnetisation_array)
+                                                J,J_prime,Dz,Dz_prime,B,0.2_8, lockArray,demagnetisation_array,demag=.True.)
                 call TotalHeisenbergEnergy(testMesh,J,J_prime,Dz,Dz_prime,B,lockArray,totalEnergy2)
                 winding_number_middle = calculate_winding_number2(testMesh,testMesh%numCellsZ/2)
                 winding_number_bottom = calculate_winding_number2(testMesh,1)

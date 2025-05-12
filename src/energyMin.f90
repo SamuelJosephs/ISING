@@ -114,7 +114,7 @@ end function AtomEnergy
         end subroutine GaussianStep 
 
         subroutine calculateHeisenbergEnergy(chainMesh,spin_snapshot,atomIndex, J, J_prime, Dz, Dz_prime ,B , & 
-                        lockArray, S_proposed, oldEnergy, newEnergy, demagnetisation_array)
+                        lockArray, S_proposed, oldEnergy, newEnergy, demagnetisation_array, calculate_demag_field)
                 implicit none
                 type(chainMesh_t), intent(in) :: chainMesh
                 real(kind=8), dimension(:,:), intent(in) :: spin_snapshot
@@ -124,10 +124,16 @@ end function AtomEnergy
                 type(vecNd_t), intent(in) :: S_proposed 
                 real(kind=8), intent(inout) ::  oldEnergy, newEnergy 
                 real(kind=8), dimension(:,:), intent(in) :: demagnetisation_array
+                logical, intent(in), optional :: calculate_demag_field
+
+                logical :: calc
                 real(kind = 8) :: Energy, x,y,z, tempEnergy, Hx, Hy, Hz, MdotH, MdotH_proposed
                 integer :: i, atomIndexTemp, dim_i, nn , nn_index, stat 
                 type(vecNd_t) :: S, S_prime, atomPos1, atomPos2, tempVec,r, D, D_prime
                 !call OMP_SET_LOCK(lockArray(atomIndex))
+                calc = .True.
+
+                if (present(calculate_demag_field)) calc = calculate_demag_field
                 oldEnergy = 0.0_8
                 newEnergy = 0.0_8
                 S = makeVecNdCheck(S, dble(spin_snapshot(atomIndex,:)))
@@ -160,9 +166,12 @@ end function AtomEnergy
                         
                         newEnergy = newEnergy + (J* S_proposed*S_prime) + (D*(S_proposed .x. S_prime))
                 end do 
-                oldEnergy = oldEnergy + B*s%coords(3) - (0.5_8*MdotH) 
-                newEnergy = newEnergy + B*S_proposed%coords(3) - (0.5_8*MdotH_proposed)
-                
+                oldEnergy = oldEnergy + B*s%coords(3) 
+                newEnergy = newEnergy + B*S_proposed%coords(3) 
+                if (calc) then 
+                        oldEnergy = oldEnergy - (0.5_8*MdotH) 
+                        newEnergy = newEnergy - (0.5_8*MdotH_proposed)
+                end if 
                 ! Now add contributions from next - nearest in plane neighbors in the x and y axis
                 if (.not. allocated(chainMesh%derivativeList)) error stop "DerivativeList is not allocated"
                 do dim_i = 1,2 
@@ -193,7 +202,8 @@ end function AtomEnergy
         end subroutine calculateHeisenbergEnergy
 
 
-        subroutine Metropolis_mcs(chainMesh, beta,numMCSSweeps, J, J_prime,  Dz, Dz_prime, B, r, lockArray, demagnetisation_array)
+        subroutine Metropolis_mcs(chainMesh, beta,numMCSSweeps, J, J_prime,  Dz, Dz_prime, B, r, lockArray, demagnetisation_array,&
+                                                demag)
                 ! Each thread will randomly select an atom nsteps times and determine whether to flip the spin 
                 implicit none
                 type(ChainMesh_t), intent(inout) :: chainMesh 
@@ -201,7 +211,9 @@ end function AtomEnergy
                 integer, intent(in) :: numMCSSweeps
                 integer(kind=OMP_LOCK_KIND), intent(inout) :: lockArray(:)
                 real(kind=8), dimension(:,:), allocatable, intent(inout) :: demagnetisation_array
+                logical, intent(in), optional :: demag 
 
+                logical :: calculate_demag_field
                 type(random) :: rand 
                 integer :: threadID, time, i, atomIndex, numThreads, stat
                 real(kind=8) :: rand_num, oldEnergy, newEnergy, P, Z  
@@ -210,6 +222,8 @@ end function AtomEnergy
                 real(kind=8), parameter :: pi = 3.14159265358979323846_8
                 real(kind=8), dimension(:,:), allocatable :: spin_snapshot
 
+                calculate_demag_field = .True. 
+                if (present(demag)) calculate_demag_field = demag
                 allocate(spin_snapshot(chainMesh%numAtoms,3),stat=stat)
                 if (stat /= 0) error stop "Error allocating snapshot array"
 
@@ -226,7 +240,8 @@ end function AtomEnergy
                 call calculate_demagnetisation_field(chainMesh,demagnetisation_array)
 
                 !$omp parallel default(private) & 
-                !$omp& firstprivate(nsteps,beta, J,J_prime, Dz,Dz_prime, B, r, demag_update_interval, numMCSSweeps) & 
+                !$omp& firstprivate(nsteps,beta, J,J_prime, Dz,Dz_prime, B, r, demag_update_interval, numMCSSweeps, &
+                !$omp& calculate_demag_field) &  
                 !$omp&  shared(chainMesh, lockArray, demagnetisation_array, spin_snapshot)
                 numThreads = omp_get_num_threads()
                 threadID = omp_get_thread_num()
@@ -263,7 +278,7 @@ end function AtomEnergy
                                 if (any(S%coords /= S%coords)) error stop "NaN in MetropolisMixed"
   
                                 call calculateHeisenbergEnergy(chainMesh,spin_snapshot,atomIndex,J,J_prime,Dz,Dz_prime,&
-                                        B,lockArray,S_proposed,oldEnergy,newEnergy,demagnetisation_array)
+                                        B,lockArray,S_proposed,oldEnergy,newEnergy,demagnetisation_array, calculate_demag_field)
                                 if (newEnergy < oldEnergy) then 
                                         Z = 1.0_8 
                                 else 
@@ -286,7 +301,7 @@ end function AtomEnergy
                 end do
                 !$omp end do nowait
                 !$omp barrier
-                if (mod(MCScounter,demag_update_interval) == 0) then                         
+                if (mod(MCScounter,demag_update_interval) == 0 .and. calculate_demag_field) then                         
                         !$omp single
                         call calculate_demagnetisation_field(chainMesh,demagnetisation_array)
                         !$omp end single
