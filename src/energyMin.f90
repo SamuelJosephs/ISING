@@ -1,6 +1,4 @@
 
-
-
 module EnergyMin
         use Atom 
         use ChainMesh 
@@ -113,36 +111,34 @@ end function AtomEnergy
                 vec3d = vec3d / abs(vec3d)
         end subroutine GaussianStep 
 
-        subroutine calculateHeisenbergEnergy(chainMesh,spin_snapshot,atomIndex, J, J_prime, Dz, Dz_prime ,B , & 
-                        lockArray, S_proposed, oldEnergy, newEnergy, demagnetisation_array, calculate_demag_field)
+        subroutine calculateHeisenbergEnergy(chainMesh,atomIndex, J, J_prime, Dz, Dz_prime ,B , & 
+                        lockArray, S_proposed, oldEnergy, newEnergy, demagnetisation_array, demag)
                 implicit none
-                type(chainMesh_t), intent(in) :: chainMesh
-                real(kind=8), dimension(:,:), intent(in) :: spin_snapshot
+                type(ChainMesh_t), intent(in) :: chainMesh 
                 integer, intent(in) :: atomIndex 
                 real(kind=8), intent(in) :: J, J_prime, Dz,Dz_prime, B 
                 integer(kind=OMP_LOCK_KIND), intent(inout) :: lockArray(:)
                 type(vecNd_t), intent(in) :: S_proposed 
                 real(kind=8), intent(inout) ::  oldEnergy, newEnergy 
                 real(kind=8), dimension(:,:), intent(in) :: demagnetisation_array
-                logical, intent(in), optional :: calculate_demag_field
+                logical, optional, intent(in) :: demag 
 
-                logical :: calc
                 real(kind = 8) :: Energy, x,y,z, tempEnergy, Hx, Hy, Hz, MdotH, MdotH_proposed
-                integer :: i, atomIndexTemp, dim_i, nn , nn_index, stat 
+                integer :: i, atomIndexTemp, dim_i, nn , nn_index  
                 type(vecNd_t) :: S, S_prime, atomPos1, atomPos2, tempVec,r, D, D_prime
-                !call OMP_SET_LOCK(lockArray(atomIndex))
-                calc = .True.
+                logical :: calculate_demag 
 
-                if (present(calculate_demag_field)) calc = calculate_demag_field
+                calculate_demag = .True.
+                if (present(demag)) calculate_demag = demag
+                !call OMP_SET_LOCK(lockArray(atomIndex))
                 oldEnergy = 0.0_8
                 newEnergy = 0.0_8
-                S = makeVecNdCheck(S, dble(spin_snapshot(atomIndex,:)))
+                S = makeVecNdCheck(S, dble(chainMesh%atoms(atomIndex)%AtomParameters))
                 x = chainMesh%atoms(atomIndex)%x
                 y = chainMesh%atoms(atomIndex)%y 
                 z = chainMesh%atoms(atomIndex)%z 
                 atomPos1 = makeVecNd([x,y,z]) 
                 tempVec = makeVecNdCheck(tempVec, [0.0_8, 0.0_8, Dz])
-
                 Hx = demagnetisation_array(atomIndex,1)
                 Hy = demagnetisation_array(atomIndex,2)
                 Hz = demagnetisation_array(atomIndex,3)
@@ -152,7 +148,9 @@ end function AtomEnergy
                 do i = 1,size(chainMesh%atoms(atomIndex)%NeighborList)
                         atomIndexTemp = chainMesh%atoms(atomIndex)%NeighborList(i)
                         if (atomIndexTemp == atomIndex) error stop "Encountered self interaction"
-                        S_prime = makeVecNdCheck(S_prime,dble(spin_snapshot(atomIndexTemp,:)))
+                        call OMP_SET_LOCK(lockArray(atomIndexTemp))
+                                S_prime = makeVecNdCheck(S_prime,dble(chainMesh%atoms(atomIndexTemp)%AtomParameters))
+                        call OMP_UNSET_LOCK(lockArray(atomIndexTemp))
                         x = chainMesh%atoms(atomIndexTemp)%x
                         y = chainMesh%atoms(atomIndexTemp)%y 
                         z = chainMesh%atoms(atomIndexTemp)%z
@@ -168,7 +166,7 @@ end function AtomEnergy
                 end do 
                 oldEnergy = oldEnergy + B*s%coords(3) 
                 newEnergy = newEnergy + B*S_proposed%coords(3) 
-                if (calc) then 
+                if (calculate_demag) then 
                         oldEnergy = oldEnergy - (0.5_8*MdotH) 
                         newEnergy = newEnergy - (0.5_8*MdotH_proposed)
                 end if 
@@ -178,7 +176,9 @@ end function AtomEnergy
                         do nn = 1,2 
                                 nn_index = chainMesh%derivativeList(atomIndex,dim_i,nn) !Next to nearest neighbor atom index 
                                 if (nn_index == atomIndex) error stop "Encountered self interaction in next to nearest neighbor"
-                                S_prime = makeVecNdCheck(S_prime,dble(spin_snapshot(nn_index,:)))
+                                call OMP_SET_LOCK(lockARray(nn_index))
+                                        S_prime = makeVecNdCheck(S_prime,dble(chainMesh%atoms(nn_index)%atomParameters))
+                               call OMP_UNSET_LOCK(lockArray(nn_index)) 
                                 x = chainMesh%atoms(nn_index)%x
                                 y = chainMesh%atoms(nn_index)%y 
                                 z = chainMesh%atoms(nn_index)%z
@@ -202,8 +202,8 @@ end function AtomEnergy
         end subroutine calculateHeisenbergEnergy
 
 
-        subroutine Metropolis_mcs(chainMesh, beta,numMCSSweeps, J, J_prime,  Dz, Dz_prime, B, r, lockArray, demagnetisation_array,&
-                                                demag)
+        subroutine Metropolis_mcs(chainMesh, beta,numMCSSweeps, J, J_prime,  Dz, Dz_prime, B, r, lockArray, &
+                                demagnetisation_array,demag)
                 ! Each thread will randomly select an atom nsteps times and determine whether to flip the spin 
                 implicit none
                 type(ChainMesh_t), intent(inout) :: chainMesh 
@@ -211,21 +211,18 @@ end function AtomEnergy
                 integer, intent(in) :: numMCSSweeps
                 integer(kind=OMP_LOCK_KIND), intent(inout) :: lockArray(:)
                 real(kind=8), dimension(:,:), allocatable, intent(inout) :: demagnetisation_array
-                logical, intent(in), optional :: demag 
+                logical, optional, intent(in) :: demag 
 
-                logical :: calculate_demag_field
                 type(random) :: rand 
-                integer :: threadID, time, i, atomIndex, numThreads, stat
+                integer :: threadID, time, i, atomIndex, numThreads
                 real(kind=8) :: rand_num, oldEnergy, newEnergy, P, Z  
                 type(vecNd_t) :: S, S_proposed
                 integer :: nsteps, MCScounter, demag_update_interval
                 real(kind=8), parameter :: pi = 3.14159265358979323846_8
-                real(kind=8), dimension(:,:), allocatable :: spin_snapshot
+                logical :: calculate_demag 
 
-                calculate_demag_field = .True. 
-                if (present(demag)) calculate_demag_field = demag
-                allocate(spin_snapshot(chainMesh%numAtoms,3),stat=stat)
-                if (stat /= 0) error stop "Error allocating snapshot array"
+                calculate_demag = .True.
+                if (present(demag)) calculate_demag = demag
 
                 if (allocated(demagnetisation_array)) then 
                         if (any(shape(demagnetisation_array) /= [chainMesh%numAtoms,3])) then 
@@ -240,9 +237,8 @@ end function AtomEnergy
                 call calculate_demagnetisation_field(chainMesh,demagnetisation_array)
 
                 !$omp parallel default(private) & 
-                !$omp& firstprivate(nsteps,beta, J,J_prime, Dz,Dz_prime, B, r, demag_update_interval, numMCSSweeps, &
-                !$omp& calculate_demag_field) &  
-                !$omp&  shared(chainMesh, lockArray, demagnetisation_array, spin_snapshot)
+                !$omp& firstprivate(nsteps,beta, J,J_prime, Dz,Dz_prime, B, r, demag_update_interval, numMCSSweeps) & 
+                !$omp&  shared(chainMesh, lockArray, demagnetisation_array, calculate_demag)
                 numThreads = omp_get_num_threads()
                 threadID = omp_get_thread_num()
 
@@ -256,12 +252,8 @@ end function AtomEnergy
 
                 do MCScounter = 1,numMCSSweeps
 
-                !$omp barrier
-                !$omp do 
-                do i = 1,chainMesh%numAtoms 
-                        spin_snapshot(i,:) = chainMesh%atoms(i)%AtomParameters(:)
-                end do 
-                !$omp end do 
+
+
 
                 
                 !$omp do 
@@ -269,7 +261,9 @@ end function AtomEnergy
                                 atomIndex = int((algor_uniform_random(rand)*dble(size(chainMesh%atoms)))/&
                                         (dble(size(chainMesh%atoms))+1) * dble(size(chainMesh%atoms)-1)) + 1 
                                 ! Given atomIndex, propose a new spin then accept/reject based on the energy
-                                S = makeVecNdCheck(S,spin_snapshot(atomIndex,:))
+                                call OMP_SET_LOCK(lockArray(atomIndex))
+                                S = makeVecNdCheck(S,dble(chainMesh%atoms(atomIndex)%AtomParameters))
+                                call OMP_UNSET_LOCK(lockArray(atomIndex))
                                 S_proposed = S
                                 call UniformRandomInSphere(S_proposed,rand,r)
                                 S_proposed = S_proposed + S
@@ -277,8 +271,8 @@ end function AtomEnergy
                                 if (any(S_proposed%coords /= S_proposed%coords)) error stop "NaN in MetropolisMixed"
                                 if (any(S%coords /= S%coords)) error stop "NaN in MetropolisMixed"
   
-                                call calculateHeisenbergEnergy(chainMesh,spin_snapshot,atomIndex,J,J_prime,Dz,Dz_prime,&
-                                        B,lockArray,S_proposed,oldEnergy,newEnergy,demagnetisation_array, calculate_demag_field)
+                                call calculateHeisenbergEnergy(chainMesh,atomIndex,J,J_prime,Dz,Dz_prime,&
+                                        B,lockArray,S_proposed,oldEnergy,newEnergy,demagnetisation_array, calculate_demag)
                                 if (newEnergy < oldEnergy) then 
                                         Z = 1.0_8 
                                 else 
@@ -301,7 +295,7 @@ end function AtomEnergy
                 end do
                 !$omp end do nowait
                 !$omp barrier
-                if (mod(MCScounter,demag_update_interval) == 0 .and. calculate_demag_field) then                         
+                if (mod(MCScounter,demag_update_interval) == 0 .and. calculate_demag) then                         
                         !$omp single
                         call calculate_demagnetisation_field(chainMesh,demagnetisation_array)
                         !$omp end single
@@ -326,12 +320,7 @@ end function AtomEnergy
                 integer :: threadID, time, i, atomIndex, counter
                 real(kind=8) :: rand_num, oldEnergy, newEnergy, P, Z  
                 type(vecNd_t) :: S, S_proposed
-                real(kind=8), dimension(:,:), allocatable :: spin_snapshot
-                allocate(spin_snapshot(chainMesh%numAtoms,3))
 
-                do i = 1,size(chainMesh%atoms)
-                        spin_snapshot(i,:) = chainMesh%atoms(i)%AtomParameters(:)
-                end do 
                 if (allocated(demagnetisation_array)) then 
                         if (any(shape(demagnetisation_array) /= [chainMesh%numAtoms,3])) then 
                                 deallocate(demagnetisation_array)
@@ -342,7 +331,7 @@ end function AtomEnergy
                 end if 
 
                 !$omp parallel default(private) firstprivate(nsteps,beta, J,J_prime, Dz,Dz_prime, B) shared(chainMesh, lockArray,&
-                !$omp&  demagnetisation_array, spin_snapshot)
+                !$omp&  demagnetisation_array)
                 block 
 
                 threadID = omp_get_thread_num()
@@ -359,7 +348,7 @@ end function AtomEnergy
                                         (dble(size(chainMesh%atoms))+1) * dble(size(chainMesh%atoms)-1)) + 1 
                                 ! Given atomIndex, propose a new spin then accept/reject based on the energy
                                 call OMP_SET_LOCK(lockArray(atomIndex))
-                                S = makeVecNdCheck(S,dble(spin_snapshot(atomIndex,:)))
+                                S = makeVecNdCheck(S,dble(chainMesh%atoms(atomIndex)%AtomParameters))
                                 call OMP_UNSET_LOCK(lockArray(atomIndex))
                                 S_proposed = S 
                                 if (counter == 0) then 
@@ -374,7 +363,7 @@ end function AtomEnergy
                                 !chainMesh%atoms(atomIndex)%AtomParameters = S_proposed%coords 
                                 !newEnergy = calculateHeisenbergEnergy(chainMesh, atomIndex,J,Dz,B,lockArray)
                                 !chainMesh%atoms(atomIndex)%AtomParameters = S%coords
-                                call calculateHeisenbergEnergy(chainMesh,spin_snapshot,atomIndex,J,J_prime,Dz,Dz_prime,&
+                                call calculateHeisenbergEnergy(chainMesh,atomIndex,J,J_prime,Dz,Dz_prime,&
                                         B,lockArray,S_proposed,oldEnergy,newEnergy,demagnetisation_array)
                                 if (newEnergy < oldEnergy) then 
                                         Z = 1.0_8 
@@ -452,23 +441,19 @@ end function AtomEnergy
         real(kind=8) :: oldE, newE
         type(vecNd_t) :: S_dummy
         real(kind=8), dimension(:,:), allocatable :: demagnetisation_array
-        real(kind=8), allocatable, dimension(:,:) :: spin_snapshot 
         allocate(demagnetisation_array(chainMesh%numAtoms,3))
-        allocate(spin_snapshot(chainMesh%numAtoms,3))
+
         call calculate_demagnetisation_field(chainMesh,demagnetisation_array)
         ! Initialize
         totalEnergy = 0.0_8
         ! create a dummy 3-vector (only used for newEnergy, which we ignore)
         S_dummy = makeVecNdCheck(S_dummy, [0.0_8, 0.0_8, 0.0_8])
-        do atomIndex = 1,chainMesh%numAtoms
-                spin_snapshot(atomIndex,:) = chainMesh%atoms(atomIndex)%AtomParameters(:)
-        end do 
 
         do atomIndex = 1, size(chainMesh%atoms)
                 oldE = 0.0_8
                 newE = 0.0_8
                 call calculateHeisenbergEnergy( &
-                     chainMesh,spin_snapshot, atomIndex,      &
+                     chainMesh, atomIndex,      &
                      J, J_prime, Dz, Dz_prime, B, &
                      lockArray,                 &
                      S_dummy,                   & ! dummy S_proposed

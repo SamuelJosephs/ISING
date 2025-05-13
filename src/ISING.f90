@@ -126,7 +126,7 @@ program main
         num_frames = 0
         numMetropolisStepsTotal = 220000
         numMetropolisSteps = 1000
-        numBetaSteps = 20
+        numBetaSteps = 10
         
         lower_bound = 0.01
         upper_bound = 0.95
