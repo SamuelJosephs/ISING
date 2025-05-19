@@ -220,7 +220,8 @@ end function AtomEnergy
                 integer :: nsteps, MCScounter, demag_update_interval
                 real(kind=8), parameter :: pi = 3.14159265358979323846_8
                 logical :: calculate_demag 
-
+                integer :: itemp, jtemp, ktemp, N, L, M, stride, iupper, jupper, kupper, cellIndex, atomIndexTemp 
+                integer :: atomIncell, counterX, counterY, counterZ
                 calculate_demag = .True.
                 if (present(demag)) calculate_demag = demag
 
@@ -239,6 +240,17 @@ end function AtomEnergy
                 !$omp parallel default(private) & 
                 !$omp& firstprivate(nsteps,beta, J,J_prime, Dz,Dz_prime, B, r, demag_update_interval, numMCSSweeps) & 
                 !$omp&  shared(chainMesh, lockArray, demagnetisation_array, calculate_demag)
+                ! parallel book keeping setup
+                N = chainMesh%numCellsX 
+                L = chainMesh%numCellsY
+                M = chainMesh%numCellsZ 
+                
+                stride = 2 ! For now I will decide this statically, later on this should be decided on the fly
+                           ! and computed from the interaction range
+                iupper = N/stride + modulo(N,stride)
+                jupper = L/stride + modulo(L,stride)
+                kupper = M/stride + modulo(M,stride)
+
                 numThreads = omp_get_num_threads()
                 threadID = omp_get_thread_num()
 
@@ -254,12 +266,30 @@ end function AtomEnergy
 
 
 
+                do counterX = 1,stride
+                do counterY = 1,stride
+                do counterZ = 1,stride
 
-                
                 !$omp do 
-                do i = 1,nsteps
-                                atomIndex = int((algor_uniform_random(rand)*dble(size(chainMesh%atoms)))/&
-                                        (dble(size(chainMesh%atoms))+1) * dble(size(chainMesh%atoms)-1)) + 1 
+                do i = 1,nsteps/8
+                                !atomIndex = int((algor_uniform_random(rand)*dble(size(chainMesh%atoms)))/&
+                                        !(dble(size(chainMesh%atoms))+1) * dble(size(chainMesh%atoms)-1)) + 1 
+
+                                itemp = nint(algor_uniform_random(rand)*(iupper-1))
+                                jtemp = nint(algor_uniform_random(rand)*(jupper-1))
+                                ktemp = nint(algor_uniform_random(rand)*(kupper-1))
+
+                                itemp = min(itemp*stride + mod(counterX,stride),N-1)
+                                jtemp = min(jtemp*stride + mod(counterY,stride),L-1)
+                                ktemp = min(ktemp*stride + mod(counterZ,stride),M-1)
+                                cellIndex = IndexFromCoordinates(chainMesh,itemp+1,jtemp+1,ktemp+1) ! Select Cell
+                                atomInCell = 1 + &
+                                        nint(algor_uniform_random(rand)*(chainMesh%chainMeshCells(cellIndex)%NumAtomsPerUnitCell-1))
+                                        
+                                atomIndex = chainMesh%chainMeshCells(cellIndex)%firstAtomInMeshCell
+                                do atomIndexTemp=1,atomInCell-1
+                                        atomIndex = chainMesh%atoms(atomIndex)%nextAtom
+                                end do 
                                 ! Given atomIndex, propose a new spin then accept/reject based on the energy
                                 call OMP_SET_LOCK(lockArray(atomIndex))
                                 S = makeVecNdCheck(S,dble(chainMesh%atoms(atomIndex)%AtomParameters))
@@ -290,10 +320,13 @@ end function AtomEnergy
                                         chainMesh%atoms(atomIndex)%AtomParameters = S_proposed%coords
                                         call OMP_UNSET_LOCK(lockArray(atomIndex))
                                 end if 
-
-
                 end do
-                !$omp end do nowait
+                !$omp end do
+                end do 
+                end do
+                end do
+
+
                 !$omp barrier
                 if (mod(MCScounter,demag_update_interval) == 0 .and. calculate_demag) then                         
                         !$omp single
