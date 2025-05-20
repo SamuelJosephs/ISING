@@ -271,10 +271,14 @@ end function AtomEnergy
                         counterY = 1 + nint(algor_uniform_random(rand)*(stride-1))
                         counterZ = 1 + nint(algor_uniform_random(rand)*(stride-1))
                         
-                        do i=1,chainMesh%numAtoms
-                                snapshot(i,:) = dble(chainMesh%atoms(i)%AtomParameters)
-                        end do 
+
                 !$omp end single 
+
+                !$omp do 
+                do i=1,chainMesh%numAtoms
+                        snapshot(i,:) = dble(chainMesh%atoms(i)%AtomParameters)
+                end do 
+                !$omp end do
                 !$omp do 
                 do i = 1,nsteps
                                 !atomIndex = int((algor_uniform_random(rand)*dble(size(chainMesh%atoms)))/&
