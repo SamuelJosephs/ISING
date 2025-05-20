@@ -626,4 +626,31 @@ subroutine write_array_to_file(array, filename, iostat)
     ! Close the file
     close(unit_num)
 end subroutine write_array_to_file
+
+
+subroutine write_demagnetisation_field_to_file(chainMesh,demag_field,filepath)
+        implicit none
+        type(ChainMesh_t), intent(in) :: chainMesh 
+        real(kind=8), dimension(:,:), intent(in) :: demag_field 
+        character(len=*),  intent(in) :: filepath
+
+        integer :: iostat, i
+        real(kind=8) :: x,y,z, x_component, y_component, z_component
+        open(unit=100, status="replace", action="write",file=trim(filepath), iostat = iostat)
+        if (iostat /= 0) error stop "Error opening demagnetisation file"
+        
+        write(100, '(A)') "x,y,z,fx,fy,fz"
+        do i = 1,size(chainMesh%atoms)
+                x = chainMesh%atoms(i)%x 
+                y = chainMesh%atoms(i)%y 
+                z = chainMesh%atoms(i)%z
+                x_component = demag_field(i,1)
+                y_component = demag_field(i,2)
+                z_component = demag_field(i,3)
+                write(100, '(F8.4,"," F8.4,",", F8.4,",", F8.4, ",", F8.4, ",", F8.4)') x,y,z, x_component, y_component, z_component
+
+        end do 
+        close(100)
+end subroutine write_demagnetisation_field_to_file
+
 end module EnergyMin 

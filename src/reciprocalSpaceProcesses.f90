@@ -797,7 +797,7 @@ module reciprocal_space_processes
                                 winding_array(j) = calculate_skyrmion_number(chainMesh,Z_index,threshold,j,sigma)
                                 winding = winding + j * winding_array(j)
                         end do 
-                        print *, "Winding array = ", winding_array, "threshold = ", threshold, "sigma = ", sigma
+                        !print *, "Winding array = ", winding_array, "threshold = ", threshold, "sigma = ", sigma
                         if (abs(abs(winding) - abs(total_charge)) < 0.1) then 
                                 print *, "Solution found at q_threshold = ", threshold, "threshold = ", threshold, "sigma = ", sigma
                                 return

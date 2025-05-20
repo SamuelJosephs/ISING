@@ -148,7 +148,7 @@ program main
                 !call calculate_demagnetisation_field(testMesh,demagnetisation_array)
                 call TotalHeisenbergEnergy(testMesh,J,J_prime,Dz,Dz_prime,B,lockArray,totalEnergy1)
                 call Metropolis_mcs(testMesh,beta,numMetropolisSteps,&
-                                                J,J_prime,Dz,Dz_prime,B,0.2_8, lockArray,demagnetisation_array,demag=.TRUE.)
+                                                J,J_prime,Dz,Dz_prime,B,0.2_8, lockArray,demagnetisation_array,demag=.True.)
                 call TotalHeisenbergEnergy(testMesh,J,J_prime,Dz,Dz_prime,B,lockArray,totalEnergy2)
                 winding_number_middle = calculate_winding_number2(testMesh,testMesh%numCellsZ/2)
                 winding_number_bottom = calculate_winding_number2(testMesh,1)
@@ -170,12 +170,14 @@ program main
                                 ! skyrmion_number = calculate_skyrmion_number(testMesh,testMesh%numCellsZ/2,0.3_8,1,0.0_8)      
                                 ! print *, "Skyrmion number = ", skyrmion_number
                                 print *, "Skyrmion Distribution = ", winding_array
+                                call write_demagnetisation_field_to_file(testMesh,demagnetisation_array,"./demagnetisation_field.csv")
                         end if
                         write(frame_filename, '(A,A,I5.5,A)') trim(output_dir), "/frame_", counter-1, ".csv"
                         call write_spins_to_file(testMesh, frame_filename)
                         print *, "Completed metropolis run at beta = ", beta 
                         
                         counter = counter + 1
+                        
                 end if 
                 print *, "*************************************"
                 call flush(output_unit)
