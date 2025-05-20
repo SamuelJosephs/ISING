@@ -221,7 +221,8 @@ end function AtomEnergy
                 real(kind=8), parameter :: pi = 3.14159265358979323846_8
                 logical :: calculate_demag 
                 integer :: itemp, jtemp, ktemp, N, L, M, stride, iupper, jupper, kupper, cellIndex, atomIndexTemp 
-                integer :: atomIncell, counterX, counterY, counterZ
+                integer :: atomIncell, counterX, counterY, counterZ, stat
+                real(kind=8), dimension(:,:), allocatable :: snapshot
                 calculate_demag = .True.
                 if (present(demag)) calculate_demag = demag
 
@@ -236,10 +237,11 @@ end function AtomEnergy
 
                 demag_update_interval = int((pi * sqrt(5.0_8)) / (2.0_8*r))
                 call calculate_demagnetisation_field(chainMesh,demagnetisation_array)
-
+                allocate(snapshot(chainMesh%numAtoms,3),stat=stat)
+                if (stat /= 0) error stop "Error allocating spin snapshot"
                 !$omp parallel default(private) & 
                 !$omp& firstprivate(nsteps,beta, J,J_prime, Dz,Dz_prime, B, r, demag_update_interval, numMCSSweeps) & 
-                !$omp&  shared(chainMesh, lockArray, demagnetisation_array, calculate_demag)
+                !$omp&  shared(chainMesh, lockArray, demagnetisation_array, calculate_demag, counterX, counterY, counterZ,snapshot)
                 ! parallel book keeping setup
                 N = chainMesh%numCellsX 
                 L = chainMesh%numCellsY
@@ -264,14 +266,17 @@ end function AtomEnergy
 
                 do MCScounter = 1,numMCSSweeps
 
-
-
-                do counterX = 1,stride
-                do counterY = 1,stride
-                do counterZ = 1,stride
-
+                !$omp single 
+                        counterX = 1 + nint(algor_uniform_random(rand)*(stride-1))
+                        counterY = 1 + nint(algor_uniform_random(rand)*(stride-1))
+                        counterZ = 1 + nint(algor_uniform_random(rand)*(stride-1))
+                        
+                        do i=1,chainMesh%numAtoms
+                                snapshot(i,:) = dble(chainMesh%atoms(i)%AtomParameters)
+                        end do 
+                !$omp end single 
                 !$omp do 
-                do i = 1,nsteps/8
+                do i = 1,nsteps
                                 !atomIndex = int((algor_uniform_random(rand)*dble(size(chainMesh%atoms)))/&
                                         !(dble(size(chainMesh%atoms))+1) * dble(size(chainMesh%atoms)-1)) + 1 
 
@@ -317,15 +322,17 @@ end function AtomEnergy
                                 end if
                                 if (Z >= p) then 
                                         call OMP_SET_LOCK(lockArray(atomIndex))
-                                        chainMesh%atoms(atomIndex)%AtomParameters = S_proposed%coords
+                                        snapshot(atomIndex,:) = S_proposed%coords
                                         call OMP_UNSET_LOCK(lockArray(atomIndex))
                                 end if 
                 end do
                 !$omp end do
-                end do 
-                end do
-                end do
 
+                !$omp do 
+                do i = 1,chainMesh%numAtoms
+                        chainMesh%atoms(i)%AtomParameters = snapshot(i,:)
+                end do 
+                !$omp end do
 
                 !$omp barrier
                 if (mod(MCScounter,demag_update_interval) == 0 .and. calculate_demag) then                         
