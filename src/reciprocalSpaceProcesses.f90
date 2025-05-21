@@ -42,9 +42,9 @@ module reciprocal_space_processes
                                    
                                    !Now calculate the cloud in cell interpolation weights 
 
-                                   xWeight = 1.0_8 - (abs(d%coords(1))/cellWidth)
-                                   yWeight = 1.0_8 - (abs(d%coords(2))/cellWidth) 
-                                   zWeight = 1.0_8 - (abs(d%coords(3))/cellWidth)
+                                   xWeight = max(1.0_8 - (abs(d%coords(1))/cellWidth),0.0_8)
+                                   yWeight = max(1.0_8 - (abs(d%coords(2))/cellWidth),0.0_8) 
+                                   zWeight = max(1.0_8 - (abs(d%coords(3))/cellWidth),0.0_8)
                                    weight = xWeight*yWeight*zWeight
                                    chainMesh%fft_array_x(iCell, jCell, kCell) = chainMesh%fft_array_x(iCell,jCell,kCell) + &
                                                    weight*chainMesh%atoms(atom)%AtomParameters(1) 
@@ -141,7 +141,7 @@ module reciprocal_space_processes
                 complex(kind = C_DOUBLE_COMPLEX) :: Mx, My, Mz, kdotM, k_squared
 
                 integer :: startClock, endClock, clockRate
-                real(kind = C_DOUBLE) :: elapsed_time
+                real(kind = C_DOUBLE) :: elapsed_time, sincX, sincY, sincZ, tmp
                 call system_clock(startClock, clockRate)
 
 
@@ -178,6 +178,11 @@ module reciprocal_space_processes
                 do i = 1, N/2 + 1
                         waveIndexX = i-1
                         kx = scaleFactorX*(waveIndexX)
+                        sincX = 1.0_8 
+                        if (waveIndexX /= 0) then 
+                                tmp = kx*dble(chainMesh%latticeParameter/2.0_8)
+                                sincX = (sin(tmp)/tmp)**2 
+                        end if 
                         do j = 1,L
                                 waveIndexY = j-1
                                 if (waveIndexY <= L/2)  then 
@@ -186,6 +191,11 @@ module reciprocal_space_processes
                                 else  
                                         ky = scaleFactorY*(waveIndexY-L)
                                 end if 
+                                tmp = ky*dble(chainMesh%latticeParameter)/2.0_8 
+                                sincY = 1.0_8 
+                                if (waveIndexY /= 0) then 
+                                        sincY = (sin(tmp)/tmp)**2  
+                                end if 
                                 do k = 1,M 
                                     waveIndexZ = k-1
                                     if (waveIndexZ <= M/2) then 
@@ -193,18 +203,22 @@ module reciprocal_space_processes
                                     else  
                                         kz = scaleFactorZ*(waveIndexZ - M)
                                     end if  
-                                    
-                                    displacement_phase = exp(-cmplx(0.0_8,1.0_8) * (kx + ky + kz)*displacement_vector)
-                                    Mx = chainMesh%fft_c_view_x(i,j,k)
-                                    My = chainMesh%fft_c_view_y(i,j,k)
-                                    Mz = chainMesh%fft_c_view_z(i,j,k)
+                                    tmp = kz*chainMesh%latticeParameter/2.0_8 
+                                    sincZ = 1.0_8 
+                                    if (waveIndexZ /= 0) then 
+                                            sincZ = (sin(tmp)/tmp)**2 
+                                    end if 
+                                    tmp = sincX*sincY*sincZ*(dble(chainMesh%latticeParameter)**3)
+                                    Mx = chainMesh%fft_c_view_x(i,j,k)/max(tmp,2e-1) 
+                                    My = chainMesh%fft_c_view_y(i,j,k)/max(tmp,2e-1) 
+                                    Mz = chainMesh%fft_c_view_z(i,j,k)/max(tmp,2e-1)
                                     ! demagnetisation kernel is given by - (k.m / k^2) k
                                     kdotM = (kx*Mx + ky*My + kz*Mz)
                                     k_squared = kx*kx + ky*ky + kz*kz
                                     if ((i == 1 .and. j == 1 .and. k == 1)) cycle
-                                    chainMesh%fft_c_view_x(i,j,k) = - displacement_phase*(kdotM / k_squared) * kx
-                                    chainMesh%fft_c_view_y(i,j,k) = - displacement_phase*(kdotM / k_squared) * ky
-                                    chainMesh%fft_c_view_z(i,j,k) = - displacement_phase*(kdotM / k_squared) * kz
+                                    chainMesh%fft_c_view_x(i,j,k) = - (kdotM / k_squared) * kx
+                                    chainMesh%fft_c_view_y(i,j,k) = - (kdotM / k_squared) * ky
+                                    chainMesh%fft_c_view_z(i,j,k) = - (kdotM / k_squared) * kz
 
 
 
