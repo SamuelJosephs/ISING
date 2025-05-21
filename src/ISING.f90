@@ -170,7 +170,8 @@ program main
                                 ! skyrmion_number = calculate_skyrmion_number(testMesh,testMesh%numCellsZ/2,0.3_8,1,0.0_8)      
                                 ! print *, "Skyrmion number = ", skyrmion_number
                                 print *, "Skyrmion Distribution = ", winding_array
-                                call write_demagnetisation_field_to_file(testMesh,demagnetisation_array,"./demagnetisation_field.csv")
+                                call write_demagnetisation_field_to_file(testMesh,&
+                                                        demagnetisation_array,"./demagnetisation_field.csv")
                         end if
                         write(frame_filename, '(A,A,I5.5,A)') trim(output_dir), "/frame_", counter-1, ".csv"
                         call write_spins_to_file(testMesh, frame_filename)

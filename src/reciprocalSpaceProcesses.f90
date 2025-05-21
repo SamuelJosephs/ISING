@@ -612,7 +612,8 @@ module reciprocal_space_processes
                                                 xIndex = modulo(i + itemp - 1,Nx) + 1
                                                 yIndex = modulo(j + jtemp - 1,Ny) + 1
                                                 if (itemp == 0 .and. jtemp == 0) cycle
-                                                if (abs(density_matrix(i,j)) < abs(density_matrix(xIndex,yIndex))) is_local_maxima = .False.
+                                                if (abs(density_matrix(i,j)) < &
+                                                      abs(density_matrix(xIndex,yIndex))) is_local_maxima = .False.
                                         end do 
                                 end do 
                                 if (density_mask(i,j) .and. (.not. visited_array(i,j)) .and. is_local_maxima) then 
