@@ -164,11 +164,12 @@ end function AtomEnergy
                         
                         newEnergy = newEnergy + (J* S_proposed*S_prime) + (D*(S_proposed .x. S_prime))
                 end do 
-                oldEnergy = oldEnergy + B*s%coords(3) 
-                newEnergy = newEnergy + B*S_proposed%coords(3) 
+                oldEnergy = oldEnergy - B*s%coords(3) 
+                newEnergy = newEnergy - B*S_proposed%coords(3) 
                 if (calculate_demag) then 
-                        oldEnergy = oldEnergy - (0.5_8*MdotH) 
-                        newEnergy = newEnergy - (0.5_8*MdotH_proposed)
+                        oldEnergy = oldEnergy - MdotH ! Half not needed due to it being a local change 
+
+                        newEnergy = newEnergy - MdotH_proposed
                 end if 
                 ! Now add contributions from next - nearest in plane neighbors in the x and y axis
                 if (.not. allocated(chainMesh%derivativeList)) error stop "DerivativeList is not allocated"
