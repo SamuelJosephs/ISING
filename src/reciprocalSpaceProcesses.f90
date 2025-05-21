@@ -522,7 +522,7 @@ module reciprocal_space_processes
                                 if (jtemp < 1) jtemp = L 
                                 if (jtemp > L) jtemp = 1 
                                 if (in_stack_array(itemp,jtemp)) cycle 
-                                downhill = density_matrix(i,j) >= density_matrix(itemp,jtemp) - 1e-10_8
+                                downhill = abs(density_matrix(i,j)) >= abs(density_matrix(itemp,jtemp)) - 1e-10_8
                                 if ((.not. visited_array(itemp,jtemp)) .and. density_mask(itemp,jtemp) .and. &
                                                                          downhill) then 
                                         if (stack_ptr + 1 > stack_array_shape(1)) error stop "Stack array capacity exceeded"
@@ -598,7 +598,7 @@ module reciprocal_space_processes
                                                 xIndex = modulo(i + itemp - 1,Nx) + 1
                                                 yIndex = modulo(j + jtemp - 1,Ny) + 1
                                                 if (itemp == 0 .and. jtemp == 0) cycle
-                                                if (density_matrix(i,j) < density_matrix(xIndex,yIndex)) is_local_maxima = .False.
+                                                if (abs(density_matrix(i,j)) < abs(density_matrix(xIndex,yIndex))) is_local_maxima = .False.
                                         end do 
                                 end do 
                                 if (density_mask(i,j) .and. (.not. visited_array(i,j)) .and. is_local_maxima) then 
