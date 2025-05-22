@@ -208,17 +208,18 @@ module reciprocal_space_processes
                                     if (waveIndexZ /= 0) then 
                                             sincZ = (sin(tmp)/tmp)**2 
                                     end if 
-                                    tmp = sincX*sincY*sincZ*(dble(chainMesh%latticeParameter)**3)
-                                    Mx = chainMesh%fft_c_view_x(i,j,k)/max(tmp,2e-1) 
-                                    My = chainMesh%fft_c_view_y(i,j,k)/max(tmp,2e-1) 
-                                    Mz = chainMesh%fft_c_view_z(i,j,k)/max(tmp,2e-1)
+                                    !tmp = sincX*sincY*sincZ*(dble(chainMesh%latticeParameter)**3)
+                                    tmp = ((sincX*sincY*sincZ)**2)*dble((chainMesh%latticeParameter)**3)
+                                    Mx = chainMesh%fft_c_view_x(i,j,k)
+                                    My = chainMesh%fft_c_view_y(i,j,k)
+                                    Mz = chainMesh%fft_c_view_z(i,j,k)
                                     ! demagnetisation kernel is given by - (k.m / k^2) k
                                     kdotM = (kx*Mx + ky*My + kz*Mz)
                                     k_squared = kx*kx + ky*ky + kz*kz
                                     if ((i == 1 .and. j == 1 .and. k == 1)) cycle
-                                    chainMesh%fft_c_view_x(i,j,k) = - (kdotM / k_squared) * kx
-                                    chainMesh%fft_c_view_y(i,j,k) = - (kdotM / k_squared) * ky
-                                    chainMesh%fft_c_view_z(i,j,k) = - (kdotM / k_squared) * kz
+                                    chainMesh%fft_c_view_x(i,j,k) = - (kdotM / k_squared) * kx * tmp
+                                    chainMesh%fft_c_view_y(i,j,k) = - (kdotM / k_squared) * ky * tmp
+                                    chainMesh%fft_c_view_z(i,j,k) = - (kdotM / k_squared) * kz * tmp
 
 
 
