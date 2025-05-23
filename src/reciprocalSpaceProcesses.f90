@@ -136,7 +136,7 @@ module reciprocal_space_processes
                 type(chainMesh_t), intent(inout) :: chainMesh 
                 real(kind=8), allocatable, dimension(:,:), intent(out) :: outputArray
                 integer :: N,L,M, stat, i, j, k , waveIndexX, waveIndexY, waveIndexZ
-                complex(kind=C_DOUBLE_COMPLEX) :: kx, ky, kz, displacement_phase
+                real(kind=8) :: kx, ky, kz, wg
                 real(kind=C_DOUBLE) :: scaleFactorX, scaleFactorY, scaleFactorZ, displacement_vector
                 complex(kind = C_DOUBLE_COMPLEX) :: Mx, My, Mz, kdotM, k_squared
 
@@ -170,7 +170,7 @@ module reciprocal_space_processes
                                         (real(M,C_DOUBLE)*chainMesh%latticeParameter)
 
 
-
+                wg = pi/chainMesh%latticeParameter
                 call interpolate_to_fft_array(chainMesh)
                 call fft_forward_chainMesh(chainMesh)
                 ! Now process data using the complex array view into the in place fft array 
@@ -213,15 +213,20 @@ module reciprocal_space_processes
                                     Mx = chainMesh%fft_c_view_x(i,j,k)
                                     My = chainMesh%fft_c_view_y(i,j,k)
                                     Mz = chainMesh%fft_c_view_z(i,j,k)
+
                                     ! demagnetisation kernel is given by - (k.m / k^2) k
                                     kdotM = (kx*Mx + ky*My + kz*Mz)
                                     k_squared = kx*kx + ky*ky + kz*kz
                                     if ((i == 1 .and. j == 1 .and. k == 1)) cycle
-                                    chainMesh%fft_c_view_x(i,j,k) = - (kdotM / k_squared) * kx * tmp
-                                    chainMesh%fft_c_view_y(i,j,k) = - (kdotM / k_squared) * ky * tmp
-                                    chainMesh%fft_c_view_z(i,j,k) = - (kdotM / k_squared) * kz * tmp
+                                    chainMesh%fft_c_view_x(i,j,k) = - (kdotM / k_squared) * kx
+                                    chainMesh%fft_c_view_y(i,j,k) = - (kdotM / k_squared) * ky
+                                    chainMesh%fft_c_view_z(i,j,k) = - (kdotM / k_squared) * kz
 
-
+                                    if (kx**2 + ky**2 + kz**2 > wg**2) then 
+                                            chainMesh%fft_c_view_x(i,j,k) = cmplx(0.0,0.0,C_DOUBLE_COMPLEX) ! Impose wg cutoff to prevent aliasing
+                                            chainMesh%fft_c_view_y(i,j,k) = cmplx(0.0,0.0,C_DOUBLE_COMPLEX) 
+                                            chainMesh%fft_c_view_z(i,j,k) = cmplx(0.0,0.0,C_DOUBLE_COMPLEX)
+                                    end if 
 
                                 end do 
                         end do 
