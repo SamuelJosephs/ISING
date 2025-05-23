@@ -128,7 +128,7 @@ program main
         numMetropolisSteps = 1000
         numBetaSteps = 20
         
-        lower_bound = 0.0001
+        lower_bound = 0.000001
         upper_bound = 0.95
         num_thresholds = 60
         ! Main evolution loop
