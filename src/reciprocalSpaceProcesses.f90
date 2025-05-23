@@ -159,15 +159,15 @@ module reciprocal_space_processes
                 end if 
 
                 scaleFactorX = real(2.0_08,C_DOUBLE) * real(3.14159265358979323846_08, C_DOUBLE) / & !2 pi / N is
-                                        real(N,C_DOUBLE)                               ! used to
+                                        (real(N,C_DOUBLE)*chainMesh%latticeParameter)                               ! used to
                                                                                        ! calculate k values         
                                         
 
                 scaleFactorY = real(2.0,C_DOUBLE) * real(3.14159265358979323846, C_DOUBLE) / &
-                                        real(L,C_DOUBLE)
+                                        (real(L,C_DOUBLE)*chainMesh%latticeParameter)
 
                 scaleFactorZ = real(2.0_08,C_DOUBLE) * real(3.14159265358979323846, C_DOUBLE) / &
-                                        real(M,C_DOUBLE)
+                                        (real(M,C_DOUBLE)*chainMesh%latticeParameter)
 
 
 
