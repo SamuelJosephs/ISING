@@ -75,11 +75,10 @@ def plot_cross_section(
         width=0.005
     )
     cbar = fig.colorbar(q, ax=ax)
-    cbar.set_label('f_z')
+    cbar.set_label(r'$S_z$')
 
-    ax.set_title(f'2D Cross‑Section at z = {z0:.4f} ± {dz:.4f}')
-    ax.set_xlabel('x')
-    ax.set_ylabel('y')
+    ax.set_xlabel(r'x $(\AA)$')
+    ax.set_ylabel(r'y $(\AA)$')
     ax.set_aspect('equal', 'box')
     plt.tight_layout()
 
