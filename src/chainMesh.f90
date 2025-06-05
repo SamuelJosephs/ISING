@@ -12,12 +12,14 @@ type ChainMesh_t
         type(Atom_t), allocatable :: atoms(:) ! Each atom is in a chain mesh cell and points to the next atom within that cell 
         type(ChainMeshCell_t), allocatable :: chainMeshCells(:)
         real ::  latticeParameter
-        integer :: numCellsX, numCellsY, numCellsZ   
+        integer :: numCellsX, numCellsY, numCellsZ  ! NumCellsX/Y/Z will be for the a,b,c Bravais Lattice Vectors
         integer, allocatable, dimension(:,:,:) :: derivativeList !(i,j,k) : i=atomInex, j=dim (1,2,3), k = lower,higher (1,2)
         type(C_ptr) :: forwardPlanX, forwardPlanY, forwardPlanZ, backwardPlanX, backwardPlanY, backwardPlanZ
         real(kind=c_double), pointer :: fft_array_x(:,:,:), fft_array_y(:,:,:), fft_array_z(:,:,:)
         complex(kind=c_double_complex), pointer :: fft_c_view_x(:,:,:), fft_c_view_y(:,:,:), fft_c_view_z(:,:,:)
         type(C_ptr) :: fft_array_ptr
+        real(kind=8) :: Bravais_a, Bravais_b, Bravais_c, Bravais_ab, Bravais_bc, Bravais_ca
+        type(vecNd_t) :: a_vec, b_vec, c_vec, ar_vec, br_vec, cr_vec ! ar stands for a reciprocal  
 end type ChainMesh_t 
 
         interface IndexFromCoordinates
@@ -444,11 +446,12 @@ end type ChainMesh_t
         end subroutine create_chainMesh_plan
 
         function makeChainMesh(numAtomsPerUnitCell, numCellsX, numCellsY, numCellsZ, & 
-                        latticeParameter,   AtomsInUnitCell ) result(chainMesh)
+                        AtomsInUnitCell, &
+                        a,b,c,ab,bc,ca) result(chainMesh)
                 implicit none 
                 integer, intent(in) :: numAtomsPerUnitCell, numCellsX, numCellsY, numCellsZ 
-                real, intent(in) :: latticeParameter
                 type(Atom_t), intent(in) :: AtomsInUnitCell(numAtomsPerUnitCell)
+                real(kind=8), intent(in) :: a,b,c,ab,bc,ca
                 ! Need to create all the atoms, create all the ChainMeshCells, then allocate all of the atoms to a chain mesh cell 
                 type(ChainMesh_t), target :: chainMesh 
                 integer :: numChainMeshCells, padX
@@ -458,8 +461,28 @@ end type ChainMesh_t
                 type(Atom_t) :: tempAtoms(size(AtomsInUnitCell))
                 real :: domainWidth
                 type(C_ptr) :: temp_c_ptr
-                chainMesh%latticeParameter = latticeParameter
+                type(vecNd_t) :: a_vec, b_vec, c_vec, ar_vec, br_vec, cr_vec, tmp_vec
+                real(kind=8) :: cx, cy, cz 
 
+                chainMesh%Bravais_a = a 
+                chainMesg%Bravais_b = b 
+                chainMesh%Bravais_c = c 
+                chainMesh%Bravais_ab = ab 
+                chainMesh%Bravais_bc = bc 
+                chainMesh%Bravais_ca = ca 
+                a_vec = makeVecNd([a,0.0_8,0.0_8])
+                b_vec = makeVecNd([b*sin(ab),b*cos(ab),0.0_8])
+                cx = c*cos(ca)
+                cy = (c*b*cos(bc)-cx*b_vec%coords(1))
+                cz = sqrt(c**2 - cx**2 - cy**2)
+                c_vec = makeVecNd([cx,cy,cz])
+                chainMesh%a_vec = a_vec 
+                chainMesh%b_vec = b_vec 
+                chainMesh%c_vec = c_vec 
+                
+                chainMesh%ar_vec = (b_vec .x. c_vec)/(a_vec*(b_vec .x. c_vec)) ! reciprocal lattice vectors 
+                chainMesh%br_vec = (c_vec .x. a_vec)/(b_vec*(c_vec .x. a_vec))
+                chainMesh%cr_vec = (a_vec .x. b_vec)/(c_vec*(a_vec .x. b_vec))
                 chainMesh%numCellsX = numCellsX 
                 chainMesh%numCellsY = numCellsY 
                 chainMesh%numCellsZ = numCellsZ
@@ -488,7 +511,6 @@ end type ChainMesh_t
                 ! initialise atoms and chain Mesh Cells 
                 do j = 1,numChainMeshCells ! do it for each unit cell 
                         tempAtoms = AtomsInUnitCell
-                        tempChainMeshCell%latticeParameter = latticeParameter
                         tempChainMeshCell%NumAtomsPerUnitCell = NumAtomsPerUnitCell
                         tempChainMeshCell%firstAtomInMeshCell = -1 ! Initialise to garbage value so that we don't have to deal with
                         ! it
@@ -496,20 +518,23 @@ end type ChainMesh_t
              
                         
                         call coordinatesFromIndex(chainMesh,j,icoord,jcoord,kcoord) ! icoord, jcoord, kcoord integer
-                        chainMesh%chainMeshCells(j)%centreX = dble(iCoord)*dble(chainMesh%latticeParameter) + &
-                                                        dble(chainMesh%latticeParameter)/2.0_8
-                        chainMesh%chainMeshCells(j)%centreY = dble(jCoord)*dble(chainMesh%latticeParameter) + &
-                                                        dble(chainMesh%latticeParameter)/2.0_8
-                        chainMesh%chainMeshCells(j)%centreZ = dble(kCoord)*dble(chainMesh%latticeParameter) + &
-                                                        dble(chainMesh%latticeParameter)/2.0_8
+                        tmp_vec = chainMesh%a_vec*(dble(icoord)+0.5_8) + chainMesh%b_vec*(dble(jcoord)+0.5_8) & 
+                                                + chainMesh%c_vec*(dble(kcoord) + 0.5_8)
+
+                        chainMesh%chainMeshCells(j)%centreX = tmp_vec%coords(1)
+                        chainMesh%chainMeshCells(j)%centreY = tmp_vec%coords(2)
+                        chainMesh%chainMeshCells(j)%centreZ = tmp_vec%coords(3)
+                        tmp_vec = chainMesh%a_vec*(dble(icoord)) + chainMesh%b_vec*(dble(jcoord)) & 
+                                                + chainMesh%c_vec*(dble(kcoord))
                         do i=1,size(AtomsInUnitCell)
                                 !chainMesh%atoms(j,j+atoms) = AtomsInUnitCell ! Assuming they are all initialised properly
                                 ! coordinates for the chain mesh cell 
-                                tempAtoms(i)%x = AtomsInUnitCell(i)%x + real(icoord)*latticeParameter 
-                                tempAtoms(i)%y = AtomsInUnitCell(i)%y + real(jcoord)*latticeParameter
-                                tempAtoms(i)%z = AtomsInUnitCell(i)%z + real(kcoord)*latticeParameter 
+                                tempAtoms(i)%x = AtomsInUnitCell(i)%x + tmp_vec(1) 
+                                tempAtoms(i)%y = AtomsInUnitCell(i)%y + tmp_vec(2)
+                                tempAtoms(i)%z = AtomsInUnitCell(i)%z + tmp_vec(3) 
                                 ! Assign Atoms to Unit Cells 
-                                chainMesh%atoms((j-1)*stride + i) = tempAtoms(i)
+                                chainMesh%atoms((j-1)*stride + i) = tempAtoms(i) ! This line confuses me, I don't know what I was
+                                                                                 ! thinking when I wrote it.
                                 call addAtomToChainCell(j,(j-1)*stride + i,chainMesh)
                         end do
                         !!print *, "j debug = ", j, " stride = ",stride
