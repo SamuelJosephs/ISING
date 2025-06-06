@@ -80,7 +80,8 @@ end type ChainMesh_t
                 integer :: i1,j1,k1,i2,j2,k2 ! Chain Cell i,j,k coordinates of 
                 type(Atom_t) :: atom1, atom2 
                 real :: d 
-                real(kind=8) :: a_coeff, b_coeff, c_coeff, widthX, widthY, widthZ   
+                real(kind=8) :: a_coeff, b_coeff, c_coeff, widthX, widthY, widthZ
+                real(kind=8), parameter :: eps = 1e-8_8
                 
                 widthX = dble(chainMesh%numCellsX) ! widthX is the maximum width along the a axis 
                 widthY = dble(chainMesh%numCellsY) ! widthY is the maximum width along the b axis 
@@ -97,9 +98,17 @@ end type ChainMesh_t
                 b_coeff = dx*chainMesh%br_vec%coords(1) + dy*chainMesh%br_vec%coords(2) + dz*chainMesh%br_vec%coords(3)
                 c_coeff = dx*chainMesh%cr_vec%coords(1) + dy*chainMesh%cr_vec%coords(2) + dz*chainMesh%cr_vec%coords(3)
                 
-                a_coeff = a_coeff - widthX*nint(a_coeff/widthX)
-                b_coeff = b_coeff - widthY*nint(b_coeff/widthY)
-                c_coeff = c_coeff - widthZ*nint(c_coeff/widthZ)
+                a_coeff = a_coeff / widthX ! Fractional Coordinates 
+                b_coeff = b_coeff / widthY 
+                c_coeff = c_coeff / widthZ 
+
+                a_coeff = a_coeff - floor(a_coeff + 0.5_8 + eps)
+                b_coeff = b_coeff - floor(b_coeff + 0.5_8 + eps)
+                c_coeff = c_coeff - floor(c_coeff + 0.5_8 + eps)
+
+                a_coeff = a_coeff * widthX 
+                b_coeff = b_coeff * widthY 
+                c_coeff = c_coeff * widthZ
                 ! Now reconstruct the cartesian distance from these vectors 
                 dx = a_coeff*chainMesh%a_vec%coords(1) + b_coeff*chainMesh%b_vec%coords(1) + c_coeff*chainMesh%c_vec%coords(1)
                 dy = a_coeff*chainMesh%a_vec%coords(2) + b_coeff*chainMesh%b_vec%coords(2) + c_coeff*chainMesh%c_vec%coords(2)
@@ -253,7 +262,7 @@ end type ChainMesh_t
                         end if
                         tempAtom = atoms(atomIndexTemp)
                          dist = distance(chainMesh,AtomIndex,AtomIndexTemp)
-                        if ( dist .lt. nearestNeighborDistance) then 
+                        if (dist .lt. nearestNeighborDistance) then 
                                 nearestNeighborDistance = dist 
                         end if 
                         atomIndexTemp = atoms(atomIndexTemp)%nextAtom
@@ -276,7 +285,7 @@ end type ChainMesh_t
                         tempAtom = atoms(atomIndexTemp)
 
                         dist = distance(chainMesh,AtomIndex, atomIndexTemp)
-                        if (abs(dist - nearestNeighborDistance) < chainMesh%a/10) then ! Tolerance 
+                        if (abs(dist - nearestNeighborDistance) < chainMesh%a/100.0_8) then ! Tolerance 
                                 call omp_set_lock(atomLockArray(atomIndex))
 
                                 allocate(tempList((size(atoms(AtomIndex)%NeighborList) + 1)))
@@ -454,7 +463,8 @@ end type ChainMesh_t
                 type(Atom_t) :: tempAtoms(size(AtomsInUnitCell))
                 real :: domainWidth
                 type(C_ptr) :: temp_c_ptr
-                type(vecNd_t) :: a_vec, b_vec, c_vec, ar_vec, br_vec, cr_vec, tmp_vec
+                type(vecNd_t) :: a_vec, b_vec, c_vec, ar_vec, br_vec, cr_vec, tmp_vec, &
+                                        pos
                 real(kind=8) :: cx, cy, cz, ab, bc,ca 
                 
                 ab = ab_deg*(pi/180.0_8)
@@ -467,7 +477,7 @@ end type ChainMesh_t
                 chainMesh%Bravais_bc = bc 
                 chainMesh%Bravais_ca = ca 
                 a_vec = makeVecNd([a,0.0_8,0.0_8])
-                b_vec = makeVecNd([b*sin(ab),b*cos(ab),0.0_8])
+                b_vec = makeVecNd([b*cos(ab),b*sin(ab),0.0_8])
                 cx = c*cos(ca)
                 cy = (c*b*cos(bc)-cx*b_vec%coords(1))
                 cz = sqrt(c**2 - cx**2 - cy**2)
@@ -476,9 +486,22 @@ end type ChainMesh_t
                 chainMesh%b_vec = b_vec 
                 chainMesh%c_vec = c_vec 
                 
+
+                chainMesh%a_vec%coords = merge(chainMesh%a_vec%coords, 0.0_8,abs(chainMesh%a_vec%coords) > 1e-5_8 )
+                chainMesh%b_vec%coords = merge(chainMesh%b_vec%coords, 0.0_8,abs(chainMesh%b_vec%coords) > 1e-5_8 )
+                chainMesh%c_vec%coords = merge(chainMesh%c_vec%coords, 0.0_8,abs(chainMesh%c_vec%coords) > 1e-5_8 )
+                !chainMesh%ar_vec%coords = merge(ar_vec%coords, 0.0_8,abs(ar_vec%coords) > 1e-5 )
+                !chainMesh%br_vec%coords = merge(br_vec%coords, 0.0_8,abs(br_vec%coords) > 1e-5 )
+                !chainMesh%cr_vec%coords = merge(cr_vec%coords, 0.0_8,abs(cr_vec%coords) > 1e-5 )
+                a_vec = chainMesh%a_vec
+                b_vec = chainMesh%b_vec 
+                c_vec = chainMesh%c_vec 
+
                 chainMesh%ar_vec = (b_vec .x. c_vec)/(a_vec*(b_vec .x. c_vec)) ! reciprocal lattice vectors, form a dual basis to  
                 chainMesh%br_vec = (c_vec .x. a_vec)/(b_vec*(c_vec .x. a_vec)) ! the Bravais lattice vectors.
                 chainMesh%cr_vec = (a_vec .x. b_vec)/(c_vec*(a_vec .x. b_vec))
+
+                print *, "a_vec = ", chainMesh%a_vec%coords, "b_vec = ", chainMesh%b_vec%coords, "c_vec = ", chainMesh%c_vec%coords 
                 chainMesh%numCellsX = numCellsX 
                 chainMesh%numCellsY = numCellsY 
                 chainMesh%numCellsZ = numCellsZ
@@ -523,9 +546,12 @@ end type ChainMesh_t
                         tmp_vec = chainMesh%a_vec*(dble(icoord)) + chainMesh%b_vec*(dble(jcoord)) & 
                                                 + chainMesh%c_vec*(dble(kcoord))
                         do i=1,size(AtomsInUnitCell)
-                                tempAtoms(i)%x = AtomsInUnitCell(i)%x + tmp_vec%coords(1) 
-                                tempAtoms(i)%y = AtomsInUnitCell(i)%y + tmp_vec%coords(2)
-                                tempAtoms(i)%z = AtomsInUnitCell(i)%z + tmp_vec%coords(3) 
+                                pos = dble([AtomsInUnitCell(i)%x, AtomsInUnitCell(i)%y, AtomsInUnitCell(i)%z])
+                                pos = pos%coords(1)*chainMesh%a_vec + pos%coords(2)*chainMesh%b_vec &
+                                        + pos%coords(3)*chainMesh%c_vec
+                                tempAtoms(i)%x = pos%coords(1) + tmp_vec%coords(1) 
+                                tempAtoms(i)%y = pos%coords(2) + tmp_vec%coords(2)
+                                tempAtoms(i)%z = pos%coords(3) + tmp_vec%coords(3) 
                                 ! Assign Atoms to Unit Cells 
                                 chainMesh%atoms((j-1)*stride + i) = tempAtoms(i) ! This line confuses me, I don't know what I was
                                                                                  ! thinking when I wrote it.
@@ -622,7 +648,7 @@ end function H
                 do i = 1,size(neighborCellList)
                         cellIndexTemp = neighborCellList(i)
                         atomIndexTemp = chainMesh%chainMeshCells(cellIndexTemp)%firstAtomInMeshCell
-                        
+                         
                         do while (atomIndexTemp /= -1)
                                 if (atomIndexTemp == atomIndex) then 
                                         atomIndexTemp = chainMesh%atoms(atomIndexTemp)%nextAtom

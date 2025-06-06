@@ -91,6 +91,10 @@ program main
         print *, "Allocated demagnetisation array"
         ! Assign nearest neighbors
         call assignNearestNeighbors(testMesh)
+        do i = 1,size(testMesh%atoms) 
+                print *, "Num nearest Neighbours = ", size(testMesh%atoms(i)%NeighborList)
+        end do 
+
         call DerivativeList(testMesh,testMesh%derivativeList)       
         ! Define skyrmion center position (middle of the mesh)
         allocate(center_coords(3))
