@@ -214,43 +214,6 @@ module reciprocal_space_processes
                 elapsed_time = real(endClock - startClock, C_DOUBLE) / real(clockRate, C_DOUBLE)
         end subroutine calculate_demagnetisation_field
 
-        function calculate_winding_number(chainMesh,Z_index) result(winding_number)
-                implicit none
-                type(ChainMesh_t), intent(inout) :: chainMesh 
-                integer, intent(in) :: Z_index
-                real(kind=8) :: winding_number 
-
-                real(kind=8), allocatable, dimension(:,:,:) :: grad_array 
-                real(kind = 8) :: acc 
-                integer :: numCellsX, numCellsY, numCellsZ, iCell, jCell, i,j, atomIndex, chainCellIndex
-                type(vecNd_t) :: spin, spin_grad_x, spin_grad_y  
-                call calculate_magnetisation_gradient(chainMesh,grad_array)
-
-                ! For now we will just calculate it at Z = numCellsZ / 2 
-                numCellsZ = chainMesh%numCellsZ 
-                numCellsX = chainMesh%numCellsX 
-                numCellsY = chainMesh%numCellsY
-                if (Z_index < 1 .or. Z_index > chainMesh%numCellsZ) error stop "Z index out of range"                
-                acc = 0.0_08
-                do i = 1, numCellsX 
-                        do j = 1,numCellsY 
-                                chainCellIndex = IndexFromCoordinates(chainMesh,i,j,Z_index)
-                                atomIndex = chainMesh%chainMeshCells(chainCellIndex)%firstAtomInMeshCell
-                                spin = makeVecNdCheck(spin,dble(chainMesh%atoms(atomIndex)%AtomParameters))
-                                spin_grad_x = makeVecNdCheck(spin_grad_x,[grad_array(atomIndex,1,1), & ! x derivative 
-                                                                                grad_array(atomIndex,2,1), & 
-                                                                                        grad_array(atomIndex,3,1)])
-                                spin_grad_y = makeVecNdCheck(spin_grad_y,[grad_array(atomIndex,1,2), & ! y derivative 
-                                                                                grad_array(atomIndex,2,2), &
-                                                                                        grad_array(atomIndex,3,2)])
-
-                                acc = acc + spin * (spin_grad_x .x. spin_grad_y)
-                        end do 
-                end do 
-                acc = acc * chainMesh%latticeParameter * chainMesh%latticeParameter ! dx*dy 
-                acc = acc / (4*pi)
-                winding_number = acc
-        end function calculate_winding_number
 
         function arc_winding(s1,s2,s3) result(sigma_area)
                 implicit none
@@ -376,18 +339,17 @@ module reciprocal_space_processes
 
                 real(kind=8), dimension(:,:), allocatable :: density_matrix 
                 integer :: i, unit, stat, j, k 
-                real(kind=8) :: a ! lattice paramter 
-
+                type(vecNd_t) :: pos
                 open(newunit=unit, file=filepath, status="replace",action="write",iostat=stat)
                 if (stat/=0) error stop "Error opening file to write density information" 
                 write(unit,'(A)') "x,y,z,Winding_Density"
 
-                a = dble(chainmesh%latticeParameter)
                 do i=1,chainMesh%numcellsZ 
                         call calculate_winding_number_density(chainMesh,i,density_matrix)
                         do j = 1,chainMesh%numCellsX 
                                 do k = 1,chainMesh%numCellsY 
-                                        write(unit,'(3(F8.4,","),F8.4)') j*a, k*a, i*a, density_matrix(j,k) 
+                                        pos = dble(i)*chainMesh%a_vec + dble(j)*chainMesh%b_vec + dble(k)*chainMesh%c_vec
+                                        write(unit,'(3(F8.4,","),F8.4)') pos%coords(1), pos%coords(2), pos%coords(3), density_matrix(j,k) 
                                 end do 
                         end do 
                 end do 

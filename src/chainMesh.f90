@@ -5,6 +5,7 @@ module ChainMesh
         use ChainMeshCell 
         use vecNd 
         use omp_lib
+        use constants
         use, intrinsic :: iso_c_binding
         include 'fftw3.f03'
 type ChainMesh_t 
@@ -17,7 +18,7 @@ type ChainMesh_t
         real(kind=c_double), pointer :: fft_array_x(:,:,:), fft_array_y(:,:,:), fft_array_z(:,:,:)
         complex(kind=c_double_complex), pointer :: fft_c_view_x(:,:,:), fft_c_view_y(:,:,:), fft_c_view_z(:,:,:)
         type(C_ptr) :: fft_array_ptr
-        real(kind=8) :: Bravais_a, Bravais_b, Bravais_c, Bravais_ab, Bravais_bc, Bravais_ca
+        real(kind=8) :: a, b, c, Bravais_ab, Bravais_bc, Bravais_ca
         type(vecNd_t) :: a_vec, b_vec, c_vec, ar_vec, br_vec, cr_vec ! ar stands for a reciprocal  
 end type ChainMesh_t 
 
@@ -275,7 +276,7 @@ end type ChainMesh_t
                         tempAtom = atoms(atomIndexTemp)
 
                         dist = distance(chainMesh,AtomIndex, atomIndexTemp)
-                        if (abs(dist - nearestNeighborDistance) < chainMesh%chainMeshCells(1)%a/10) then ! Tolerance 
+                        if (abs(dist - nearestNeighborDistance) < chainMesh%a/10) then ! Tolerance 
                                 call omp_set_lock(atomLockArray(atomIndex))
 
                                 allocate(tempList((size(atoms(AtomIndex)%NeighborList) + 1)))
@@ -357,12 +358,10 @@ end type ChainMesh_t
                         atomIdent = chainMeshCells(i)%firstAtomInMeshCell
                         print *, "MeshCell ",i," contains atoms:"
                         do while (atomIdent .ne. -1)
-                                idex = IndexFromCoordinates(chainMesh,atoms(atomIdent)%x,atoms(atomIdent)%y,atoms(atomIdent)%z)
                                 print *, atomIdent,&
                                        " With coordinates: ", "(",atoms(atomIdent)%x,",",&
                                       atoms(atomIdent)%y,",",atoms(atomIdent)%z,")"
                                 print *, "tmpx, tmpy, tmpz = ",atoms(atomIdent)%tmpx,atoms(atomIdent)%tmpy,atoms(atomIDent)%tmpz
-                                print *, "Corresponding to Index: ", idex
                                 print *, "Atom ", atomIdent," has nearest Neighbors: ", atoms(atomIdent)%NeighborList
                                 print *, "Atom ", atomIdent," has ",size(atoms(atomIdent)%NeighborList)," nearest Neighbors: " 
                                 atomIdent = atoms(atomIdent)%nextAtom
@@ -461,9 +460,9 @@ end type ChainMesh_t
                 ab = ab_deg*(pi/180.0_8)
                 bc = bc_deg*(pi/180.0_8)
                 ca = ca_deg*(pi/180.0_8)
-                chainMesh%Bravais_a = a 
-                chainMesg%Bravais_b = b 
-                chainMesh%Bravais_c = c 
+                chainMesh%a = a 
+                chainMesh%b = b 
+                chainMesh%c = c 
                 chainMesh%Bravais_ab = ab 
                 chainMesh%Bravais_bc = bc 
                 chainMesh%Bravais_ca = ca 
@@ -524,9 +523,9 @@ end type ChainMesh_t
                         tmp_vec = chainMesh%a_vec*(dble(icoord)) + chainMesh%b_vec*(dble(jcoord)) & 
                                                 + chainMesh%c_vec*(dble(kcoord))
                         do i=1,size(AtomsInUnitCell)
-                                tempAtoms(i)%x = AtomsInUnitCell(i)%x + tmp_vec(1) 
-                                tempAtoms(i)%y = AtomsInUnitCell(i)%y + tmp_vec(2)
-                                tempAtoms(i)%z = AtomsInUnitCell(i)%z + tmp_vec(3) 
+                                tempAtoms(i)%x = AtomsInUnitCell(i)%x + tmp_vec%coords(1) 
+                                tempAtoms(i)%y = AtomsInUnitCell(i)%y + tmp_vec%coords(2)
+                                tempAtoms(i)%z = AtomsInUnitCell(i)%z + tmp_vec%coords(3) 
                                 ! Assign Atoms to Unit Cells 
                                 chainMesh%atoms((j-1)*stride + i) = tempAtoms(i) ! This line confuses me, I don't know what I was
                                                                                  ! thinking when I wrote it.
@@ -633,8 +632,9 @@ end function H
                                 y = chainMesh%atoms(atomIndexTemp)%y 
                                 z = chainMesh%atoms(atomIndexTemp)%z 
                                 atomPos2 = makeVecNdCheck(atomPos2, [x,y,z])
-                                call distance_points_vec(chainMesh,atomPos1, atomPos2, distance)
-                                
+                                call distance_points_vec_bravais(chainMesh,atomPos1, atomPos2, distance) 
+                                ! d contains the coefficients in the expansion d = a_coeff*a + b_coeff*b + c_coeff*c, we have to
+                                ! define planes relative to the Bravais lattice.
                                 candidate = .True.
                                 do j = 1,3
                                         if (j == d) cycle 
@@ -672,18 +672,5 @@ end function H
                 lowerAtom = currentMinIndex 
                 HigherAtom = currentMAxIndex 
         end subroutine computeAdjacentAtoms
-
-        subroutine calculatePartialDerivative(chainMesh,atomIndex,d,outputVec)
-                type(ChainMesh_t), intent(inout) :: chainMesh 
-                integer, intent(in) :: atomIndex, d , outputVec
-
-                if (.not. allocated(chainMesh%derivativeList)) then 
-                        print *, "Warning: derivativeList not allocated, allocating and computing"
-                        call DerivativeList(chainMesh,chainMesh%derivativeList)
-                end if 
-                
-        end subroutine calculatePartialDerivative
-
-
 end module ChainMesh 
 
