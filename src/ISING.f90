@@ -21,7 +21,7 @@ program main
         procedure(H_eff_class), pointer :: p
         integer :: argc, counter 
         character(len=50) :: arg      
-        real(kind=8) :: totalEnergy1, totalEnergy2
+        real(kind=8) :: totalEnergy1, totalEnergy2, a_bravais,b_bravais,c_bravais, ab, bc, ca
         ! LLG evolution parameters
         real(kind=8) :: dt, total_time
         real(kind=8) :: H_field(3)
@@ -73,12 +73,19 @@ program main
         
         ! Create atoms in unit cell
         AtomsInUnitCell(1) = makeAtom(0.0, 0.0, 0.0, AtomParam1, 3, -1) 
-        AtomsInUnitCell(2) = makeAtom(latticeParam/2, latticeParam/2, latticeParam/2, AtomParam2, 3, -1)
+        AtomsInUnitCell(2) = makeAtom(0.5, 0.5, 0.5, AtomParam2, 3, -1)
         numCellsX = 40
         numCellsY = 40
         numCellsZ = 6
+        a_bravais = latticeParam
+        b_bravais = latticeParam
+        c_bravais = latticeParam
+        ab = 90 
+        bc = 90 
+        ca = 90 
         ! Create the chain mesh
-        testMesh = makeChainMesh(2, numCellsX, numCellsY, numCellsZ, latticeParam, AtomsInUnitCell)
+        testMesh = makeChainMesh(2, numCellsX, numCellsY, numCellsZ, AtomsInUnitCell,&
+                                a_bravais,b_bravais,c_bravais,ab,bc,ca)
         print *, "Attempting to allocate ", testMesh%numAtoms, "atoms"
         allocate(demagnetisation_array(testMesh%numAtoms,3))
         print *, "Allocated demagnetisation array"
@@ -91,7 +98,7 @@ program main
         center_coords(2) = numCellsY * latticeParam / 2.0d0
         center_coords(3) = numCellsZ * latticeParam / 2.0d0
         skyrmion_center = makeVecNd(center_coords)
-        skyrmion_radius = 1.0_8*testMesh%latticeParameter 
+        skyrmion_radius = 1.0_8*testMesh%a 
         
         ! Initialize the skyrmion
         call initialise_skyrmion_sp(testMesh, skyrmion_center, skyrmion_radius,3.12_8/2.0_08,1)
