@@ -11,7 +11,6 @@ type ChainMesh_t
         integer :: numAtoms, numChainMeshCells
         type(Atom_t), allocatable :: atoms(:) ! Each atom is in a chain mesh cell and points to the next atom within that cell 
         type(ChainMeshCell_t), allocatable :: chainMeshCells(:)
-        real ::  latticeParameter
         integer :: numCellsX, numCellsY, numCellsZ  ! NumCellsX/Y/Z will be for the a,b,c Bravais Lattice Vectors
         integer, allocatable, dimension(:,:,:) :: derivativeList !(i,j,k) : i=atomInex, j=dim (1,2,3), k = lower,higher (1,2)
         type(C_ptr) :: forwardPlanX, forwardPlanY, forwardPlanZ, backwardPlanX, backwardPlanY, backwardPlanZ
@@ -23,7 +22,7 @@ type ChainMesh_t
 end type ChainMesh_t 
 
         interface IndexFromCoordinates
-                module procedure IndexFromCoordinatesReal, IndexFromCoordinatesInteger
+                module procedure IndexFromCoordinatesInteger
         end interface IndexFromCoordinates
         contains
         subroutine getNeighboringCells(chainMesh,cellIndex,neighborCellList)
@@ -78,96 +77,144 @@ end type ChainMesh_t
                 integer, intent(in) :: atomIndex1, atomIndex2 
                 integer :: ind1,ind2 ! ChainCell Coordinates of atoms 1 and 2 
                 integer :: i1,j1,k1,i2,j2,k2 ! Chain Cell i,j,k coordinates of 
-                integer :: a,b,c  
                 type(Atom_t) :: atom1, atom2 
-                real :: d, widthX, widthY, widthZ  
+                real :: d 
+                real(kind=8) :: a_coeff, b_coeff, c_coeff, widthX, widthY, widthZ   
                 
-                a = chainMesh%numCellsX 
-                b = chainMesh%numCellsY 
-                c = chainMesh%numCellsZ 
-                widthX = a*chainMesh%latticeParameter
-                widthY = b*chainMesh%latticeParameter 
-                widthZ = c*chainMesh%latticeParameter
+                widthX = dble(chainMesh%numCellsX) ! widthX is the maximum width along the a axis 
+                widthY = dble(chainMesh%numCellsY) ! widthY is the maximum width along the b axis 
+                widthZ = dble(chainMesh%numCellsZ) ! widthZ is the maximum width aling the c axis
 
                 atom1 = chainMesh%atoms(atomIndex1)
                 atom2 = chainMesh%atoms(atomIndex2)
-                dx = abs(atom1%x - atom2%x)
-                dy = abs(atom1%y - atom2%y) 
-                dz = abs(atom1%z - atom2%z)
-
-                if (dx > widthX/2) dx = widthX - dx 
-                if (dy > widthY/2) dy = widthY - dy 
-                if (dz > widthZ/2) dz = widthZ - dz 
+                dx = atom2%x - atom1%x
+                dy = atom2%y - atom1%y
+                dz = atom2%z - atom1%z
                 
+                ! Take inner product with respective dual (reciprocal) vectors to extract coefficients in the Bravais basis. 
+                a_coeff = dx*chainMesh%ar_vec%coords(1) + dy*chainMesh%ar_vec%coords(2) + dz*chainMesh%ar_vec%coords(3)
+                b_coeff = dx*chainMesh%br_vec%coords(1) + dy*chainMesh%br_vec%coords(2) + dz*chainMesh%br_vec%coords(3)
+                c_coeff = dx*chainMesh%cr_vec%coords(1) + dy*chainMesh%cr_vec%coords(2) + dz*chainMesh%cr_vec%coords(3)
+                
+                a_coeff = a_coeff - widthX*nint(a_coeff/widthX)
+                b_coeff = b_coeff - widthY*nint(b_coeff/widthY)
+                c_coeff = c_coeff - widthZ*nint(c_coeff/widthZ)
+                ! Now reconstruct the cartesian distance from these vectors 
+                dx = a_coeff*chainMesh%a_vec%coords(1) + b_coeff*chainMesh%b_vec%coords(1) + c_coeff*chainMesh%c_vec%coords(1)
+                dy = a_coeff*chainMesh%a_vec%coords(2) + b_coeff*chainMesh%b_vec%coords(2) + c_coeff*chainMesh%c_vec%coords(2)
+                dz = a_coeff*chainMesh%a_vec%coords(3) + b_coeff*chainMesh%b_vec%coords(3) + c_coeff*chainMesh%c_vec%coords(3)
+
                 d = sqrt(dx**2 + dy**2 + dz**2)
         end function distance 
 
         function distance_points(chainMesh, point1, point2) result(d)
+            implicit none
             type(ChainMesh_t), intent(in) :: chainMesh
             type(vecNd_t), intent(in) :: point1, point2
             real(kind=8) :: d, dx, dy, dz, widthX, widthY, widthZ
             integer :: a, b, c
-
+            real(kind=8) :: a_coeff, b_coeff, c_coeff
             ! Get system dimensions
-            a = chainMesh%numCellsX
-            b = chainMesh%numCellsY
-            c = chainMesh%numCellsZ
-            
-            ! Calculate total width in each dimension
-            widthX = a * chainMesh%latticeParameter
-            widthY = b * chainMesh%latticeParameter
-            widthZ = c * chainMesh%latticeParameter
-            
-            ! Calculate coordinate differences
-            dx = abs(point2%coords(1) - point1%coords(1))
-            dy = abs(point2%coords(2) - point1%coords(2))
-            dz = abs(point2%coords(3) - point1%coords(3))
-            
-            ! Apply periodic boundary conditions to find the minimum distance
-            if (dx > widthX/2) dx = widthX - dx
-            if (dy > widthY/2) dy = widthY - dy
-            if (dz > widthZ/2) dz = widthZ - dz
-            
-            ! Calculate Euclidean distance
+
+                
+            widthX = dble(chainMesh%numCellsX) ! widthX is the maximum width along the a axis 
+            widthY = dble(chainMesh%numCellsY) ! widthY is the maximum width along the b axis 
+            widthZ = dble(chainMesh%numCellsZ) ! widthZ is the maximum width aling the c axis
+
+            dx = point2%coords(1) - point1%coords(1)
+            dy = point2%coords(2) - point1%coords(2)
+            dz = point2%coords(3) - point1%coords(3)
+                
+                ! Take inner product with respective dual (reciprocal) vectors to extract coefficients in the Bravais basis. 
+            a_coeff = dx*chainMesh%ar_vec%coords(1) + dy*chainMesh%ar_vec%coords(2) + dz*chainMesh%ar_vec%coords(3)
+            b_coeff = dx*chainMesh%br_vec%coords(1) + dy*chainMesh%br_vec%coords(2) + dz*chainMesh%br_vec%coords(3)
+            c_coeff = dx*chainMesh%cr_vec%coords(1) + dy*chainMesh%cr_vec%coords(2) + dz*chainMesh%cr_vec%coords(3)
+                
+            a_coeff = a_coeff - widthX*nint(a_coeff/widthX)
+            b_coeff = b_coeff - widthY*nint(b_coeff/widthY)
+            c_coeff = c_coeff - widthZ*nint(c_coeff/widthZ)
+                ! Now reconstruct the cartesian distance from these vectors 
+            dx = a_coeff*chainMesh%a_vec%coords(1) + b_coeff*chainMesh%b_vec%coords(1) + c_coeff*chainMesh%c_vec%coords(1)
+            dy = a_coeff*chainMesh%a_vec%coords(2) + b_coeff*chainMesh%b_vec%coords(2) + c_coeff*chainMesh%c_vec%coords(2)
+            dz = a_coeff*chainMesh%a_vec%coords(3) + b_coeff*chainMesh%b_vec%coords(3) + c_coeff*chainMesh%c_vec%coords(3)
+
             d = sqrt(dx**2 + dy**2 + dz**2)
+
         end function distance_points
 
         subroutine distance_points_vec(chainMesh, point1, point2,d)
+            implicit none
             type(ChainMesh_t), intent(in) :: chainMesh
             type(vecNd_t), intent(in) :: point1, point2
             type(vecNd_t), intent(inout) :: d 
 
             real(kind=8) :: dx, dy, dz, widthX, widthY, widthZ
+            real(kind=8) :: a_coeff, b_coeff, c_coeff
             integer :: a, b, c
-            ! Get system dimensions
-            a = chainMesh%numCellsX
-            b = chainMesh%numCellsY
-            c = chainMesh%numCellsZ
-            
-            ! Calculate total width in each dimension
-            widthX = a * chainMesh%latticeParameter
-            widthY = b * chainMesh%latticeParameter
-            widthZ = c * chainMesh%latticeParameter
-            
-            ! Calculate coordinate differences
-            dx = (point2%coords(1) - point1%coords(1)) ! Warning! May need to do point 1 - point 2 
-            dy = (point2%coords(2) - point1%coords(2))
-            dz = (point2%coords(3) - point1%coords(3))
-            
-            ! Apply periodic boundary conditions to find the minimum distance
-            !if (dx > widthX/2) dx = widthX - dx
-            !if (dy > widthY/2) dy = widthY - dy
-            !if (dz > widthZ/2) dz = widthZ - dz
+
+                
+            widthX = dble(chainMesh%numCellsX) ! widthX is the maximum width along the a axis 
+            widthY = dble(chainMesh%numCellsY) ! widthY is the maximum width along the b axis 
+            widthZ = dble(chainMesh%numCellsZ) ! widthZ is the maximum width aling the c axis
+
+            dx = point2%coords(1) - point1%coords(1)
+            dy = point2%coords(2) - point1%coords(2)
+            dz = point2%coords(3) - point1%coords(3)
+                
+                ! Take inner product with respective dual (reciprocal) vectors to extract coefficients in the Bravais basis. 
+            a_coeff = dx*chainMesh%ar_vec%coords(1) + dy*chainMesh%ar_vec%coords(2) + dz*chainMesh%ar_vec%coords(3)
+            b_coeff = dx*chainMesh%br_vec%coords(1) + dy*chainMesh%br_vec%coords(2) + dz*chainMesh%br_vec%coords(3)
+            c_coeff = dx*chainMesh%cr_vec%coords(1) + dy*chainMesh%cr_vec%coords(2) + dz*chainMesh%cr_vec%coords(3)
+                
+            a_coeff = a_coeff - widthX*nint(a_coeff/widthX)
+            b_coeff = b_coeff - widthY*nint(b_coeff/widthY)
+            c_coeff = c_coeff - widthZ*nint(c_coeff/widthZ)
+                ! Now reconstruct the cartesian distance from these vectors 
+            dx = a_coeff*chainMesh%a_vec%coords(1) + b_coeff*chainMesh%b_vec%coords(1) + c_coeff*chainMesh%c_vec%coords(1)
+            dy = a_coeff*chainMesh%a_vec%coords(2) + b_coeff*chainMesh%b_vec%coords(2) + c_coeff*chainMesh%c_vec%coords(2)
+            dz = a_coeff*chainMesh%a_vec%coords(3) + b_coeff*chainMesh%b_vec%coords(3) + c_coeff*chainMesh%c_vec%coords(3)
+
+            d = makeVecNdCheck(d,[dx,dy,dz]) 
 
 
-            dx = dx - widthX*nint(dx/widthX)
-            dy = dy - widthY*nint(dy/widthY)
-            dz = dz - widthZ*nint(dz/widthZ)
-            
-            
-            ! Calculate Euclidean distance
-            d = makeVecNdCheck(d,[dx,dy,dz])
         end subroutine distance_points_vec
+
+
+        subroutine distance_points_vec_bravais(chainMesh, point1, point2,d)
+            implicit none
+            type(ChainMesh_t), intent(in) :: chainMesh
+            type(vecNd_t), intent(in) :: point1, point2
+            type(vecNd_t), intent(inout) :: d 
+
+            real(kind=8) :: dx, dy, dz, widthX, widthY, widthZ
+            real(kind=8) :: a_coeff, b_coeff, c_coeff
+            integer :: a, b, c
+            ! Returns the distance in units of the Bravais lattice vectors.
+                
+            widthX = dble(chainMesh%numCellsX) ! widthX is the maximum width along the a axis 
+            widthY = dble(chainMesh%numCellsY) ! widthY is the maximum width along the b axis 
+            widthZ = dble(chainMesh%numCellsZ) ! widthZ is the maximum width aling the c axis
+
+            dx = point2%coords(1) - point1%coords(1)
+            dy = point2%coords(2) - point1%coords(2)
+            dz = point2%coords(3) - point1%coords(3)
+                
+                ! Take inner product with respective dual (reciprocal) vectors to extract coefficients in the Bravais basis. 
+            a_coeff = dx*chainMesh%ar_vec%coords(1) + dy*chainMesh%ar_vec%coords(2) + dz*chainMesh%ar_vec%coords(3)
+            b_coeff = dx*chainMesh%br_vec%coords(1) + dy*chainMesh%br_vec%coords(2) + dz*chainMesh%br_vec%coords(3)
+            c_coeff = dx*chainMesh%cr_vec%coords(1) + dy*chainMesh%cr_vec%coords(2) + dz*chainMesh%cr_vec%coords(3)
+                
+            a_coeff = a_coeff - widthX*nint(a_coeff/widthX)
+            b_coeff = b_coeff - widthY*nint(b_coeff/widthY)
+            c_coeff = c_coeff - widthZ*nint(c_coeff/widthZ)
+                ! Now reconstruct the cartesian distance from these vectors 
+
+            d = makeVecNdCheck(d,[a_coeff,b_coeff,c_coeff]) 
+
+
+        end subroutine distance_points_vec_bravais 
+
+
 
        subroutine AssignAtomNearestNeighbhors(chainMesh,AtomIndex, AtomCellIndex, NeighborCellList,atomLockArray)
                 implicit none
@@ -228,7 +275,7 @@ end type ChainMesh_t
                         tempAtom = atoms(atomIndexTemp)
 
                         dist = distance(chainMesh,AtomIndex, atomIndexTemp)
-                        if (abs(dist - nearestNeighborDistance) < chainMesh%chainMeshCells(1)%latticePArameter/10) then ! Tolerance 
+                        if (abs(dist - nearestNeighborDistance) < chainMesh%chainMeshCells(1)%a/10) then ! Tolerance 
                                 call omp_set_lock(atomLockArray(atomIndex))
 
                                 allocate(tempList((size(atoms(AtomIndex)%NeighborList) + 1)))
@@ -335,25 +382,8 @@ end type ChainMesh_t
                 chainMesh%atoms(AtomIndex)%NextAtom=temp
         end subroutine addAtomToChainCell 
 
-        function IndexFromCoordinatesReal(chainMesh,Ain,Bin,Cin) result(res)
-                type(ChainMesh_t), intent(in) :: chainMesh 
-                real, intent(in) :: Ain,Bin,Cin 
-                real(kind=8) :: A,B,C,W, latticeParam  
-                real(kind=8), parameter :: eps = 1e-8
-                integer :: res 
-                integer :: i,j,k, Amesh, Bmesh, Cmesh 
-                Amesh = chainMesh%numCellsX
-                Bmesh = chainMesh%numCellsY 
-                Cmesh = chainMesh%numCellsZ 
-                
-                latticeParam = chainMesh%latticeParameter
-                i = int(Ain / latticeParam)
-                j = int(Bin / latticeParam)
-                k = int(Cin / latticeParam)
-                res = i*Bmesh*Cmesh + j*Cmesh + k + 1 ! +1 to work with fortran 1 based array indexing
-        end function IndexFromCoordinatesReal
-
         function IndexFromCoordinatesInteger(chainMesh,i,j,k) result(res)
+                implicit none
                 type(ChainMesh_t), intent(in) :: chainMesh 
                 integer, intent(in) :: i,j,k 
                 integer :: res 
@@ -362,7 +392,6 @@ end type ChainMesh_t
                 Bmesh = chainMesh%numCellsY 
                 Cmesh = chainMesh%numCellsZ 
                 
-                latticeParam = chainMesh%latticeParameter
                 ! i,j, and k will be from loops with 1 based indexing, e.g. do i = 1,size(array)
                 res = (i-1)*Bmesh*Cmesh + (j-1)*Cmesh + (k-1) + 1 ! +1 to work with fortran 1 based array indexing
         end function IndexFromCoordinatesInteger
@@ -384,41 +413,6 @@ end type ChainMesh_t
                 k = mod(remainderj,c)
                 reconstructedIndex = i*b*c + j*b + k + 1 ! Needed for 1 based indexing in Fortran 
         end subroutine coordinatesFromIndex
-        subroutine AssignAtomsToUnitCells(chainMesh,domainWidth,N)
-                type(ChainMesh_t), intent(inout) :: chainMesh
-                integer :: ChainMeshCellsLen
-                integer :: atomsLen
-                integer, intent(in) :: N 
-                real, intent(in) :: domainWidth 
-                integer :: i,j, chainCellIndex
-                real :: tmpx, tmpy, tmpz, eps 
-                eps = chainMesh%latticeParameter / 20.0
-                ChainMeshCellsLen = size(chainMesh%chainMeshCells)
-                atomsLen = size(chainMesh%atoms)
-                
-                do i=1,atomsLen 
-                        tmpx = chainMesh%atoms(i)%x
-                        tmpy = chainMesh%atoms(i)%y
-                        tmpz = chainMesh%atoms(i)%z
-                        if (modulo(chainMesh%atoms(i)%x,chainMesh%latticeParameter) < eps .and. i > 0 ) then 
-                                tmpx = tmpx + eps  
-                        end if 
-                        if (modulo(chainMesh%atoms(i)%y,chainMesh%latticeParameter) < eps .and. j > 0) then 
-                                tmpy = tmpy + eps 
-                        end if 
-                        if (modulo(chainMesh%atoms(i)%z,chainMesh%latticeParameter) < eps .and. k > 0) then 
-                                tmpz = tmpz + eps 
-                        end if 
-                        chainMesh%atoms(i)%tmpx=tmpx
-                        chainMesh%atoms(i)%tmpy=tmpy
-                        chainMesh%atoms(i)%tmpz=tmpz
-                        chainCellIndex = IndexFromCoordinates(chainMesh,tmpx,tmpy,&
-                                tmpz)
-                        call addAtomToChainCell(chainCellIndex,i,chainMesh)
-                !TODO: Complete this subroutine
-                end do 
-
-        end subroutine AssignAtomsToUnitCells
 
         subroutine create_chainMesh_plan(chainMesh)
                 type(chainmesh_t), intent(inout) :: chainMesh 
@@ -447,11 +441,11 @@ end type ChainMesh_t
 
         function makeChainMesh(numAtomsPerUnitCell, numCellsX, numCellsY, numCellsZ, & 
                         AtomsInUnitCell, &
-                        a,b,c,ab,bc,ca) result(chainMesh)
+                        a,b,c,ab_deg,bc_deg,ca_deg) result(chainMesh)
                 implicit none 
                 integer, intent(in) :: numAtomsPerUnitCell, numCellsX, numCellsY, numCellsZ 
                 type(Atom_t), intent(in) :: AtomsInUnitCell(numAtomsPerUnitCell)
-                real(kind=8), intent(in) :: a,b,c,ab,bc,ca
+                real(kind=8), intent(in) :: a,b,c,ab_deg,bc_deg,ca_deg
                 ! Need to create all the atoms, create all the ChainMeshCells, then allocate all of the atoms to a chain mesh cell 
                 type(ChainMesh_t), target :: chainMesh 
                 integer :: numChainMeshCells, padX
@@ -462,8 +456,11 @@ end type ChainMesh_t
                 real :: domainWidth
                 type(C_ptr) :: temp_c_ptr
                 type(vecNd_t) :: a_vec, b_vec, c_vec, ar_vec, br_vec, cr_vec, tmp_vec
-                real(kind=8) :: cx, cy, cz 
-
+                real(kind=8) :: cx, cy, cz, ab, bc,ca 
+                
+                ab = ab_deg*(pi/180.0_8)
+                bc = bc_deg*(pi/180.0_8)
+                ca = ca_deg*(pi/180.0_8)
                 chainMesh%Bravais_a = a 
                 chainMesg%Bravais_b = b 
                 chainMesh%Bravais_c = c 
@@ -480,8 +477,8 @@ end type ChainMesh_t
                 chainMesh%b_vec = b_vec 
                 chainMesh%c_vec = c_vec 
                 
-                chainMesh%ar_vec = (b_vec .x. c_vec)/(a_vec*(b_vec .x. c_vec)) ! reciprocal lattice vectors 
-                chainMesh%br_vec = (c_vec .x. a_vec)/(b_vec*(c_vec .x. a_vec))
+                chainMesh%ar_vec = (b_vec .x. c_vec)/(a_vec*(b_vec .x. c_vec)) ! reciprocal lattice vectors, form a dual basis to  
+                chainMesh%br_vec = (c_vec .x. a_vec)/(b_vec*(c_vec .x. a_vec)) ! the Bravais lattice vectors.
                 chainMesh%cr_vec = (a_vec .x. b_vec)/(c_vec*(a_vec .x. b_vec))
                 chainMesh%numCellsX = numCellsX 
                 chainMesh%numCellsY = numCellsY 
@@ -527,8 +524,6 @@ end type ChainMesh_t
                         tmp_vec = chainMesh%a_vec*(dble(icoord)) + chainMesh%b_vec*(dble(jcoord)) & 
                                                 + chainMesh%c_vec*(dble(kcoord))
                         do i=1,size(AtomsInUnitCell)
-                                !chainMesh%atoms(j,j+atoms) = AtomsInUnitCell ! Assuming they are all initialised properly
-                                ! coordinates for the chain mesh cell 
                                 tempAtoms(i)%x = AtomsInUnitCell(i)%x + tmp_vec(1) 
                                 tempAtoms(i)%y = AtomsInUnitCell(i)%y + tmp_vec(2)
                                 tempAtoms(i)%z = AtomsInUnitCell(i)%z + tmp_vec(3) 
@@ -537,12 +532,7 @@ end type ChainMesh_t
                                                                                  ! thinking when I wrote it.
                                 call addAtomToChainCell(j,(j-1)*stride + i,chainMesh)
                         end do
-                        !!print *, "j debug = ", j, " stride = ",stride
-                        !chainMesh%atoms((j-1)*stride + 1:(j-1)*stride+size(AtomsInUnitCell)) = tempAtoms
-                        !Suspicious! ^^
                end do
-                ! Todo: map atoms into their respective chain mesh cells
-                !call AssignAtomsToUnitCells(chainMesh,domainWidth,numUnitCellsPerSideLength) 
         end function makeChainMesh 
 
 function H(chainMesh,sigma) result(Energy)
