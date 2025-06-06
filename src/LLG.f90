@@ -73,49 +73,6 @@ module llg
         end subroutine initialise_skyrmion_sp
 
 
-
-        subroutine initialise_skyrmion(chainMesh, r, R_s)
-                
-                implicit none
-                type(ChainMesh_t), intent(inout) :: chainMesh 
-                type(vecNd_t), intent(in) :: r 
-                real(kind=8), intent(in) :: R_s 
-                real(kind=8) :: d, dx, dy, widthX, widthY, widthZ, HalfWidthX, HalfwidthY, HalfwidthZ, psi, phi, gaussian_factor
-                integer :: i
-                type(vecNd_t) :: atomPos
-                ! r: Skyrmion centre 
-                ! R_s: Skyrmion radius
-                if (size(r) /= 3) then 
-                        error stop "Skyrmion position must have three components"
-                end if 
-                HalfwidthX = chainMesh%numCellsX*chainMesh%latticeParameter / 2
-                HalfwidthY = chainMesh%numCellsY*chainMesh%latticeParameter / 2
-                HalfwidthZ = chainMesh%numCellsZ*chainMesh%latticeParameter / 2
-                widthX = chainMesh%numCellsX*chainMesh%latticeParameter
-                widthY = chainMesh%numCellsY*chainMesh%latticeParameter
-                widthZ = chainMesh%numCellsZ*chainMesh%latticeParameter
-                do i = 1,size(chainMesh%atoms)
-       
-                        atomPos = makeVecNd((/dble(chainMesh%atoms(i)%x),dble(chainMesh%atoms(i)%y),dble(chainMesh%atoms(i)%z)/))
-                        d = distance_points(chainMesh,r,atomPos) 
-                        dx = abs(r%coords(1) - atomPos%coords(1))
-                        dy = abs(r%coords(2) - atomPos%coords(2))
-                         
-                        if (dx > HalfwidthX) dx = widthX - dx 
-                        if (dy > HalfwidthY) dy = widthY - dy
-
-                        psi = 2*atan2(d,R_s)
-                        phi = 2*atan2(dy,dx)
-                        gaussian_factor = exp(- d**2 / sqrt(R_s/2))
-                        if (gaussian_factor > 1e-4) then 
-                                chainMesh%atoms(i)%AtomParameters(1) = gaussian_factor*sin(psi)*sin(phi)
-                                chainMesh%atoms(i)%AtomParameters(2) = gaussian_factor*sin(psi)*cos(phi)
-                                chainMesh%atoms(i)%AtomParameters(3) = gaussian_factor*cos(psi)
-                        end if
-                        call normalise_spin(chainMesh,i,1.0_8)
-                end do 
-        end subroutine initialise_skyrmion
-
         subroutine normalise_spin(chainMesh,i, val)
                 type(ChainMesh_t), intent(inout) :: chainMesh
                 integer, intent(in) :: i 
