@@ -153,7 +153,7 @@ program main
         do i = 0,numBetaSteps
                 Tmax = 5.0_8 
                 !Tmin = 0.1*(0.76*8*J)/(3*Kb)
-                Tmin = 0.000001
+                Tmin = 0.0000001
                 T = Tmax - (Tmax - Tmin)*(dble(i)/dble(numBetaSteps)) 
                 beta = 1.0_8 / (T)
                 !call calculate_demagnetisation_field(testMesh,demagnetisation_array)

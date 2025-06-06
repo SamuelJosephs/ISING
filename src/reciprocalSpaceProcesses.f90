@@ -44,9 +44,9 @@ module reciprocal_space_processes
                                    
                                    !Now calculate the cloud in cell interpolation weights 
 
-                                   xWeight = max(1.0_8 - (abs(d%coords(1))/chainMesh%a),0.0_8)
-                                   yWeight = max(1.0_8 - (abs(d%coords(2))/chainmesh%b),0.0_8) 
-                                   zWeight = max(1.0_8 - (abs(d%coords(3))/chainMesh%c),0.0_8)
+                                   xWeight = max(1.0_8 - (abs(d%coords(1))),0.0_8)
+                                   yWeight = max(1.0_8 - (abs(d%coords(2))),0.0_8) 
+                                   zWeight = max(1.0_8 - (abs(d%coords(3))),0.0_8)
                                    weight = xWeight*yWeight*zWeight
                                    chainMesh%fft_array_x(iCell, jCell, kCell) = chainMesh%fft_array_x(iCell,jCell,kCell) + &
                                                    weight*chainMesh%atoms(atom)%AtomParameters(1) 
@@ -97,9 +97,9 @@ module reciprocal_space_processes
                                    
                                    !Now calculate the cloud in cell interpolation weights 
 
-                                   xWeight = max(1.0_8 - (abs(d%coords(1))/chainMesh%a),0.0_8)
-                                   yWeight = max(1.0_8 - (abs(d%coords(2))/chainMesh%b),0.0_8) 
-                                   zWeight = max(1.0_8 - (abs(d%coords(3))/chainMesh%c),0.0_8)
+                                   xWeight = max(1.0_8 - (abs(d%coords(1))),0.0_8)
+                                   yWeight = max(1.0_8 - (abs(d%coords(2))),0.0_8) 
+                                   zWeight = max(1.0_8 - (abs(d%coords(3))),0.0_8)
                                    weight = xWeight*yWeight*zWeight
                                         
                                    outputArray(atom,1) = outputArray(atom,1) +  weight*chainMesh%fft_array_x(iCell,jCell,kCell)
