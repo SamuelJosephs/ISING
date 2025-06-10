@@ -16,10 +16,13 @@ program PT
         real(kind=dp), parameter :: MaxJ = 1.5_dp 
         real(kind=dp), parameter :: MinD = 0.0_dp 
         real(kind=dp), parameter :: MaxD = 1.5_dp
+        real(kind=dp), parameter :: MinB = 1.0_dp 
+        real(kind=dp), parameter :: MaxB = 1.0_dp
 
         integer :: NumSlots, BasePtr, TopPtr, NumParams 
         integer :: stat, i, JIndex, DIndex, BIndex
-        integer, allocatable, dimension(:) :: ParamIndexArray
+        integer, allocatable, dimension(:) :: ParamIndexArray ! Contains the global index of each parameter set
+        real(kind=dp), allocatable, dimension(:,:) :: ParamArray ! (paramIndex, (J,D,B))
         call MPI_Init(MPI_ierr)
         call MPI_Comm_Rank(MPI_COMM_WORLD,MPI_rank)
         call MPI_Comm_Size(MPI_COMM_WORLD,MPI_num_procs)
@@ -48,10 +51,15 @@ program PT
         do i = 1,NumParams
                 ParamIndexArray(i) = BasePtr + i
         end do 
-        do i = 1,Numparams 
+        
+        allocate(ParamArray(NumParams,3),stat=stat) 
+        do i = 1,NumParams
                 call indicesFromSlot(ParamIndexArray(i),NJ,ND,NB,JIndex,DIndex,BIndex)
-                print *, "Rank, ", MPI_rank, "Has J,D,B indices: ", JIndex, DIndex, BIndex
+                ParamArray(i,1) = dble(JIndex)/dble(NJ)*(Jmax - Jmin) + Jmin 
+                ParamArray(i,2) = dble(DIndex)/dble(ND)*(Dmax - Dmin) + Dmin
+                ParamArray(i,3) = dble(BIndex)/dble(NB)*(Bmax - Bmin) + Bmin
         end do 
+        if (stat /= 0) error stop "Error allocating ParamArray"
         call MPI_Finalize()
         
 
