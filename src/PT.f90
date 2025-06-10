@@ -12,12 +12,12 @@ program PT
         integer, parameter :: NJ = 2 ! The number of J, D, and B values to perform the parallel tempering at.  
         integer, parameter :: ND = 2 ! Hard code these for now but eventually they should be taken as input
         integer, parameter :: NB = 1 
-        real(kind=dp), parameter :: MinJ = 0.0_dp
-        real(kind=dp), parameter :: MaxJ = 1.5_dp 
-        real(kind=dp), parameter :: MinD = 0.0_dp 
-        real(kind=dp), parameter :: MaxD = 1.5_dp
-        real(kind=dp), parameter :: MinB = 1.0_dp 
-        real(kind=dp), parameter :: MaxB = 1.0_dp
+        real(kind=dp), parameter :: JMin = 0.0_dp
+        real(kind=dp), parameter :: JMax = 1.5_dp 
+        real(kind=dp), parameter :: DMin = 0.0_dp 
+        real(kind=dp), parameter :: DMax = 1.5_dp
+        real(kind=dp), parameter :: BMin = 1.0_dp 
+        real(kind=dp), parameter :: Bmax = 1.0_dp
 
         integer :: NumSlots, BasePtr, TopPtr, NumParams 
         integer :: stat, i, JIndex, DIndex, BIndex
@@ -46,7 +46,7 @@ program PT
         TopPtr = BasePtr + (NumParams-1)
  
         allocate(ParamIndexArray(NumParams),stat=stat)
-        if (stat /= 0) error stop "Error: Falure to allocate"
+        if (stat /= 0) error stop "Error: Falure to allocate ParamIndexArray"
 
         do i = 1,NumParams
                 ParamIndexArray(i) = BasePtr + i
