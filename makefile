@@ -21,7 +21,7 @@ OBJDIR = obj
 BINDIR = bin
 
 # Source files and their corresponding object files
-SOURCES = $(SRCDIR)/rand.f90 $(SRCDIR)/CubePartition.f90 $(SRCDIR)/ISING.f90 $(SRCDIR)/RGFlow.f90 $(SRCDIR)/atom.f90 $(SRCDIR)/chainMeshCell.f90 $(SRCDIR)/chainMesh.f90 $(SRCDIR)/energyMin.f90 $(SRCDIR)/vecNd.f90 $(SRCDIR)/LLG.f90 $(SRCDIR)/StereographicProjection.f90 $(SRCDIR)/constants.f90 $(SRCDIR)/reciprocalSpaceProcesses.f90 $(SRCDIR)/PT.f90 
+SOURCES = $(SRCDIR)/rand.f90 $(SRCDIR)/CubePartition.f90 $(SRCDIR)/ISING.f90 $(SRCDIR)/RGFlow.f90 $(SRCDIR)/atom.f90 $(SRCDIR)/chainMeshCell.f90 $(SRCDIR)/chainMesh.f90 $(SRCDIR)/energyMin.f90 $(SRCDIR)/vecNd.f90 $(SRCDIR)/LLG.f90 $(SRCDIR)/StereographicProjection.f90 $(SRCDIR)/constants.f90 $(SRCDIR)/reciprocalSpaceProcesses.f90 $(SRCDIR)/PT.f90 $(SRCDIR)/PT-Utils.f90 
 
 
 OBJECTS = $(patsubst $(SRCDIR)/%.f90,$(OBJDIR)/%.o,$(SOURCES))
@@ -54,6 +54,7 @@ $(OBJDIR)/RGFlow.0: $(OBJDIR)/chainMesh.o
 $(OBJDIR)/atom.o:
 $(OBJDIR)/vecNd.o: 
 $(OBJDIR)/constants.o:
+$(OBJDIR)/PT-Utils.o:
 $(OBJDIR)/LLG.o: $(OBJDIR)/chainMesh.o $(OBJDIR)/vecNd.o $(OBJDIR)/StereographicProjection.o $(OBJDIR)/reciprocalSpaceProcesses.o	
 $(OBJDIR)/StereographicProjection.o: $(OBJDIR)/vecNd.o
 $(OBJDIR)/reciprocalSpaceProcesses.0: $(OBJDIR)/chainMesh.o $(OBJDIR)/vecNd.o $(OBJDIR)/constants.o
