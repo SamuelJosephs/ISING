@@ -348,7 +348,7 @@ module reciprocal_space_processes
                         call calculate_winding_number_density(chainMesh,i,density_matrix)
                         do j = 1,chainMesh%numCellsX 
                                 do k = 1,chainMesh%numCellsY 
-                                        pos = dble(i)*chainMesh%a_vec + dble(j)*chainMesh%b_vec + dble(k)*chainMesh%c_vec
+                                        pos = dble(j)*chainMesh%a_vec + dble(k)*chainMesh%b_vec + dble(i)*chainMesh%c_vec
                                         write(unit,'(3(F8.4,","),F8.4)') pos%coords(1), pos%coords(2), pos%coords(3), density_matrix(j,k) 
                                 end do 
                         end do 
