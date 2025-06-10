@@ -10,7 +10,7 @@
 
 
 # Compiler settings
-FC = gfortran
+FC = mpif90
 FCFLAGS =  -I/usr/include -Wno-line-truncation -fopenmp -O3 -march=native
 MODDIR = -J./obj
 INCDIR = -I./obj 
