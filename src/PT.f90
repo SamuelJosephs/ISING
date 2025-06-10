@@ -5,15 +5,21 @@
 program PT 
         use mpi_f08
         use PT_Utils
-        use iso_fortran_env, only: error_unit
+        use iso_fortran_env, only: error_unit, real64
         implicit none 
         integer :: MPI_ierr, MPI_rank, MPI_num_procs 
-        
+        integer, parameter :: dp = real64
         integer, parameter :: NJ = 2 ! The number of J, D, and B values to perform the parallel tempering at.  
         integer, parameter :: ND = 2 ! Hard code these for now but eventually they should be taken as input
         integer, parameter :: NB = 1 
-        
+        real(kind=dp), parameter :: MinJ = 0.0_dp
+        real(kind=dp), parameter :: MaxJ = 1.5_dp 
+        real(kind=dp), parameter :: MinD = 0.0_dp 
+        real(kind=dp), parameter :: MaxD = 1.5_dp
+
         integer :: NumSlots, BasePtr, TopPtr, NumParams 
+        integer :: stat, i, JIndex, DIndex, BIndex
+        integer, allocatable, dimension(:) :: ParamIndexArray
         call MPI_Init(MPI_ierr)
         call MPI_Comm_Rank(MPI_COMM_WORLD,MPI_rank)
         call MPI_Comm_Size(MPI_COMM_WORLD,MPI_num_procs)
@@ -35,8 +41,18 @@ program PT
         
         BasePtr = MPI_rank*(NumSlots/MPI_num_procs)
         TopPtr = BasePtr + (NumParams-1)
+ 
+        allocate(ParamIndexArray(NumParams),stat=stat)
+        if (stat /= 0) error stop "Error: Falure to allocate"
 
-        print *, "MPI Rank: ", MPI_rank, "NumParams = ", NumParams, "BasePtr, TopPtr = ", BasePtr, TopPtr 
+        do i = 1,NumParams
+                ParamIndexArray(i) = BasePtr + i
+        end do 
+        do i = 1,Numparams 
+                call indicesFromSlot(ParamIndexArray(i),NJ,ND,NB,JIndex,DIndex,BIndex)
+                print *, "Rank, ", MPI_rank, "Has J,D,B indices: ", JIndex, DIndex, BIndex
+        end do 
         call MPI_Finalize()
         
+
 end program PT 

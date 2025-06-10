@@ -11,8 +11,8 @@ module PT_Utils
                         integer :: res 
                         ! index = (Jindex-1)*ND*NB + (DIndex - 1)*NB + (B_Index - 1) 
 
-                        Jindex = Slot / (ND*NB) + 1 
-                        res = mod(Slot,ND*NB)
+                        Jindex = (Slot-1) / (ND*NB) + 1 
+                        res = mod(Slot-1,ND*NB)
                         DIndex = res / NB + 1 
                         Bindex = mod(res,NB) + 1 
                 end subroutine indicesFromSlot
