@@ -204,14 +204,13 @@ end function AtomEnergy
 
 
         subroutine Metropolis_mcs(chainMesh, beta,numMCSSweeps, J, J_prime,  Dz, Dz_prime, B, r, lockArray, &
-                                demagnetisation_array,demag)
+                                demag)
                 ! Each thread will randomly select an atom nsteps times and determine whether to flip the spin 
                 implicit none
                 type(ChainMesh_t), intent(inout) :: chainMesh 
                 real(kind=8), intent(in) :: beta, J, J_prime, Dz, Dz_prime, B, r
                 integer, intent(in) :: numMCSSweeps
                 integer(kind=OMP_LOCK_KIND), intent(inout) :: lockArray(:)
-                real(kind=8), dimension(:,:), allocatable, intent(inout) :: demagnetisation_array
                 logical, optional, intent(in) :: demag 
 
                 type(random) :: rand 
@@ -227,22 +226,14 @@ end function AtomEnergy
                 calculate_demag = .True.
                 if (present(demag)) calculate_demag = demag
 
-                if (allocated(demagnetisation_array)) then 
-                        if (any(shape(demagnetisation_array) /= [chainMesh%numAtoms,3])) then 
-                                deallocate(demagnetisation_array)
-                                allocate(demagnetisation_array(chainMesh%numAtoms,3))
-                        end if 
-                else 
-                        allocate(demagnetisation_array(chainMesh%numAtoms,3))
-                end if 
 
                 demag_update_interval = int((pi * sqrt(5.0_8)) / (2.0_8*r))
-                call calculate_demagnetisation_field(chainMesh,demagnetisation_array)
+                call calculate_demagnetisation_field(chainMesh,chainMesh%demagnetisation_array)
                 allocate(snapshot(chainMesh%numAtoms,3),stat=stat)
                 if (stat /= 0) error stop "Error allocating spin snapshot"
                 !$omp parallel default(private) & 
                 !$omp& firstprivate(nsteps,beta, J,J_prime, Dz,Dz_prime, B, r, demag_update_interval, numMCSSweeps) & 
-                !$omp&  shared(chainMesh, lockArray, demagnetisation_array, calculate_demag, counterX, counterY, counterZ,snapshot)
+                !$omp&  shared(chainMesh, lockArray, calculate_demag, counterX, counterY, counterZ,snapshot)
                 ! parallel book keeping setup
                 N = chainMesh%numCellsX 
                 L = chainMesh%numCellsY
@@ -312,7 +303,7 @@ end function AtomEnergy
                                 if (any(S%coords /= S%coords)) error stop "NaN in MetropolisMixed"
   
                                 call calculateHeisenbergEnergy(chainMesh,atomIndex,J,J_prime,Dz,Dz_prime,&
-                                        B,lockArray,S_proposed,oldEnergy,newEnergy,demagnetisation_array, calculate_demag)
+                                        B,lockArray,S_proposed,oldEnergy,newEnergy,chainMesh%demagnetisation_array, calculate_demag)
                                 if (newEnergy < oldEnergy) then 
                                         Z = 1.0_8 
                                 else 
@@ -342,7 +333,7 @@ end function AtomEnergy
                 !$omp barrier
                 if (mod(MCScounter,demag_update_interval) == 0 .and. calculate_demag) then                         
                         !$omp single
-                        call calculate_demagnetisation_field(chainMesh,demagnetisation_array)
+                        call calculate_demagnetisation_field(chainMesh,chainMesh%demagnetisation_array)
                         !$omp end single
                 end if 
 

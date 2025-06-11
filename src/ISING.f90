@@ -34,7 +34,6 @@ program main
         integer :: numBetaSteps, fftw_status
         character(len=90) :: filepath_output
 
-        real(kind=8), allocatable, dimension(:,:) :: demagnetisation_array
         real(kind=8), allocatable, dimension(:,:,:) :: test_grad_array
         
         integer ::  skyrmion_index, num_thresholds, skyrmion_number
@@ -87,8 +86,6 @@ program main
         testMesh = makeChainMesh(2, numCellsX, numCellsY, numCellsZ, AtomsInUnitCell,&
                                 a_bravais,b_bravais,c_bravais,ab,bc,ca)
         print *, "Attempting to allocate ", testMesh%numAtoms, "atoms"
-        allocate(demagnetisation_array(testMesh%numAtoms,3))
-        print *, "Allocated demagnetisation array"
         ! Assign nearest neighbors
         call assignNearestNeighbors(testMesh)
         do i = 1,size(testMesh%atoms) 
@@ -156,10 +153,9 @@ program main
                 Tmin = 0.0000001
                 T = Tmax - (Tmax - Tmin)*(dble(i)/dble(numBetaSteps)) 
                 beta = 1.0_8 / (T)
-                !call calculate_demagnetisation_field(testMesh,demagnetisation_array)
                 call TotalHeisenbergEnergy(testMesh,J,J_prime,Dz,Dz_prime,B,lockArray,totalEnergy1)
                 call Metropolis_mcs(testMesh,beta,numMetropolisSteps,&
-                                                J,J_prime,Dz,Dz_prime,B,0.2_8, lockArray,demagnetisation_array,demag=.True.)
+                                                J,J_prime,Dz,Dz_prime,B,0.2_8, lockArray,demag=.True.)
                 call TotalHeisenbergEnergy(testMesh,J,J_prime,Dz,Dz_prime,B,lockArray,totalEnergy2)
                 winding_number_middle = calculate_winding_number2(testMesh,testMesh%numCellsZ/2)
                 winding_number_bottom = calculate_winding_number2(testMesh,1)
@@ -183,7 +179,7 @@ program main
                                 ! print *, "Skyrmion number = ", skyrmion_number
                                 print *, "Skyrmion Distribution = ", winding_array
                                 call write_demagnetisation_field_to_file(testMesh,&
-                                                        demagnetisation_array,"./demagnetisation_field.csv")
+                                                        testMesh%demagnetisation_array,"./demagnetisation_field.csv")
                         end if
                         write(frame_filename, '(A,A,I5.5,A)') trim(output_dir), "/frame_", counter-1, ".csv"
                         call write_spins_to_file(testMesh, frame_filename)

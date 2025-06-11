@@ -20,6 +20,7 @@ type ChainMesh_t
         type(C_ptr) :: fft_array_ptr
         real(kind=8) :: a, b, c, Bravais_ab, Bravais_bc, Bravais_ca
         type(vecNd_t) :: a_vec, b_vec, c_vec, ar_vec, br_vec, cr_vec ! ar stands for a reciprocal  
+        real(kind=8), allocatable, dimension(:,:) :: demagnetisation_array
 end type ChainMesh_t 
 
         interface IndexFromCoordinates
@@ -456,9 +457,9 @@ end type ChainMesh_t
                 real(kind=8), intent(in) :: a,b,c,ab_deg,bc_deg,ca_deg
                 ! Need to create all the atoms, create all the ChainMeshCells, then allocate all of the atoms to a chain mesh cell 
                 type(ChainMesh_t), target :: chainMesh 
-                integer :: numChainMeshCells, padX
+                integer :: numChainMeshCells, padX, stat
                 integer :: numAtoms, stride 
-                integer :: i,j,k, icoord, jcoord, kcoord, stat 
+                integer :: i,j,k, icoord, jcoord, kcoord
                 type(ChainMeshCell_t) :: tempChainMeshCell
                 type(Atom_t) :: tempAtoms(size(AtomsInUnitCell))
                 real :: domainWidth
@@ -558,6 +559,13 @@ end type ChainMesh_t
                                 call addAtomToChainCell(j,(j-1)*stride + i,chainMesh)
                         end do
                end do
+
+               call assignNearestNeighbors(chainMesh)
+
+               allocate(chainMesh%demagnetisation_array(chainMesh%numAtoms,3),stat=stat)
+               if (stat /= 0) error stop "Error: Failed to allocate demagnetisation_array"
+               chainMesh%demagnetisation_array = 0.0_8
+               
         end function makeChainMesh 
 
 function H(chainMesh,sigma) result(Energy)
