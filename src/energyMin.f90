@@ -120,7 +120,7 @@ module EnergyMin
                         atomIndexTemp = chainMesh%atoms(atomIndex)%NeighborList(i)
                         if (atomIndexTemp == atomIndex) error stop "Encountered self interaction"
                         call OMP_SET_LOCK(lockArray(atomIndexTemp))
-                                S_prime = makeVecNdCheck(S_prime,dble(chainMesh%atomSPins(atomIndexTemp,:)))
+                                S_prime = makeVecNdCheck(S_prime,dble(chainMesh%atomSpins(atomIndexTemp,:)))
                         call OMP_UNSET_LOCK(lockArray(atomIndexTemp))
                         x = chainMesh%atoms(atomIndexTemp)%x
                         y = chainMesh%atoms(atomIndexTemp)%y 

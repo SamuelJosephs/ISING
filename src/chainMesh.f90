@@ -568,7 +568,7 @@ end type ChainMesh_t
                chainMesh%demagnetisation_array = 0.0_8
                allocate(chainMesh%atomSpins(chainMesh%numAtoms,3),stat=stat)
                if (stat /= 0) error stop "Error: Failed to allocated atomSpins array"
-               
+               call DerivativeList(chainMesh,chainMesh%derivativeList)        
         end function makeChainMesh 
 
 

@@ -87,12 +87,10 @@ program main
                                 a_bravais,b_bravais,c_bravais,ab,bc,ca)
         print *, "Attempting to allocate ", testMesh%numAtoms, "atoms"
         ! Assign nearest neighbors
-        call assignNearestNeighbors(testMesh)
         do i = 1,size(testMesh%atoms) 
                 print *, "Num nearest Neighbours = ", size(testMesh%atoms(i)%NeighborList)
         end do 
 
-        call DerivativeList(testMesh,testMesh%derivativeList)       
         ! Define skyrmion center position (middle of the mesh)
         allocate(center_coords(3))
         center_coords(1) = numCellsX * latticeParam / 2.0d0
