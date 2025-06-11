@@ -446,7 +446,6 @@ end type ChainMesh_t
 
                 chainMesh%forwardPlanZ = fftw_plan_dft_r2c_3d(M,L,N,chainMesh%fft_array_z,chainMesh%fft_c_view_z,FFTW_ESTIMATE)
                 chainMesh%backwardPlanZ = fftw_plan_dft_c2r_3d(M,L,N,chainMesh%fft_c_view_z,chainMesh%fft_array_z,FFTW_ESTIMATE)
-                print *, "FFTW has been told to use ", omp_get_max_threads(), "threads"
         end subroutine create_chainMesh_plan
 
         function makeChainMesh(numAtomsPerUnitCell, numCellsX, numCellsY, numCellsZ, & 
@@ -503,7 +502,6 @@ end type ChainMesh_t
                 chainMesh%br_vec = (c_vec .x. a_vec)/(b_vec*(c_vec .x. a_vec)) ! the Bravais lattice vectors.
                 chainMesh%cr_vec = (a_vec .x. b_vec)/(c_vec*(a_vec .x. b_vec))
 
-                print *, "a_vec = ", chainMesh%a_vec%coords, "b_vec = ", chainMesh%b_vec%coords, "c_vec = ", chainMesh%c_vec%coords 
                 chainMesh%numCellsX = numCellsX 
                 chainMesh%numCellsY = numCellsY 
                 chainMesh%numCellsZ = numCellsZ

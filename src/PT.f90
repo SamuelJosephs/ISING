@@ -36,11 +36,17 @@ program PT
 
 
         integer :: NumSlots, BasePtr, TopPtr, NumParams 
-        integer :: stat, i, JIndex, DIndex, BIndex
+        integer :: stat, i, j, JIndex, DIndex, BIndex
         integer, allocatable, dimension(:) :: ParamIndexArray ! Contains the global index of each parameter set
         real(kind=dp), allocatable, dimension(:,:) :: ParamArray ! (paramIndex, (J,D,B))
         ! For each Parameter set we need a buffer for the spins 
-        type(ChainMesh_t), allocatable, dimension(:) :: meshBuffer 
+        type(ChainMesh_t), allocatable, dimension(:,:) :: meshBuffer ! (paramIndex, Temp index) 
+        
+        integer, allocatable, dimension(:,:) :: TemperatureMeshArray ! (paramIndex, Temp index)
+        real(kind=dp), allocatable, dimension(:) :: TemperatureArray ! (Temp)
+        real(kind=dp), parameter :: TMax = 2.0_dp 
+        real(kind=dp), parameter :: TMin = 0.0000001_dp 
+        integer, parameter :: numTemps = 10
 
         call MPI_Init(MPI_ierr)
         call MPI_Comm_Rank(MPI_COMM_WORLD,MPI_rank)
@@ -82,14 +88,32 @@ program PT
         end do 
         if (stat /= 0) error stop "Error allocating ParamArray"
 
-        allocate(meshBuffer(NumParams),stat=stat)
+        allocate(meshBuffer(NumParams,numTemps),stat=stat)
         if (stat /= 0) error stop "Error: Failed to allocate mesh buffer"
         
         do i = 1,NumParams
-                
-                meshBuffer(i) = makeChainMesh(2, numCellsX, numCellsY, numCellsZ, AtomsInUnitCell,&
-                                        a_bravais,b_bravais,c_bravais,ab,bc,ca)
+                do j = 1,numTemps 
+                        meshBuffer(i,j) = makeChainMesh(2, numCellsX, numCellsY, numCellsZ, AtomsInUnitCell,&
+                                                a_bravais,b_bravais,c_bravais,ab,bc,ca)
+                end do 
         end do 
+
+        ! Each temperature is being simulated on a specific mesh, we will keep track of this in the TemperatureMesh array 
+        ! We will keep track of what temperature each index in the TemperatureMesh corresponds to in TemperatureArray
+        
+        allocate(TemperatureMeshArray(NumPArams,numTemps),stat=stat)
+        if (stat /= 0) error stop "Error: Failed to allocate TemperatureMesh array" 
+
+        allocate(TemperatureArray(numTemps),stat=stat)
+        if (stat/=0) error stop "Error: Failed to allocate TemperatureArray"
+
+        do i = 1, numParams 
+                do j = 1, numTemps 
+                        TemperatureMeshArray(i,j) = j ! Start out with a simple mapping, these will be swapped in parallel tempering later
+                        TemperatureArray(j) = ((dble(j)/dble(numTemps)) * (TMax - TMin)) + TMin 
+                end do  
+        end do 
+        print *, "All okay from rank", MPI_rank
         call MPI_Finalize() 
         
 
