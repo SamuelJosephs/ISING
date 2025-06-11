@@ -11,10 +11,10 @@ module Atom
         end type
         
 contains
-        function makeAtom(x,y,z,atomParameters,NumAtomParameters,  NextAtom) result(res)
+        function makeAtom(x,y,z,atomParameters,  NextAtom) result(res)
                 real, intent(in) :: x,y,z
-                integer, intent(in) :: NumAtomParameters, NextAtom
-                real, intent(inout), target :: AtomParameters(NumAtomParameters)
+                integer, intent(in) :: NextAtom
+                real, intent(in) :: AtomParameters(:)
                 type(Atom_t) :: res
                res%x = x
                res%y = y

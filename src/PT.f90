@@ -6,6 +6,7 @@ program PT
         use mpi_f08
         use PT_Utils
         use chainMesh
+        use Atom
         use iso_fortran_env, only: error_unit, real64
         implicit none 
         integer :: MPI_ierr, MPI_rank, MPI_num_procs 
@@ -20,19 +21,36 @@ program PT
         real(kind=dp), parameter :: BMin = 1.0_dp 
         real(kind=dp), parameter :: Bmax = 1.0_dp
 
+        ! Set up constants for the lattice, for now they will be hardcoded but eventually they should be taken as input.
+        type(Atom_t), dimension(2) :: atomsInUnitCell
+        real, dimension(3), parameter :: atomParams = (/1.0, 0.0, 0.0/)
+        integer, parameter :: numCellsX = 40 
+        integer, parameter :: numCellsY = 40
+        integer, parameter :: numCellsZ = 6
+        real(kind=dp), parameter :: a_bravais = 2.8
+        real(kind=dp), parameter :: b_bravais = 2.8
+        real(kind=dp), parameter :: c_bravais = 2.8 
+        real(kind=dp), parameter :: ab = 90
+        real(kind=dp), parameter :: bc = 90 
+        real(kind=dp), parameter :: ca = 90
+
+
         integer :: NumSlots, BasePtr, TopPtr, NumParams 
         integer :: stat, i, JIndex, DIndex, BIndex
         integer, allocatable, dimension(:) :: ParamIndexArray ! Contains the global index of each parameter set
         real(kind=dp), allocatable, dimension(:,:) :: ParamArray ! (paramIndex, (J,D,B))
         ! For each Parameter set we need a buffer for the spins 
         type(ChainMesh_t), allocatable, dimension(:) :: meshBuffer 
+
         call MPI_Init(MPI_ierr)
         call MPI_Comm_Rank(MPI_COMM_WORLD,MPI_rank)
         call MPI_Comm_Size(MPI_COMM_WORLD,MPI_num_procs)
 
-
         
-
+        AtomsInUnitCell(1) = makeAtom(0.0, 0.0, 0.0, atomParams, -1) 
+        AtomsInUnitCell(2) = makeAtom(0.5, 0.5, 0.5, atomParams, -1)
+        
+        
 
         NumSlots = NJ*ND*NB
         NumParams = NumSlots / MPI_num_procs
@@ -66,6 +84,12 @@ program PT
 
         allocate(meshBuffer(NumParams),stat=stat)
         if (stat /= 0) error stop "Error: Failed to allocate mesh buffer"
+        
+        do i = 1,NumParams
+                
+                meshBuffer(i) = makeChainMesh(2, numCellsX, numCellsY, numCellsZ, AtomsInUnitCell,&
+                                        a_bravais,b_bravais,c_bravais,ab,bc,ca)
+        end do 
         call MPI_Finalize() 
         
 

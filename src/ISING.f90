@@ -71,8 +71,8 @@ program main
         AtomParam2 = (/0.0, 0.0, 1.0/)
         
         ! Create atoms in unit cell
-        AtomsInUnitCell(1) = makeAtom(0.0, 0.0, 0.0, AtomParam1, 3, -1) 
-        AtomsInUnitCell(2) = makeAtom(0.5, 0.5, 0.5, AtomParam2, 3, -1)
+        AtomsInUnitCell(1) = makeAtom(0.0, 0.0, 0.0, AtomParam1, -1) 
+        AtomsInUnitCell(2) = makeAtom(0.5, 0.5, 0.5, AtomParam2, -1)
         numCellsX = 40
         numCellsY = 40
         numCellsZ = 6
