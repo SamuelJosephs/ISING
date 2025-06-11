@@ -5,6 +5,7 @@
 program PT 
         use mpi_f08
         use PT_Utils
+        use chainMesh
         use iso_fortran_env, only: error_unit, real64
         implicit none 
         integer :: MPI_ierr, MPI_rank, MPI_num_procs 
@@ -23,6 +24,8 @@ program PT
         integer :: stat, i, JIndex, DIndex, BIndex
         integer, allocatable, dimension(:) :: ParamIndexArray ! Contains the global index of each parameter set
         real(kind=dp), allocatable, dimension(:,:) :: ParamArray ! (paramIndex, (J,D,B))
+        ! For each Parameter set we need a buffer for the spins 
+        type(ChainMesh_t), allocatable, dimension(:) :: meshBuffer 
         call MPI_Init(MPI_ierr)
         call MPI_Comm_Rank(MPI_COMM_WORLD,MPI_rank)
         call MPI_Comm_Size(MPI_COMM_WORLD,MPI_num_procs)
@@ -60,7 +63,10 @@ program PT
                 ParamArray(i,3) = dble(BIndex)/dble(NB)*(Bmax - Bmin) + Bmin
         end do 
         if (stat /= 0) error stop "Error allocating ParamArray"
-        call MPI_Finalize()
+
+        allocate(meshBuffer(NumParams),stat=stat)
+        if (stat /= 0) error stop "Error: Failed to allocate mesh buffer"
+        call MPI_Finalize() 
         
 
 end program PT 

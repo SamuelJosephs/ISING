@@ -110,8 +110,8 @@ program main
 
         
         do i = 1, size(testMesh%atoms)
-                if (any(testMesh%atoms(i)%AtomParameters /= testMesh%atoms(i)%AtomParameters)) then 
-                        print *, "atom ", i, " has atom parameters ", testMesh%atoms(i)%AtomParameters
+                if (any(testMesh%atomSpins(i,:) /= testMesh%atomSpins(i,:))) then 
+                        print *, "atom ", i, " has atom parameters ", testMesh%atomSpins(i,:)
                         error stop "NaN encountered"
                 end if 
         end do 
@@ -140,7 +140,6 @@ program main
         upper_bound = 0.95
         num_thresholds = 60
         ! Main evolution loop
-        p => H_eff_Heisenberg
                 
         allocate(lockArray(size(testMesh%atoms)))
         do i = 1,size(lockArray)
@@ -192,24 +191,6 @@ program main
                 call flush(output_unit)
                 
         end do 
-        print *, "Completed Mixed Metropolis, beggining Heun evolution"
-         do frame = 1, num_frames
-             ! Calculate how many LLG steps to perform between frames
-            
-            
-            call HeunStep(testMesh,10,dt,p,0.8_08,gyromagnetic_ratio, J, Dz, B)
-            
-                            
-             ! Write current state to file
-             print *, "Frame = ", frame, "Counter = ", counter
-             write(frame_filename, '(A,A,I5.5,A)') trim(output_dir), "/frame_", frame + counter - 2, ".csv"
-             call write_spins_to_file(testMesh, frame_filename)
-             call compute_skyrmion_distribution(testMesh,3,winding_array,lower_bound,upper_bound,&
-                                num_thresholds,testMesh%numCellsZ/2) 
-             print *, "Completed frame", frame, "of", num_frames
-             print *, "skyrmion distribution = ", winding_array
-         end do
-
 
 
         ! Write information for Python visualization script

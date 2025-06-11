@@ -11,6 +11,7 @@ module ChainMesh
 type ChainMesh_t 
         integer :: numAtoms, numChainMeshCells
         type(Atom_t), allocatable :: atoms(:) ! Each atom is in a chain mesh cell and points to the next atom within that cell 
+        real(kind=8), allocatable, dimension(:,:) :: atomSpins
         type(ChainMeshCell_t), allocatable :: chainMeshCells(:)
         integer :: numCellsX, numCellsY, numCellsZ  ! NumCellsX/Y/Z will be for the a,b,c Bravais Lattice Vectors
         integer, allocatable, dimension(:,:,:) :: derivativeList !(i,j,k) : i=atomInex, j=dim (1,2,3), k = lower,higher (1,2)
@@ -565,30 +566,10 @@ end type ChainMesh_t
                allocate(chainMesh%demagnetisation_array(chainMesh%numAtoms,3),stat=stat)
                if (stat /= 0) error stop "Error: Failed to allocate demagnetisation_array"
                chainMesh%demagnetisation_array = 0.0_8
+               allocate(chainMesh%atomSpins(chainMesh%numAtoms,3),stat=stat)
+               if (stat /= 0) error stop "Error: Failed to allocated atomSpins array"
                
         end function makeChainMesh 
-
-function H(chainMesh,sigma) result(Energy)
-    type(chainMesh_t), intent(in), target :: chainMesh 
-    real, intent(in) :: sigma 
-    real(kind=8) :: Energy
-    type(Atom_t), pointer :: atoms(:)
-    integer :: i, j, neighbor_idx
-    
-    atoms => chainMesh%atoms 
-    Energy = 0.0d0
-    
-    do i = 1, size(atoms)
-        do j = 1, size(atoms(i)%NeighborList)
-            ! Get the neighbor's index first
-            neighbor_idx = atoms(i)%NeighborList(j)
-            ! Then use it to access the neighbor's parameters
-            Energy = Energy + dble(sigma) * dble(atoms(i)%AtomParameters(1)) * &
-                    dble(atoms(neighbor_idx)%AtomParameters(1))
-        end do 
-    end do 
-end function H
-
 
 
         subroutine deallocateChainMesh(chainMesh)

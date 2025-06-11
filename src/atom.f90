@@ -4,11 +4,12 @@ module Atom
         type Atom_t 
                 real :: x,y,z, tmpx, tmpy, tmpz
                 integer :: NumAtomParameters
-                real , allocatable :: AtomParameters(:) ! e.g. spin
+                !real , allocatable :: AtomParameters(:) ! e.g. spin
                 integer :: nextAtom
                 integer, allocatable :: NeighborList(:)
 
         end type
+        
 contains
         function makeAtom(x,y,z,atomParameters,NumAtomParameters,  NextAtom) result(res)
                 real, intent(in) :: x,y,z
@@ -19,8 +20,8 @@ contains
                res%y = y
                res%z = z
                res%NumAtomParameters = NumAtomParameters
-               allocate(res%atomParameters(size(atomParameters)))
-               res%atomParameters = atomParameters
+               !allocate(res%atomParameters(size(atomParameters)))
+               !res%atomParameters = atomParameters
 
                allocate(res%NeighborList(0)) 
                return
@@ -34,8 +35,8 @@ contains
         res%y = atom%y
         res%z = atom%z
         res%numAtomParameters = atom%numAtomParameters 
-        allocate(res%atomParameters(size(atom%atomPArameters)))
-        res%atomParameters = atom%atomParameters 
+        !allocate(res%atomParameters(size(atom%atomPArameters)))
+        !res%atomParameters = atom%atomParameters 
         allocate(res%NeighborList((size(atom%NeighborList))))
         res%neighborList = atom%neighborList
         end function atomDeepCopy 

@@ -49,11 +49,11 @@ module reciprocal_space_processes
                                    zWeight = max(1.0_8 - (abs(d%coords(3))),0.0_8)
                                    weight = xWeight*yWeight*zWeight
                                    chainMesh%fft_array_x(iCell, jCell, kCell) = chainMesh%fft_array_x(iCell,jCell,kCell) + &
-                                                   weight*chainMesh%atoms(atom)%AtomParameters(1) 
+                                                   weight*chainMesh%atomSpins(atom,1) 
                                    chainMesh%fft_array_y(iCell, jCell, kCell) = chainMesh%fft_array_y(iCell,jCell,kCell) + &
-                                                   weight*chainMesh%atoms(atom)%AtomParameters(2) 
+                                                   weight*chainMesh%atomSpins(atom,2) 
                                    chainMesh%fft_array_z(iCell, jCell, kCell) = chainMesh%fft_array_z(iCell,jCell,kCell) + &
-                                                   weight*chainMesh%atoms(atom)%AtomParameters(3) 
+                                                   weight*chainMesh%atomSpins(atom,3) 
  
                                    atom = chainMesh%atoms(atom)%nextAtom 
                                end do 
@@ -258,10 +258,10 @@ module reciprocal_space_processes
                                 atom2 = chainMesh%derivativeList(atomIndex,1,2)
                                 atom4 = chainMesh%derivativeList(atom2,2,2)
                                 atom3 = chainMesh%derivativeList(atomIndex,2,2)
-                               s1 = dble(chainMesh%atoms(atomIndex)%AtomParameters)
-                               s2 = dble(chainMesh%atoms(atom2)%AtomParameters)
-                               s3 = dble(chainMesh%atoms(atom3)%AtomParameters)
-                               s4 = dble(chainMesh%atoms(atom4)%AtomParameters)
+                               s1 = dble(chainMesh%atomSpins(atomIndex,:))
+                               s2 = dble(chainMesh%atomSpins(atom2,:))
+                               s3 = dble(chainMesh%atomSpins(atom3,:))
+                               s4 = dble(chainMesh%atomSpins(atom4,:))
 
                                s1 = s1 / abs(s1)
                                s2 = s2 / abs(s2)
@@ -314,10 +314,10 @@ module reciprocal_space_processes
                                 atom2 = chainMesh%derivativeList(atomIndex,1,2)
                                 atom4 = chainMesh%derivativeList(atom2,2,2)
                                 atom3 = chainMesh%derivativeList(atomIndex,2,2)
-                               s1 = dble(chainMesh%atoms(atomIndex)%AtomParameters)
-                               s2 = dble(chainMesh%atoms(atom2)%AtomParameters)
-                               s3 = dble(chainMesh%atoms(atom3)%AtomParameters)
-                               s4 = dble(chainMesh%atoms(atom4)%AtomParameters)
+                               s1 = dble(chainMesh%atomSpins(atomIndex,:))
+                               s2 = dble(chainMesh%atomSpins(atom2,:))
+                               s3 = dble(chainMesh%atomSpins(atom3,:))
+                               s4 = dble(chainMesh%atomSpins(atom4,:))
 
                                s1 = s1 / abs(s1)
                                s2 = s2 / abs(s2)
