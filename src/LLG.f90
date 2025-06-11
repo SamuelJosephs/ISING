@@ -61,7 +61,7 @@ module llg
                                        sin(angle(1))*sin(N*(angle(2)+chi)), &
                                        cos(angle(1))])
                         if (any(m%coords /= m%coords)) error stop "NaN encountered in m"
-                        chainMesh%atoms(i)%AtomParameters = m%coords
+                        chainMesh%atomSpins(i,:) = m%coords
                         if (angle(1) > maxTheta) maxTheta = angle(1)
                         if (angle(2) > maxPhi) maxPhi = angle(2)
                         
@@ -78,15 +78,15 @@ module llg
                 integer, intent(in) :: i 
                 real(kind=8), intent(in) :: val
                 real(kind=8) :: mag
-                mag = sqrt(chainMesh%atoms(i)%AtomParameters(1)**2 + &
-                                chainMesh%atoms(i)%AtomParameters(2)**2 + &
-                                        chainMesh%atoms(i)%AtomParameters(3)**2)
+                mag = sqrt(chainMesh%atomSpins(i,1)**2 + &
+                                chainMesh%atomSpins(i,2)**2 + &
+                                        chainMesh%atomSpins(i,3)**2)
                 if (mag < 1e-8) then 
                         return
                 end if 
-                chainMesh%atoms(i)%AtomParameters(1) = chainMesh%atoms(i)%AtomParameters(1)/mag * val  
-                chainMesh%atoms(i)%AtomParameters(2) = chainMesh%atoms(i)%AtomParameters(2)/mag * val 
-                chainMesh%atoms(i)%AtomParameters(3) = chainMesh%atoms(i)%AtomParameters(3)/mag * val 
+                chainMesh%atomSpins(i,1) = chainMesh%atomSpins(i,1)/mag * val  
+                chainMesh%atomSpins(i,2) = chainMesh%atomSpins(i,2)/mag * val 
+                chainMesh%atomSpins(i,3) = chainMesh%atomSpins(i,3)/mag * val 
 
         end subroutine normalise_spin
 
@@ -101,8 +101,8 @@ module llg
             logical :: do_append, do_include_header
             character(len=20) :: frame_str
             do i=1,size(chainMesh%atoms)
-                if (any(chainMesh%atoms(i)%AtomParameters /= chainMesh%atoms(i)%AtomParameters)) then 
-                        print *, "NaN value encoutered in atom ", i, "with atomParameters:", chainMesh%atoms(i)%AtomParameters
+                if (any(chainMesh%atomSpins(i,:) /= chainMesh%atomSpins(i,:))) then 
+                        print *, "NaN value encoutered in atom ", i, "with atomParameters:", chainMesh%atomSpins(i,:)
                         error stop "NaN value encountered"
                 end if
             end do 
@@ -148,14 +148,14 @@ module llg
             
             ! Write data for each atom
             do i = 1, size(chainMesh%atoms)
-                if (any(chainMesh%atoms(i)%AtomParameters /= chainMesh%atoms(i)%AtomParameters)) error stop "Nan Encountered"
+                if (any(chainMesh%atomSpins(i,:) /= chainMesh%atomSpins(i,:))) error stop "Nan Encountered"
                 write(fileunit, '(ES22.14, 5(",", ES22.14))', iostat=iostat) &
                     chainMesh%atoms(i)%x, &
                     chainMesh%atoms(i)%y, &
                     chainMesh%atoms(i)%z, &
-                    chainMesh%atoms(i)%AtomParameters(1), &
-                    chainMesh%atoms(i)%AtomParameters(2), &
-                    chainMesh%atoms(i)%AtomParameters(3)
+                    chainMesh%atomSpins(i,1), &
+                    chainMesh%atomSpins(i,2), &
+                    chainMesh%atomSpins(i,3)
                 if (iostat /= 0) then
                     print *, "Error writing data to file: ", filename
                     close(fileunit)
@@ -168,220 +168,5 @@ module llg
             
             print *, "Successfully wrote spin data to: ", trim(filename)
         end subroutine write_spins_to_file
-
-
-subroutine LLGStep(chainMesh, dt, A, B, C, D, H)
-    ! This subroutine evolves the spin lattice on the chain mesh using the LLG equation
-    ! 
-    ! Parameters:
-    ! chainMesh - The chain mesh containing the atoms with their spins
-    ! dt - Time step for evolution
-    ! A, B, C - Exchange interaction parameters for x, y, z components
-    ! D - Anisotropy parameter
-    ! H - External magnetic field vector (3 components)
-    
-    implicit none
-    type(ChainMesh_t), intent(inout) :: chainMesh
-    real(kind=8), intent(in) :: dt, A, B, C, D
-    real(kind=8), intent(in) :: H(3)  ! Assuming H is a 3D vector
-    
-    integer :: i, j, neighbor_idx
-    real(kind=8) :: effective_field(3), cross_product(3), dS(3)
-    type(vecNd_t) :: S_vec, H_vec, eff_field_vec, dS_vec, cross_vec
-    
-    ! Create vector for H
-    H_vec = makeVecNd(H)
-    
-    ! Loop over all atoms in the chain mesh
-    do i = 1, size(chainMesh%atoms)
-        ! Reset effective field for each atom
-        effective_field = 0.0d0
-        
-        ! Get the current spin vector
-        S_vec = makeVecNd((/dble(chainMesh%atoms(i)%AtomParameters(1)),  &
-                           dble(chainMesh%atoms(i)%AtomParameters(2)),  &
-                           dble(chainMesh%atoms(i)%AtomParameters(3))/))
-        
-        ! Sum contributions from nearest neighbors
-        do j = 1, size(chainMesh%atoms(i)%NeighborList)
-            neighbor_idx = chainMesh%atoms(i)%NeighborList(j)
-            
-            ! Skip self-interaction
-            if (neighbor_idx == i) then
-                cycle
-            end if
-            
-            ! Add x-component contribution
-            effective_field(1) = effective_field(1) + A * chainMesh%atoms(neighbor_idx)%AtomParameters(1)
-            
-            ! Add y-component contribution
-            effective_field(2) = effective_field(2) + B * chainMesh%atoms(neighbor_idx)%AtomParameters(2)
-            
-            ! Add z-component contribution
-            effective_field(3) = effective_field(3) + C * chainMesh%atoms(neighbor_idx)%AtomParameters(3)
-        end do
-        
-        ! Add anisotropy term (assuming z-axis anisotropy)
-        effective_field(3) = effective_field(3) + 2.0d0 * D * chainMesh%atoms(i)%AtomParameters(3)
-        
-        ! Add external magnetic field
-        effective_field(1) = effective_field(1) + H(1)
-        effective_field(2) = effective_field(2) + H(2)
-        effective_field(3) = effective_field(3) + H(3)
-        
-        ! Create vector for effective field
-        eff_field_vec = makeVecNd(effective_field)
-        
-        ! Calculate cross product S x H_eff (first term in LLG equation)
-        ! Using the cross product operation from vecNd module
-        cross_vec = S_vec .x. eff_field_vec
-        
-        ! Extract components from cross product
-        dS(1) = cross_vec%coords(1)
-        dS(2) = cross_vec%coords(2)
-        dS(3) = cross_vec%coords(3)
-        
-        ! Update spin using forward Euler method
-        chainMesh%atoms(i)%AtomParameters(1) = chainMesh%atoms(i)%AtomParameters(1) + dt * dS(1)
-        chainMesh%atoms(i)%AtomParameters(2) = chainMesh%atoms(i)%AtomParameters(2) + dt * dS(2)
-        chainMesh%atoms(i)%AtomParameters(3) = chainMesh%atoms(i)%AtomParameters(3) + dt * dS(3)
-        
-        ! Normalize the spin to maintain unit length
-        call normalise_spin(chainMesh, i, 1.0d0)
-    end do
-    
-end subroutine LLGStep
-
-function H_eff_Heisenberg(Mesh, atomIndex,lockArray, J, Dz, B, demagnetisation_array) result(H_temp)
-    use chainMesh, only: chainMesh_t
-    use vecNd, only: vecNd_t
-    type(chainMesh_t), intent(inout) :: Mesh
-    integer, intent(in) :: atomIndex 
-    integer(kind=OMP_LOCK_KIND), intent(inout) :: lockArray(:)
-    real(kind=8), intent(in) :: J, Dz, B
-    real(kind=8), dimension(:,:), intent(in) :: demagnetisation_array
-    type(vecNd_t) :: E
-    integer :: atomIndexTemp,i, threadNum
-    type(vecNd_t) :: H_temp
-    type(vecNd_t) :: D, atomPos1, atomPos2,r, tempVec, S_temp
-    real(kind=8) :: demag_x, demag_y, demag_z 
-
-    real(kind=8) :: x,y,z
-
-    threadNum = omp_get_thread_num()
-
-    atomIndexTemp = atomIndex 
-
-    H_temp = makeVecNdCheck(H_temp,[0.0_8,0.0_8,0.0_8])
-    atomPos2 = makeVecNdCheck(atomPos2,[0.0_8,0.0_8,0.0_8])
-
-    D = makeVecNdCheck(D,[0.0_8,0.0_8,0.0_8])
-    x = dble(Mesh%atoms(atomIndexTemp)%x)
-    y = dble(Mesh%atoms(atomIndexTemp)%y)
-    z = dble(Mesh%atoms(atomIndexTemp)%z)
-    atomPos1 = makeVecNdCheck(atomPos1,[x,y,z])
-    tempVec = makeVecNdCheck(tempVec,[0.0_8, 0.0_8, Dz])
-    demag_x = demagnetisation_array(atomIndex,1)
-    demag_y = demagnetisation_array(atomIndex,2)
-    demag_z = demagnetisation_array(atomIndex,3)
-    do i = 1,size(Mesh%atoms(atomIndex)%NeighborList)
-        !call OMP_SET_LOCK(lockArray(Mesh%atoms(atomIndex)%NeighborList(i)))
-        atomIndexTemp = Mesh%atoms(atomIndex)%NeighborList(i) !NeighborList is not written to so don't need to guard against race
-                                                              ! conditions
-        !call OMP_UNSET_LOCK(lockArray(Mesh%atoms(atomIndex)%NeighborList(i)))
-        if (atomIndexTemp == atomIndex) cycle
-        x = dble(Mesh%atoms(atomIndexTemp)%x)
-        y = dble(Mesh%atoms(atomIndexTemp)%y)
-        z = dble(Mesh%atoms(atomIndexTemp)%z)
-        atomPos2%coords = [x,y,z]
-        call distance_points_vec(Mesh,atomPos1,atomPos2, r) 
-        r =  (-1.0_8) * r / abs(r)
-        D = tempVec .x. r
-        call OMP_SET_LOCK(lockArray(atomIndexTemp))
-        S_temp = makeVecNdCheck(S_temp,dble(Mesh%atoms(atomIndexTemp)%atomParameters))
-        call OMP_UNSET_LOCK(lockArray(atomIndexTemp))
-        !H_temp = H_temp - (J*S_temp + (D .x. S_temp))
-        H_temp = H_temp + (J*S_temp + (S_temp .x. D))
-    end do
-    H_temp%coords(3) = H_temp%coords(3) + B
-    H_temp%coords = H_temp%coords - 0.5_8 * [demag_x, demag_y, demag_z]
-    H_temp = (-1.0_8)*H_temp ! Testing minus signs
-
-end function H_eff_Heisenberg
-
-subroutine HeunStep(chainMesh, numSteps, dt, H_eff_method, lambda,gamma, J, Dz, B)
-    implicit none
-    type(chainMesh_t), intent(inout) :: chainMesh
-    integer, intent(in) :: numSteps
-    real(kind=8), intent(in) :: dt
-    real(kind=8), intent(in) :: lambda, gamma, J, Dz, B 
-    procedure(H_eff_class), pointer, intent(in) :: H_eff_method
-    type(vecNd_t) :: S_prime, S_next, S_temp, H, delta_S, delta_S_prime, H_prime, test_temp
-    integer :: atomIndex, i, threadNum, counter, stat
-    integer(kind=OMP_LOCK_KIND), allocatable :: lockArray(:)
-    real(kind=8), allocatable, dimension(:,:) :: demagnetisation_array
-    allocate(lockArray(size(chainMesh%atoms)))
-    allocate(demagnetisation_array(chainMesh%numAtoms,3),stat=stat)
-    if (stat /= 0) error stop "Error allocating demagnetisation_array"
-    do i = 1,size(lockArray)
-        call OMP_INIT_LOCK(lockArray(i))
-    end do 
-    counter = 0
-    do i = 1, numSteps
-    print *, "Entered Heun Step" 
-    call calculate_demagnetisation_field(chainMesh,demagnetisation_array)
-    print *, "Heun Step calculated demagnetisation array"
-    !$omp parallel do shared(chainMesh,lockArray, H_eff_method,demagnetisation_array) &
-    !$omp&  default(private) firstprivate(counter, lambda, gamma,dt,J,Dz,B)
-
-        do atomIndex = 1,size(chainMesh%atoms)
-            S_prime = makeVecNdCheck(S_prime,[0.0_8,0.0_8,0.0_8])
-            S_next = S_prime
-            S_temp = S_prime 
-            H = S_prime
-            delta_S = S_prime
-            delta_S_prime = S_prime
-            threadNum = OMP_GET_THREAD_NUM()
-            ! For each atom, calculate H_eff using H_eff_method. Then calculate S' and S'' before doing updating the spins
-            S_temp = makeVecNdCheck(S_temp,dble(chainMesh%atoms(atomIndex)%atomParameters))
-            H = H_eff_method(chainMesh,atomIndex,lockArray, J, Dz, B,demagnetisation_array)
-            delta_S = (- gamma / (1 + lambda**2))*((S_temp .x. H )+ ((lambda*S_temp) .x. (S_temp .x. H))) 
-            if (.not. allocated(S_temp%coords)) print *, "S_temp is not allocated for i = ",i
-            if (.not. allocated(S_prime%coords)) print *, "S_prime is not allocated for i = ",i
-
-            S_prime = S_temp + delta_s*dt
-            S_prime%coords = S_prime%coords / abs(S_prime)
-            !call OMP_SET_LOCK(lockArray(atomIndex))
-                chainMesh%atoms(atomIndex)%AtomParameters = S_prime%coords
-                
-            !call OMP_UNSET_LOCK(lockArray(atomIndex))
-            H_prime = H_eff_method(chainMesh,atomIndex,lockArray, J, Dz, B,demagnetisation_array)
-
-            !call OMP_SET_LOCK(lockArray(atomIndex))
-                chainMesh%atoms(atomIndex)%AtomParameters = S_temp%coords
-                
-            !call OMP_UNSET_LOCK(lockArray(atomIndex))
-            delta_S_prime = (- gamma / (1 + lambda**2))*((S_prime .x. H_prime) + ((lambda*S_prime) .x. (S_prime .x. H_prime))) 
-
-            S_next = S_temp + 0.5_8*(delta_S + delta_S_prime)*dt
-            S_next%coords = S_next%coords / abs(S_next) 
-            !call OMP_SET_LOCK(lockArray(atomIndex))
-            chainMesh%atoms(atomIndex)%atomParameters = S_next%coords
-            !print *, "delta_S = ", delta_S%coords 
-            !print *, "delta_S_prime = ", delta_S_prime%coords
-            !test_temp = S_next - S_temp 
-            !print *, "S_next - S_temp = ", test_temp%coords 
-            !call OMP_UNSET_LOCK(lockArray(atomIndex))
-            counter = counter + 1
-            
-
-        end do
-        !$omp end parallel do
-    end do
-
-    do i = 1,size(lockArray)
-        call OMP_DESTROY_LOCK(lockArray(i))
-    end do 
-end subroutine HeunStep
 
 end module llg 
