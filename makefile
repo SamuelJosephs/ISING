@@ -21,8 +21,8 @@ OBJDIR = obj
 BINDIR = bin
 
 # Source files and their corresponding object files
-SOURCES = $(SRCDIR)/rand.f90 $(SRCDIR)/CubePartition.f90 $(SRCDIR)/ISING.f90 $(SRCDIR)/RGFlow.f90 $(SRCDIR)/atom.f90 $(SRCDIR)/chainMeshCell.f90 $(SRCDIR)/chainMesh.f90 $(SRCDIR)/energyMin.f90 $(SRCDIR)/vecNd.f90 $(SRCDIR)/LLG.f90 $(SRCDIR)/StereographicProjection.f90 $(SRCDIR)/constants.f90 $(SRCDIR)/reciprocalSpaceProcesses.f90 $(SRCDIR)/PT.f90 $(SRCDIR)/PT-Utils.f90 
-
+SOURCES = $(SRCDIR)/rand.f90 $(SRCDIR)/CubePartition.f90 $(SRCDIR)/ISING.f90  $(SRCDIR)/atom.f90 $(SRCDIR)/chainMeshCell.f90 $(SRCDIR)/chainMesh.f90 $(SRCDIR)/energyMin.f90 $(SRCDIR)/vecNd.f90 $(SRCDIR)/LLG.f90 $(SRCDIR)/StereographicProjection.f90 $(SRCDIR)/constants.f90 $(SRCDIR)/reciprocalSpaceProcesses.f90 $(SRCDIR)/PT.f90 $(SRCDIR)/PT-Utils.f90 
+# Not in use: $(SRCDIR)/RGFlow.f90
 
 OBJECTS = $(patsubst $(SRCDIR)/%.f90,$(OBJDIR)/%.o,$(SOURCES))
 
@@ -43,8 +43,8 @@ $(OBJDIR)/%.o: $(SRCDIR)/%.f90
 	$(FC) $(FCFLAGS) $(MODDIR) -c $< -o $@ $(FFTWFLAGS)
 
 # Dependencies
-$(OBJDIR)/ISING.o: $(OBJDIR)/rand.o $(OBJDIR)/CubePartition.o $(OBJDIR)/RGFlow.o $(OBJDIR)/atom.o $(OBJDIR)/chainMeshCell.o $(OBJDIR)/chainMesh.o $(OBJDIR)/energyMin.o $(OBJDIR)/LLG.o $(OBJDIR)/reciprocalSpaceProcesses.o 
-$(OBJDIR)/PT.o: $(OBJDIR)/rand.o $(OBJDIR)/CubePartition.o $(OBJDIR)/RGFlow.o $(OBJDIR)/atom.o $(OBJDIR)/chainMeshCell.o $(OBJDIR)/chainMesh.o $(OBJDIR)/energyMin.o $(OBJDIR)/LLG.o $(OBJDIR)/reciprocalSpaceProcesses.o 	
+$(OBJDIR)/ISING.o: $(OBJDIR)/rand.o $(OBJDIR)/CubePartition.o $(OBJDIR)/atom.o $(OBJDIR)/chainMeshCell.o $(OBJDIR)/chainMesh.o $(OBJDIR)/energyMin.o $(OBJDIR)/LLG.o $(OBJDIR)/reciprocalSpaceProcesses.o 
+$(OBJDIR)/PT.o: $(OBJDIR)/rand.o $(OBJDIR)/CubePartition.o $(OBJDIR)/atom.o $(OBJDIR)/chainMeshCell.o $(OBJDIR)/chainMesh.o $(OBJDIR)/energyMin.o $(OBJDIR)/LLG.o $(OBJDIR)/reciprocalSpaceProcesses.o 	
 $(OBJDIR)/energyMin.o: $(OBJDIR)/chainMesh.o $(OBJDIR)/constants.o $(OBJDIR)/reciprocalSpaceProcesses.o
 $(OBJDIR)/chainMesh.o: $(OBJDIR)/atom.o $(OBJDIR)/chainMeshCell.o $(OBJDIR)/vecNd.o $(OBJDIR)/constants.o 
 $(OBJDIR)/chainMeshCell.o: $(OBJDIR)/atom.o 
