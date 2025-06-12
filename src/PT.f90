@@ -148,7 +148,6 @@ program PT
                 
                 do i = 1,numParams 
                                 do j = 1,numTemps 
-                                        print *, "MPI_RANK", MPI_rank, " is computing i,j = ", i,j
                                         beta = 1.0_dp / TemperatureArray(j)
                                         meshIndex = TemperatureMeshArray(i,j) ! The j'th temperature is being computed at this index
                                         J_H = ParamArray(i,1)
@@ -189,9 +188,10 @@ program PT
                                 tempInt = TemperatureMeshArray(i,Index1)
                                 TemperatureMeshArray(i,index1) = TemperatureMeshArray(i,Index2) 
                                 TemperatureMeshArray(i,index2) = tempInt
+                                
                         end if 
 
-
+                        print *, "TempuratureMeshArray from MPI Rank:", MPI_rank, " = ", TemperatureMeshArray(i,:)
                         
                 end do 
         end do
