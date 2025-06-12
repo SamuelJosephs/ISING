@@ -39,7 +39,7 @@ program PT
         real(kind=dp), parameter :: ca = 90
 
         integer, parameter :: numSwaps = 20
-        integer, parameter :: numMCSSweepsPerSwap = 500
+        integer, parameter :: numMCSSweepsPerSwap = 250
         
         integer :: NumSlots, BasePtr, TopPtr, NumParams, swapIndex, meshIndex
         integer :: stat, i, j, JIndex, DIndex, BIndex
@@ -171,7 +171,6 @@ program PT
                         J_H = ParamArray(i,1)
                         D_H = ParamArray(i,2)
                         B_H = ParamArray(i,3)
-                        print *, "MPI_rank: ", MPI_rank, " has i, Index1, Index2: ", i, Index1, Index2
                         call totalHeisenbergEnergy(meshBuffer(i,Index1),J_H,0.0_dp,D_H,0.0_dp,B_H,lockArray,E1)
                         call totalHeisenbergEnergy(meshBuffer(i,Index2),J_H,0.0_dp,D_H,0.0_dp,B_H,lockArray,E2)
 
