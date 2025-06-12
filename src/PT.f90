@@ -50,9 +50,9 @@ program PT
         
         integer, allocatable, dimension(:,:) :: TemperatureMeshArray ! (paramIndex, Temp index)
         real(kind=dp), allocatable, dimension(:) :: TemperatureArray ! (Temp)
-        real(kind=dp), parameter :: TMax = 2.0_dp 
+        real(kind=dp), parameter :: TMax = 2.50_dp 
         real(kind=dp), parameter :: TMin = 0.0000001_dp 
-        integer, parameter :: numTemps = 10
+        integer, parameter :: numTemps = 5
         real(kind=dp) :: beta, J_H,D_H,B_H ! underscore for Heisenberg
 
         integer(kind=OMP_LOCK_KIND), allocatable, dimension(:) :: lockArray
@@ -96,10 +96,12 @@ program PT
         allocate(ParamArray(NumParams,3),stat=stat) 
         do i = 1,NumParams
                 call indicesFromSlot(ParamIndexArray(i),NJ,ND,NB,JIndex,DIndex,BIndex)
+                print *, "MPI_rank ", MPI_rank, "Has Jindex,DIndex,BIndex = ", JIndex,DIndex,BIndex
                 ParamArray(i,1) = dble(JIndex)/dble(NJ)*(Jmax - Jmin) + Jmin 
                 ParamArray(i,2) = dble(DIndex)/dble(ND)*(Dmax - Dmin) + Dmin
                 ParamArray(i,3) = dble(BIndex)/dble(NB)*(Bmax - Bmin) + Bmin
         end do 
+        print *, "DEBUG, MPI_rank ", MPI_rank, "Has paramArray: ", ParamArray(1,:)
         if (stat /= 0) error stop "Error allocating ParamArray"
 
         allocate(meshBuffer(NumParams,numTemps),stat=stat)
