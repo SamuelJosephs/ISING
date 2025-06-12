@@ -26,8 +26,8 @@ program PT
         ! Set up constants for the lattice, for now they will be hardcoded but eventually they should be taken as input.
         type(Atom_t), dimension(2) :: atomsInUnitCell
         real, dimension(3), parameter :: atomParams = (/1.0, 0.0, 0.0/)
-        integer, parameter :: numCellsX = 40 
-        integer, parameter :: numCellsY = 40
+        integer, parameter :: numCellsX = 30 
+        integer, parameter :: numCellsY = 30
         integer, parameter :: numCellsZ = 6
         real(kind=dp), parameter :: a_bravais = 2.8
         real(kind=dp), parameter :: b_bravais = 2.8
@@ -37,7 +37,7 @@ program PT
         real(kind=dp), parameter :: ca = 90
 
         integer, parameter :: numSwaps = 20
-        integer, parameter :: numMCSSweepsPerSwap = 1000
+        integer, parameter :: numMCSSweepsPerSwap = 500
         
         integer :: NumSlots, BasePtr, TopPtr, NumParams, swapIndex, meshIndex
         integer :: stat, i, j, JIndex, DIndex, BIndex
