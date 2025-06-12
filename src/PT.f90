@@ -125,17 +125,24 @@ program PT
         allocate(lockArray(meshBuffer(1,1)%numAtoms),stat=stat) ! All meshes have the same number of atoms
         if (stat /= 0) error stop "Error: Failed to allocate lock array"
 
+        do i = 1,size(lockArray)
+                call OMP_INIT_LOCK(lockArray(i))
+        end do 
+
         do swapIndex = 1,numSwaps
                 ! First need to perform the specified number of MCS sweeps on each chain mesh on this rank 
+                
                 do i = 1,numParams 
                                 do j = 1,numTemps 
+                                        print *, "MPI_RANK", MPI_rank, " is computing i,j = ", i,j
                                         beta = 1.0_dp / TemperatureArray(j)
                                         meshIndex = TemperatureMeshArray(i,j) ! The j'th temperature is being computed at this index
                                         J_H = ParamArray(i,1)
                                         D_H = ParamArray(i,2)
                                         B_H = ParamArray(i,3)
                                         call Metropolis_mcs(meshBuffer(i,meshIndex),beta,numMCSSweepsPerSwap,&
-                                                J_H,0.0_8,D_H,0.0_8,B_H,0.2_8, lockArray,demag=.True.)  
+                                                J_H,0.0_8,D_H,0.0_8,B_H,0.2_8, lockArray,demag=.False.)  
+
                                 end do 
 
 
@@ -144,6 +151,11 @@ program PT
 
         print *, "All okay from rank", MPI_rank
 
+
+        ! Cleanup 
+        do i = 1,size(lockArray)
+                call OMP_DESTROY_LOCK(lockArray(i))
+        end do 
         call MPI_Finalize() 
         
 

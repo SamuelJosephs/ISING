@@ -228,7 +228,6 @@ module EnergyMin
                 nsteps = chainMesh%numAtoms
 
                 do MCScounter = 1,numMCSSweeps
-
                 !$omp single 
                         counterX = 1 + nint(algor_uniform_random(rand)*(stride-1))
                         counterY = 1 + nint(algor_uniform_random(rand)*(stride-1))
