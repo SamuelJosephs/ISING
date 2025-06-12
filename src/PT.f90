@@ -62,8 +62,9 @@ program PT
         NumParams = NumSlots / MPI_num_procs
         if (NumSlots < MPI_num_procs .or. MPI_num_procs < 1) then 
                 if (MPI_rank == 0) then 
-                        write(error_unit,'(A)') "ERROR: Number of Parameter Slots must be greater than the number of MPI Ranks, either &
-                        increase the number of slots or decrease the number of MPI Ranks for the given input."  
+                        write(error_unit,'(A)') "ERROR: Number of Parameter Slots must be greater than the number &
+                                                of MPI Ranks, either increase the number of slots or decrease the number &
+                                                        of MPI Ranks for the given input."  
                 end if 
                 call MPI_Abort(MPI_COMM_WORLD,1,MPI_ierr)
         end if 
