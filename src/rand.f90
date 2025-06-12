@@ -1,6 +1,7 @@
 
 module Rand
-        use, intrinsic :: iso_fortran_env, only: int32, dp => real64 
+        use constants
+        use iso_fortran_env, only: int32
         type random 
                 integer :: seed, ix, iy  
         end type random 

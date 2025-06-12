@@ -1,5 +1,5 @@
 module constants 
-use iso_fortran_env, only: real64
+use iso_fortran_env, only: real64, int32
 implicit none 
 
         ! real(kind=8), parameter :: Kb = 1.3807e-23 

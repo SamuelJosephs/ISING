@@ -5,11 +5,13 @@
 program PT 
         use mpi_f08
         use PT_Utils
+        use Rand
+
         use chainMesh
         use Atom
         use EnergyMin
         use constants
-        use iso_fortran_env, only: error_unit, real64
+        use iso_fortran_env, only: error_unit
         use omp_lib
         implicit none 
         integer :: MPI_ierr, MPI_rank, MPI_num_procs 
@@ -54,6 +56,10 @@ program PT
         real(kind=dp) :: beta, J_H,D_H,B_H ! underscore for Heisenberg
 
         integer(kind=OMP_LOCK_KIND), allocatable, dimension(:) :: lockArray
+        type(random) :: rand_gen
+        real(kind=dp) :: u, E1, E2, beta1, beta2, Delta, z, p, temp
+        integer :: Index1, Index2, tempInt
+
 
         call MPI_Init(MPI_ierr)
         call MPI_Comm_Rank(MPI_COMM_WORLD,MPI_rank)
@@ -129,6 +135,12 @@ program PT
                 call OMP_INIT_LOCK(lockArray(i))
         end do 
 
+        ! Initialse and warm up random number generator
+        rand_gen = makeRandom(MPI_rank)
+        do i = 1,50
+                u = algor_uniform_random(rand_gen)
+        end do 
+
         do swapIndex = 1,numSwaps
                 ! First need to perform the specified number of MCS sweeps on each chain mesh on this rank 
                 
@@ -142,10 +154,44 @@ program PT
                                         B_H = ParamArray(i,3)
                                         call Metropolis_mcs(meshBuffer(i,meshIndex),beta,numMCSSweepsPerSwap,&
                                                 J_H,0.0_8,D_H,0.0_8,B_H,0.2_8, lockArray,demag=.False.)  
-
                                 end do 
+                end do 
+
+                ! After the MCS updates we must attempt to swap adjacent temperatures 
+                Index1 = nint(algor_uniform_random(rand_gen)*(numtemps-1)) + 1
+                if (Index1 == 1) then 
+                        Index2 = 2
+                else if (Index1 == numTemps) then
+                        Index2 = numtemps - 1
+                else 
+                        Index2 = Index1 + 1
+                end if 
+
+                do i = 1,numParams 
+                        J_H = ParamArray(i,1)
+                        D_H = ParamArray(i,2)
+                        B_H = ParamArray(i,3)
+                        print *, "MPI_rank: ", MPI_rank, " has i, Index1, Index2: ", i, Index1, Index2
+                        call totalHeisenbergEnergy(meshBuffer(i,Index1),J_H,0.0_dp,D_H,0.0_dp,B_H,lockArray,E1)
+                        call totalHeisenbergEnergy(meshBuffer(i,Index2),J_H,0.0_dp,D_H,0.0_dp,B_H,lockArray,E2)
+
+                        beta1 =  1.0_dp / TemperatureArray(Index1)
+                        beta2 =  1.0_dp / TemperatureArray(Index2)
+
+                        Delta = (beta2 - beta1)*(E1 - E2)
+                        u = algor_uniform_random(rand_gen)
+                        if (u <= 0.0_dp) u = 1e-10_dp
+                        u = log(u)
+
+                        if (u < Delta) then 
+                                print *, "MPI_rank", MPI_rank, "Has accepted a swap between temperatures:", index1, index2
+                                tempInt = TemperatureMeshArray(i,Index1)
+                                TemperatureMeshArray(i,index1) = TemperatureMeshArray(i,Index2) 
+                                TemperatureMeshArray(i,index2) = tempInt
+                        end if 
 
 
+                        
                 end do 
         end do
 

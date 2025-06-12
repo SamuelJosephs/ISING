@@ -243,8 +243,8 @@ module EnergyMin
                                 call UniformRandomInSphere(S_proposed,rand,r)
                                 S_proposed = S_proposed + S
                                 S_proposed = S_proposed / abs(S_proposed)
-                                if (any(S_proposed%coords /= S_proposed%coords)) error stop "NaN in MetropolisMixed"
-                                if (any(S%coords /= S%coords)) error stop "NaN in MetropolisMixed"
+                                if (any(S_proposed%coords /= S_proposed%coords)) error stop "NaN in MetropolisMCS"
+                                if (any(S%coords /= S%coords)) error stop "NaN in MetropolisMCS"
   
                                 call calculateHeisenbergEnergy(chainMesh,atomIndex,J,J_prime,Dz,Dz_prime,&
                                         B,lockArray,S_proposed,oldEnergy,newEnergy,chainMesh%demagnetisation_array, calculate_demag)
