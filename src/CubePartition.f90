@@ -1,9 +1,9 @@
 module cube_partition
+    use constants
     implicit none
     private  ! Make everything private by default
     
     ! Define precision
-    integer, parameter :: dp = selected_real_kind(15, 307)
     
     ! Make these types public so they can be used by calling code
     public :: bounds_type, partition_unit_cube, dp

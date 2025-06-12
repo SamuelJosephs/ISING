@@ -7,10 +7,12 @@ program PT
         use PT_Utils
         use chainMesh
         use Atom
+        use EnergyMin
+        use constants
         use iso_fortran_env, only: error_unit, real64
+        use omp_lib
         implicit none 
         integer :: MPI_ierr, MPI_rank, MPI_num_procs 
-        integer, parameter :: dp = real64
         integer, parameter :: NJ = 2 ! The number of J, D, and B values to perform the parallel tempering at.  
         integer, parameter :: ND = 2 ! Hard code these for now but eventually they should be taken as input
         integer, parameter :: NB = 1 
@@ -34,8 +36,10 @@ program PT
         real(kind=dp), parameter :: bc = 90 
         real(kind=dp), parameter :: ca = 90
 
-
-        integer :: NumSlots, BasePtr, TopPtr, NumParams 
+        integer, parameter :: numSwaps = 20
+        integer, parameter :: numMCSSweepsPerSwap = 1000
+        
+        integer :: NumSlots, BasePtr, TopPtr, NumParams, swapIndex, meshIndex
         integer :: stat, i, j, JIndex, DIndex, BIndex
         integer, allocatable, dimension(:) :: ParamIndexArray ! Contains the global index of each parameter set
         real(kind=dp), allocatable, dimension(:,:) :: ParamArray ! (paramIndex, (J,D,B))
@@ -47,6 +51,9 @@ program PT
         real(kind=dp), parameter :: TMax = 2.0_dp 
         real(kind=dp), parameter :: TMin = 0.0000001_dp 
         integer, parameter :: numTemps = 10
+        real(kind=dp) :: beta, J_H,D_H,B_H ! underscore for Heisenberg
+
+        integer(kind=OMP_LOCK_KIND), allocatable, dimension(:) :: lockArray
 
         call MPI_Init(MPI_ierr)
         call MPI_Comm_Rank(MPI_COMM_WORLD,MPI_rank)
@@ -77,7 +84,7 @@ program PT
         if (stat /= 0) error stop "Error: Falure to allocate ParamIndexArray"
 
         do i = 1,NumParams
-                ParamIndexArray(i) = BasePtr + i
+                ParamIndexArray(i) = BasePtr + i ! The global index of each swap
         end do 
         
         allocate(ParamArray(NumParams,3),stat=stat) 
@@ -114,7 +121,29 @@ program PT
                         TemperatureArray(j) = ((dble(j)/dble(numTemps)) * (TMax - TMin)) + TMin 
                 end do  
         end do 
+
+        allocate(lockArray(meshBuffer(1,1)%numAtoms),stat=stat) ! All meshes have the same number of atoms
+        if (stat /= 0) error stop "Error: Failed to allocate lock array"
+
+        do swapIndex = 1,numSwaps
+                ! First need to perform the specified number of MCS sweeps on each chain mesh on this rank 
+                do i = 1,numParams 
+                                do j = 1,numTemps 
+                                        beta = 1.0_dp / TemperatureArray(j)
+                                        meshIndex = TemperatureMeshArray(i,j) ! The j'th temperature is being computed at this index
+                                        J_H = ParamArray(i,1)
+                                        D_H = ParamArray(i,2)
+                                        B_H = ParamArray(i,3)
+                                        call Metropolis_mcs(meshBuffer(i,meshIndex),beta,numMCSSweepsPerSwap,&
+                                                J_H,0.0_8,D_H,0.0_8,B_H,0.2_8, lockArray,demag=.True.)  
+                                end do 
+
+
+                end do 
+        end do
+
         print *, "All okay from rank", MPI_rank
+
         call MPI_Finalize() 
         
 
