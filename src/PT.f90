@@ -38,7 +38,7 @@ program PT
         real(kind=dp), parameter :: bc = 90 
         real(kind=dp), parameter :: ca = 90
 
-        integer, parameter :: numSwaps = 20
+        integer, parameter :: numSwaps = 2
         integer, parameter :: numMCSSweepsPerSwap = 250
         
         integer :: NumSlots, BasePtr, TopPtr, NumParams, swapIndex, meshIndex
@@ -59,9 +59,14 @@ program PT
         type(random) :: rand_gen
         real(kind=dp) :: u, E1, E2, beta1, beta2, Delta, z, p, temp
         integer :: Index1, Index2, tempInt
+
         integer :: fileunit
-
-
+        type(MPI_FILE) :: mpi_file_handle 
+        type(MPI_INFO) :: mpi_info_handle 
+        type(MPI_STATUS) :: mpi_status_handle
+        integer :: mpi_file_ierr
+        character(len=:), allocatable :: output_string
+        character(len=100) :: string_buff
         call MPI_Init(MPI_ierr)
         call MPI_Comm_Rank(MPI_COMM_WORLD,MPI_rank)
         call MPI_Comm_Size(MPI_COMM_WORLD,MPI_num_procs)
@@ -212,8 +217,14 @@ program PT
         ! TODO calculate statistics and write them to a file
 
         print *, "All okay from rank", MPI_rank
-        
+        mpi_info_handle = MPI_INFO_NULL 
+        call MPI_FILE_OPEN(MPI_COMM_WORLD,"output.csv",ior(MPI_MODE_CREATE,MPI_MODE_WRONLY),mpi_info_handle, &
+                        mpi_file_handle,mpi_file_ierr)
+        if (mpi_file_ierr /= 0) error stop "Error: Failed to open output file"
+        write(string_buff,'(I8.4)') MPI_rank  
+        output_string = "Hello from MPI_rank" // trim(adjustl(string_buff))   
 
+        call MPI_FILE_WRITE(mpi_file_handle,output_string,len(output_string),MPI_CHARACTER,mpi_status_handle,mpi_file_ierr)
         ! Cleanup 
         do i = 1,size(lockArray)
                 call OMP_DESTROY_LOCK(lockArray(i))
