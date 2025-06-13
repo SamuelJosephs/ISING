@@ -59,6 +59,7 @@ program PT
         type(random) :: rand_gen
         real(kind=dp) :: u, E1, E2, beta1, beta2, Delta, z, p, temp
         integer :: Index1, Index2, tempInt
+        integer :: fileunit
 
 
         call MPI_Init(MPI_ierr)
@@ -196,8 +197,22 @@ program PT
                 end do 
         end do
 
-        print *, "All okay from rank", MPI_rank
+        ! Now need to collect statistics from each slot and write them to a file
 
+        
+        if (MPI_rank == 0) then 
+                open(newunit=fileunit,status="replace",action="write",file="output.csv") ! Just to wipe the file
+                close(unit=fileunit)
+
+        end if 
+
+        call MPI_barrier(MPI_COMM_WORLD)
+
+
+        ! TODO calculate statistics and write them to a file
+
+        print *, "All okay from rank", MPI_rank
+        
 
         ! Cleanup 
         do i = 1,size(lockArray)
