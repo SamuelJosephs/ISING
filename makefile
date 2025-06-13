@@ -54,7 +54,7 @@ $(OBJDIR)/RGFlow.0: $(OBJDIR)/chainMesh.o
 $(OBJDIR)/atom.o:
 $(OBJDIR)/vecNd.o: 
 $(OBJDIR)/constants.o:
-$(OBJDIR)/PT-Utils.o:
+$(OBJDIR)/PT-Utils.o: $(OBJDIR)/chainMesh.o $(OBJDIR)/constants.o $(OBJDIR)/reciprocalSpaceProcesses.o
 $(OBJDIR)/LLG.o: $(OBJDIR)/chainMesh.o $(OBJDIR)/vecNd.o $(OBJDIR)/StereographicProjection.o $(OBJDIR)/reciprocalSpaceProcesses.o	
 $(OBJDIR)/StereographicProjection.o: $(OBJDIR)/vecNd.o
 $(OBJDIR)/reciprocalSpaceProcesses.0: $(OBJDIR)/chainMesh.o $(OBJDIR)/vecNd.o $(OBJDIR)/constants.o
