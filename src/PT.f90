@@ -70,6 +70,7 @@ program PT
         integer :: mpi_mode
         integer :: skyrmion_number_middle 
         real(kind=dp) :: winding_number_middle, winding_number_spread
+        type(vecNd_t) :: magnetisation
         call MPI_Init(MPI_ierr)
         call MPI_Comm_Rank(MPI_COMM_WORLD,MPI_rank)
         call MPI_Comm_Size(MPI_COMM_WORLD,MPI_num_procs)
@@ -210,6 +211,9 @@ program PT
         
         if (MPI_rank == 0) then 
                 open(newunit=fileunit,status="replace",action="write",file="output.csv") ! Just to wipe the file
+                ! write csv header
+                write(fileunit, '(A)') "J,D,B,T,winding_number_middle,skyrmion_number_middle,winding_number_spread,&
+                                        mx,my,mz"
                 close(unit=fileunit)
 
         end if 
@@ -235,14 +239,17 @@ program PT
                 do j = 1,numTemps
                         string_buff = " "
                         meshIndex = TemperatureMeshArray(i,j)
-                        call chainMesh_statistics(meshBuffer(i,meshIndex),skyrmion_number_middle,winding_number_middle,winding_number_spread)
+                        call chainMesh_statistics(meshBuffer(i,meshIndex),skyrmion_number_middle,winding_number_middle,&
+                                winding_number_spread, magnetisation)
                         temp = TemperatureArray(j)
                         ! write model parameters J, D, B, T
-                        write(string_buff,'(F8.4,F8.4,F8.4,F8.4)') ParamArray(i,1), ParamArray(i,2), ParamArray(i,3),temp
+                        write(string_buff,'((F8.4,",",F8.4,","F8.4,",",F8.4))') ParamArray(i,1), ParamArray(i,2), ParamArray(i,3),temp
                         output_string = output_string // trim(adjustl(string_buff))
                         string_buff = " "
                         ! write model statistics 
-                        write(string_buff,'(F8.4,I8.4,F8.2)') winding_number_middle, skyrmion_number_middle,winding_number_spread
+                        write(string_buff,'((F8.4,",",I8.4,",",F8.2,",",F8.2,",",F8.2,",",F8.2))') winding_number_middle, &
+                                skyrmion_number_middle,winding_number_spread,magnetisation%coords(1),&
+                                magnetisation%coords(2), magnetisation%coords(3)
                         output_string = output_string // string_buff // new_line('a')
 
                 end do 

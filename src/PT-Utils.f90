@@ -29,17 +29,20 @@ module PT_Utils
                 end function SlotFromIndices
 
 
-                subroutine chainMesh_statistics(chainMesh,skyrmion_number_middle,winding_number_middle,winding_number_spread)
+                subroutine chainMesh_statistics(chainMesh,skyrmion_number_middle,winding_number_middle,winding_number_spread,&
+                                                                magnetisation)
                         type(ChainMesh_t), intent(inout) :: chainMesh 
                         real(kind=dp), intent(out) :: winding_number_middle, winding_number_spread
                         integer, intent(out) :: skyrmion_number_middle
                         real(kind=dp), allocatable, dimension(:) :: winding_array 
+                        type(vecNd_t), intent(out) :: magnetisation
                         integer, allocatable, dimension(:) :: skyrmion_array
                         
                         integer :: i
                         real(kind=dp), parameter :: lower_bound = 1e-5_dp
                         real(kind=dp), parameter :: upper_bound = 0.95_dp
                         integer, parameter :: num_thresholds = 60
+                        type(vecNd_t) :: temp
                         allocate(winding_array(chainMesh%numCellsZ))
 
                         do i = 1,chainmesh%numCellsZ 
@@ -51,5 +54,13 @@ module PT_Utils
                                                         lower_bound, upper_bound,num_thresholds,chainMesh%numCellsZ/2)
                         skyrmion_number_middle = skyrmion_array(1)
                         winding_number_middle = winding_array(chainMesh%numCellsZ/2)
+
+                        magnetisation = [0.0_dp, 0.0_dp, 0.0_dp]
+                        
+                        do i = 1,chainMesh%numAtoms 
+                               temp = chainMesh%atomSpins(i,:)
+                               magnetisation = magnetisation + temp
+                        end do 
+                        magnetisation = magnetisation / dble(chainMesh%numAtoms)
                 end subroutine chainMesh_statistics 
 end module PT_Utils 
