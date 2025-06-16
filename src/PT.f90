@@ -243,7 +243,8 @@ program PT
                                 winding_number_spread, magnetisation)
                         temp = TemperatureArray(j)
                         ! write model parameters J, D, B, T
-                        write(string_buff,'((F8.4,",",F8.4,","F8.4,",",F8.4,","))') ParamArray(i,1), ParamArray(i,2), ParamArray(i,3),temp
+                        write(string_buff,'((F8.4,",",F8.4,","F8.4,",",F8.4,","))') ParamArray(i,1), &
+                                        ParamArray(i,2), ParamArray(i,3),temp
                         output_string = output_string // trim(adjustl(string_buff))
                         string_buff = " "
                         ! write model statistics 
