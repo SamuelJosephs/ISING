@@ -67,6 +67,7 @@ program PT
         integer :: mpi_file_ierr
         character(len=:), allocatable :: output_string
         character(len=100) :: string_buff
+        integer :: mpi_mode
         call MPI_Init(MPI_ierr)
         call MPI_Comm_Rank(MPI_COMM_WORLD,MPI_rank)
         call MPI_Comm_Size(MPI_COMM_WORLD,MPI_num_procs)
@@ -218,13 +219,15 @@ program PT
 
         print *, "All okay from rank", MPI_rank
         mpi_info_handle = MPI_INFO_NULL 
-        call MPI_FILE_OPEN(MPI_COMM_WORLD,"output.csv",ior(MPI_MODE_CREATE,MPI_MODE_WRONLY),mpi_info_handle, &
+        mpi_mode = ior(MPI_MODE_CREATE,MPI_MODE_WRONLY)
+        mpi_mode = ior(MPI_MODE_APPEND,mpi_mode)
+        call MPI_FILE_OPEN(MPI_COMM_WORLD,"output.csv",mpi_mode,mpi_info_handle, &
                         mpi_file_handle,mpi_file_ierr)
         if (mpi_file_ierr /= 0) error stop "Error: Failed to open output file"
-        write(string_buff,'(I8.4)') MPI_rank  
-        output_string = "Hello from MPI_rank" // trim(adjustl(string_buff))   
+        write(string_buff,'(I8.1)') MPI_rank  
+        output_string = "Hello from MPI_rank " // trim(adjustl(string_buff)) // new_line('a') 
 
-        call MPI_FILE_WRITE(mpi_file_handle,output_string,len(output_string),MPI_CHARACTER,mpi_status_handle,mpi_file_ierr)
+        call MPI_FILE_WRITE_SHARED(mpi_file_handle,output_string,len(output_string),MPI_CHARACTER,mpi_status_handle,mpi_file_ierr)
         ! Cleanup 
         do i = 1,size(lockArray)
                 call OMP_DESTROY_LOCK(lockArray(i))
