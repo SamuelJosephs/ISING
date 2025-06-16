@@ -66,8 +66,10 @@ program PT
         type(MPI_STATUS) :: mpi_status_handle
         integer :: mpi_file_ierr
         character(len=:), allocatable :: output_string
-        character(len=100) :: string_buff
+        character(len=500) :: string_buff
         integer :: mpi_mode
+        integer :: skyrmion_number_middle 
+        real(kind=dp) :: winding_number_middle, winding_number_spread
         call MPI_Init(MPI_ierr)
         call MPI_Comm_Rank(MPI_COMM_WORLD,MPI_rank)
         call MPI_Comm_Size(MPI_COMM_WORLD,MPI_num_procs)
@@ -227,6 +229,24 @@ program PT
         write(string_buff,'(I8.1)') MPI_rank  
         output_string = "Hello from MPI_rank " // trim(adjustl(string_buff)) // new_line('a') 
 
+        string_buff = " "
+        output_string = ""
+        do i = 1,NumParams
+                do j = 1,numTemps
+                        string_buff = " "
+                        meshIndex = TemperatureMeshArray(i,j)
+                        call chainMesh_statistics(meshBuffer(i,meshIndex),skyrmion_number_middle,winding_number_middle,winding_number_spread)
+                        temp = TemperatureArray(j)
+                        ! write model parameters J, D, B, T
+                        write(string_buff,'(F8.4,F8.4,F8.4,F8.4)') ParamArray(i,1), ParamArray(i,2), ParamArray(i,3),temp
+                        output_string = output_string // trim(adjustl(string_buff))
+                        string_buff = " "
+                        ! write model statistics 
+                        write(string_buff,'(F8.4,I8.4,F8.2)') winding_number_middle, skyrmion_number_middle,winding_number_spread
+                        output_string = output_string // string_buff // new_line('a')
+
+                end do 
+        end do 
         call MPI_FILE_WRITE_SHARED(mpi_file_handle,output_string,len(output_string),MPI_CHARACTER,mpi_status_handle,mpi_file_ierr)
         ! Cleanup 
         do i = 1,size(lockArray)

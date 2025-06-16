@@ -43,14 +43,13 @@ module PT_Utils
                         allocate(winding_array(chainMesh%numCellsZ))
 
                         do i = 1,chainmesh%numCellsZ 
-                                winding_array = calculate_winding_number2(chainMesh,i)
+                                winding_array(i) = calculate_winding_number2(chainMesh,i)
                         end do 
 
                         winding_number_spread = abs(maxval(winding_array) - minval(winding_array))
                         call compute_skyrmion_distribution(chainMesh,1,skyrmion_array, &
                                                         lower_bound, upper_bound,num_thresholds,chainMesh%numCellsZ/2)
                         skyrmion_number_middle = skyrmion_array(1)
-                        winding_number_middle = winding_array(size(winding_array)/2)
-
+                        winding_number_middle = winding_array(chainMesh%numCellsZ/2)
                 end subroutine chainMesh_statistics 
 end module PT_Utils 
