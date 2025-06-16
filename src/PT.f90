@@ -169,16 +169,16 @@ program PT
                 end do 
 
                 ! After the MCS updates we must attempt to swap adjacent temperatures 
-                Index1 = nint(algor_uniform_random(rand_gen)*(numtemps-1)) + 1
-                if (Index1 == 1) then 
-                        Index2 = 2
-                else if (Index1 == numTemps) then
-                        Index2 = numtemps - 1
-                else 
-                        Index2 = Index1 + 1
-                end if 
-
                 do i = 1,numParams 
+                        Index1 = nint(algor_uniform_random(rand_gen)*(numtemps-1)) + 1
+                        if (Index1 == 1) then 
+                                Index2 = 2
+                        else if (Index1 == numTemps) then
+                                Index2 = numtemps - 1
+                        else 
+                                Index2 = Index1 + 1
+                        end if 
+
                         J_H = ParamArray(i,1)
                         D_H = ParamArray(i,2)
                         B_H = ParamArray(i,3)
