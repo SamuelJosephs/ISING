@@ -15,13 +15,13 @@ program PT
         use omp_lib
         implicit none 
         integer :: MPI_ierr, MPI_rank, MPI_num_procs 
-        integer, parameter :: NJ = 2 ! The number of J, D, and B values to perform the parallel tempering at.  
-        integer, parameter :: ND = 2 ! Hard code these for now but eventually they should be taken as input
+        integer, parameter :: NJ = 4 ! The number of J, D, and B values to perform the parallel tempering at.  
+        integer, parameter :: ND = 5 ! Hard code these for now but eventually they should be taken as input
         integer, parameter :: NB = 1 
         real(kind=dp), parameter :: JMin = 0.0_dp
-        real(kind=dp), parameter :: JMax = 1.5_dp 
+        real(kind=dp), parameter :: JMax = 2.5_dp 
         real(kind=dp), parameter :: DMin = 0.0_dp 
-        real(kind=dp), parameter :: DMax = 1.5_dp
+        real(kind=dp), parameter :: DMax = 2.5_dp
         real(kind=dp), parameter :: BMin = 1.0_dp 
         real(kind=dp), parameter :: Bmax = 1.0_dp
 
@@ -38,10 +38,11 @@ program PT
         real(kind=dp), parameter :: bc = 90 
         real(kind=dp), parameter :: ca = 90
 
-        integer, parameter :: numSwaps = 2
-        integer, parameter :: numMCSSweepsPerSwap = 250
-        
-        integer :: NumSlots, BasePtr, TopPtr, NumParams, swapIndex, meshIndex
+        integer, parameter :: numSwaps = 3 ! Number of swaps to do per iteration
+        integer, parameter :: numIterations = 20 
+        integer, parameter :: numMCSSweepsPerSwap = 300
+         
+        integer :: NumSlots, BasePtr, TopPtr, NumParams, Iteration, meshIndex, swapIndex
         integer :: stat, i, j, JIndex, DIndex, BIndex
         integer, allocatable, dimension(:) :: ParamIndexArray ! Contains the global index of each parameter set
         real(kind=dp), allocatable, dimension(:,:) :: ParamArray ! (paramIndex, (J,D,B))
@@ -153,7 +154,7 @@ program PT
                 u = algor_uniform_random(rand_gen)
         end do 
 
-        do swapIndex = 1,numSwaps
+        do Iteration = 1,numIterations
                 ! First need to perform the specified number of MCS sweeps on each chain mesh on this rank 
                 
                 do i = 1,numParams 
@@ -170,39 +171,40 @@ program PT
 
                 ! After the MCS updates we must attempt to swap adjacent temperatures 
                 do i = 1,numParams 
-                        Index1 = nint(algor_uniform_random(rand_gen)*(numtemps-1)) + 1
-                        if (Index1 == 1) then 
-                                Index2 = 2
-                        else if (Index1 == numTemps) then
-                                Index2 = numtemps - 1
-                        else 
-                                Index2 = Index1 + 1
-                        end if 
+                        do swapIndex = 1,numSwaps 
+                                Index1 = nint(algor_uniform_random(rand_gen)*(numtemps-1)) + 1
+                                if (Index1 == 1) then 
+                                        Index2 = 2
+                                else if (Index1 == numTemps) then
+                                        Index2 = numtemps - 1
+                                else 
+                                        Index2 = Index1 + 1
+                                end if 
 
-                        J_H = ParamArray(i,1)
-                        D_H = ParamArray(i,2)
-                        B_H = ParamArray(i,3)
-                        call totalHeisenbergEnergy(meshBuffer(i,Index1),J_H,0.0_dp,D_H,0.0_dp,B_H,lockArray,E1)
-                        call totalHeisenbergEnergy(meshBuffer(i,Index2),J_H,0.0_dp,D_H,0.0_dp,B_H,lockArray,E2)
+                                J_H = ParamArray(i,1)
+                                D_H = ParamArray(i,2)
+                                B_H = ParamArray(i,3)
+                                call totalHeisenbergEnergy(meshBuffer(i,Index1),J_H,0.0_dp,D_H,0.0_dp,B_H,lockArray,E1)
+                                call totalHeisenbergEnergy(meshBuffer(i,Index2),J_H,0.0_dp,D_H,0.0_dp,B_H,lockArray,E2)
 
-                        beta1 =  1.0_dp / TemperatureArray(Index1)
-                        beta2 =  1.0_dp / TemperatureArray(Index2)
+                                beta1 =  1.0_dp / TemperatureArray(Index1)
+                                beta2 =  1.0_dp / TemperatureArray(Index2)
 
-                        Delta = (beta2 - beta1)*(E1 - E2)
-                        u = algor_uniform_random(rand_gen)
-                        if (u <= 0.0_dp) u = 1e-10_dp
-                        u = log(u)
+                                Delta = (beta2 - beta1)*(E1 - E2)
+                                u = algor_uniform_random(rand_gen)
+                                if (u <= 0.0_dp) u = 1e-10_dp
+                                u = log(u)
 
-                        if (u < Delta) then 
-                                print *, "MPI_rank", MPI_rank, "Has accepted a swap between temperatures:", index1, index2
-                                tempInt = TemperatureMeshArray(i,Index1)
-                                TemperatureMeshArray(i,index1) = TemperatureMeshArray(i,Index2) 
-                                TemperatureMeshArray(i,index2) = tempInt
-                                
-                        end if 
+                                if (u < Delta) then 
+                                        print *, "MPI_rank", MPI_rank, "Has accepted a swap between temperatures:", index1, index2
+                                        tempInt = TemperatureMeshArray(i,Index1)
+                                        TemperatureMeshArray(i,index1) = TemperatureMeshArray(i,Index2) 
+                                        TemperatureMeshArray(i,index2) = tempInt
+                                        
+                                end if 
 
-                        print *, "TempuratureMeshArray from MPI Rank:", MPI_rank, " = ", TemperatureMeshArray(i,:)
-                        
+                                print *, "TempuratureMeshArray from MPI Rank:", MPI_rank, " = ", TemperatureMeshArray(i,:)
+                        end do  
                 end do 
         end do
 
