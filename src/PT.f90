@@ -25,6 +25,9 @@ program PT
         real(kind=dp), parameter :: BMin = 1.0_dp 
         real(kind=dp), parameter :: Bmax = 1.0_dp
 
+        real(kind=dp), parameter :: TMax = 2.50_dp 
+        real(kind=dp), parameter :: TMin = 0.01_dp 
+        integer, parameter :: numTemps = 5
         ! Set up constants for the lattice, for now they will be hardcoded but eventually they should be taken as input.
         type(Atom_t), dimension(2) :: atomsInUnitCell
         real, dimension(3), parameter :: atomParams = (/1.0, 0.0, 0.0/)
@@ -38,7 +41,7 @@ program PT
         real(kind=dp), parameter :: bc = 90 
         real(kind=dp), parameter :: ca = 90
 
-        integer, parameter :: numSwaps = 3 ! Number of swaps to do per iteration
+        integer, parameter :: numSwaps = numTemps ! Number of swaps to do per iteration
         integer, parameter :: numIterations = 20 
         integer, parameter :: numMCSSweepsPerSwap = 300
          
@@ -52,9 +55,7 @@ program PT
         
         integer, allocatable, dimension(:,:) :: TemperatureMeshArray ! (paramIndex, Temp index)
         real(kind=dp), allocatable, dimension(:) :: TemperatureArray ! (Temp)
-        real(kind=dp), parameter :: TMax = 2.50_dp 
-        real(kind=dp), parameter :: TMin = 0.0000001_dp 
-        integer, parameter :: numTemps = 5
+
         real(kind=dp) :: beta, J_H,D_H,B_H ! underscore for Heisenberg
 
         integer(kind=OMP_LOCK_KIND), allocatable, dimension(:) :: lockArray
@@ -138,7 +139,7 @@ program PT
         do i = 1, numParams 
                 do j = 1, numTemps 
                         TemperatureMeshArray(i,j) = j ! Start out with a simple mapping, these will be swapped in parallel tempering later
-                        TemperatureArray(j) = ((dble(j)/dble(numTemps)) * (TMax - TMin)) + TMin 
+                        TemperatureArray(j) = TMin*(TMax/TMin)**(dble(j-1)/dble(numTemps-1))
                 end do  
         end do 
 
