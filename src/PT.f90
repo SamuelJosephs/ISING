@@ -43,6 +43,7 @@ program PT
         integer, parameter :: numMCSSweepsPerSwap = 300
          
         integer :: NumSlots, BasePtr, TopPtr, NumParams, Iteration, meshIndex, swapIndex
+        integer :: meshIndex1, meshIndex2 ! intuitive naming requires more variables than are strictly needed
         integer :: stat, i, j, JIndex, DIndex, BIndex
         integer, allocatable, dimension(:) :: ParamIndexArray ! Contains the global index of each parameter set
         real(kind=dp), allocatable, dimension(:,:) :: ParamArray ! (paramIndex, (J,D,B))
@@ -184,8 +185,10 @@ program PT
                                 J_H = ParamArray(i,1)
                                 D_H = ParamArray(i,2)
                                 B_H = ParamArray(i,3)
-                                call totalHeisenbergEnergy(meshBuffer(i,Index1),J_H,0.0_dp,D_H,0.0_dp,B_H,lockArray,E1)
-                                call totalHeisenbergEnergy(meshBuffer(i,Index2),J_H,0.0_dp,D_H,0.0_dp,B_H,lockArray,E2)
+                                meshIndex1 = TemperatureMeshArray(i,Index1) ! Need to find the meshes at the temperatures indexed by 
+                                meshIndex2 = TemperatureMeshArray(i,Index2) ! Index1 and Index2
+                                call totalHeisenbergEnergy(meshBuffer(i,meshIndex1),J_H,0.0_dp,D_H,0.0_dp,B_H,lockArray,E1)
+                                call totalHeisenbergEnergy(meshBuffer(i,meshIndex2),J_H,0.0_dp,D_H,0.0_dp,B_H,lockArray,E2)
 
                                 beta1 =  1.0_dp / TemperatureArray(Index1)
                                 beta2 =  1.0_dp / TemperatureArray(Index2)
