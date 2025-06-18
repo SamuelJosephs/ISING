@@ -43,7 +43,7 @@ program PT
 
         integer, parameter :: numSwaps = numTemps ! Number of swaps to do per iteration
         integer, parameter :: numIterations = 20 
-        integer, parameter :: numMCSSweepsPerSwap = 100
+        integer, parameter :: numMCSSweepsPerSwap = 50
          
         integer :: NumSlots, BasePtr, TopPtr, NumParams, Iteration, meshIndex, swapIndex
         integer :: meshIndex1, meshIndex2 ! intuitive naming requires more variables than are strictly needed
@@ -68,7 +68,7 @@ program PT
         type(MPI_INFO) :: mpi_info_handle 
         type(MPI_STATUS) :: mpi_status_handle
         integer :: mpi_file_ierr
-        character(len=:), allocatable :: output_string
+        character(len=:), allocatable :: output_string, filename_string
         character(len=500) :: string_buff
         integer :: mpi_mode
         integer :: skyrmion_number_middle 
@@ -260,7 +260,7 @@ program PT
                                 winding_number_spread, magnetisation)
                         temp = TemperatureArray(j)
                         ! write model parameters J, D, B, T
-                        write(string_buff,'((F8.4,",",F8.4,","F8.4,",",F8.4,","))') ParamArray(i,1), &
+                        write(string_buff,'((F8.4,",",F8.4,","F8.4,",",F0.10,","))') ParamArray(i,1), &
                                         ParamArray(i,2), ParamArray(i,3),temp
                         output_string = output_string // trim(adjustl(string_buff))
                         string_buff = " "
@@ -276,9 +276,9 @@ program PT
                         string_buff = " "
                         write(string_buff,'((F0.4,"_",F8.4,"_",F0.4,"_",e0.4))') ParamArray(i,1), ParamArray(i,2), & 
                                 ParamArray(i,3), temp
-                        output_string = "spins_" // trim(adjustl(string_buff)) // ".csv"
+                        filename_string = "spins_" // trim(adjustl(string_buff)) // ".csv"
                         call write_spins_to_file(meshBuffer(i,meshIndex),&
-                                output_string)
+                                filename_string)
                 end do 
         end do 
         call MPI_FILE_WRITE_SHARED(mpi_file_handle,output_string,len(output_string),MPI_CHARACTER,mpi_status_handle,mpi_file_ierr)
