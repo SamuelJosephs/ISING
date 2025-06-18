@@ -397,6 +397,9 @@ module reciprocal_space_processes
                   end do
         end subroutine add_neighbors_to_stack
 
+
+
+
         function calculate_skyrmion_number(chainMesh,Z_index,q_threshold,particle_number, sigma) result(skyrmion_number)
                 implicit none
                 type(chainMesh_t), intent(inout) :: chainmesh
@@ -416,6 +419,13 @@ module reciprocal_space_processes
                 real(kind=8) :: acc
                 logical :: is_candidate, is_local_maxima
                 real(kind=8) :: upper_threshold
+
+                real(kind=8), allocatable, dimension(:) :: accs
+                integer, allocatable, dimension(:) :: coordsi 
+                integer, allocatable, dimension(:) :: coordsj
+                logical, allocatable, dimension(:) :: merged
+                integer, allocatable, dimension(:,:) :: regionID
+                integer :: regionCounter, ID1, ID2
                 N = chainMesh%numCellsX 
                 L = chainMesh%numCellsY 
 
@@ -433,6 +443,15 @@ module reciprocal_space_processes
                 
                 allocate(stack_array(stack_len,2), stat=stat)
                 if (stat /= 0) error stop "Error allocating stack array"
+
+                allocate(accs(0))
+                allocate(merged(0))
+                allocate(coordsi(0))
+                allocate(coordsj(0))
+                allocate(regionID(N,L))
+                regionID = 0
+                regionCounter = 0
+
                 stack_ptr = 1 
 
                 if (abs(q_threshold) > 1.0_8 .or. q_threshold < 0.0_8) error stop "q_threshold must be between 0 and 1"
@@ -463,8 +482,16 @@ module reciprocal_space_processes
                                         end do 
                                 end do 
                                 if (density_mask(i,j) .and. (.not. visited_array(i,j)) .and. is_local_maxima) then 
-                                  acc = density_matrix(i,j)
-                                  visited_array(i,j) = .True.
+                                acc = density_matrix(i,j)
+                                visited_array(i,j) = .True.
+
+                                coordsi = [coordsi,i]
+                                coordsj = [coordsj,j]
+                                accs = [accs,density_matrix(i,j)]
+                                merged = [merged,.False.]  
+                                regioncounter = regionCounter + 1
+                                regionID(i,j) = regionCounter
+
  
                                   ! Loop through neighbors, if they are above the theshold and have not been visited or put in the
                                   ! stack then add them to the stack
@@ -489,18 +516,56 @@ module reciprocal_space_processes
                                         if (.not. visited_array(itemp,jtemp)) then
 
                                                 acc = acc + density_matrix(itemp,jtemp)
+                                                accs(regionCounter) = accs(regionCounter) + density_matrix(itemp,jtemp)
+                                                
                                                 visited_array(itemp,jtemp) = .True.
                                                 call add_neighbors_to_stack(chainMesh,itemp,jtemp,& 
                                                         stack_array,stack_ptr,visited_array,density_mask, &
                                                                 in_stack_array, density_matrix)
+                                                regionID(itemp,jtemp) = regionCounter
                                         end if 
                                   end do
-                                !   print *, "acc, skyrmion_number = ", acc, skyrmion_number, "q_theshold = ", q_threshold, &
-                                !                candidate_counter
-                                  if (abs(abs(acc) - particle_number) < 0.2) skyrmion_number = skyrmion_number + 1
+
                                 end if 
                                 stack_array = 0
                         end do
+                end do 
+
+                skyrmion_number = 0 
+                ! Loop to merge regions
+                stack_array = 0
+                in_stack_Array = .False.
+                do i = 1,N 
+                        do j = 1,L 
+                                if (regionID(i,j) == 0) cycle 
+                        
+                                ID1 = regionID(i,j)
+                                if (merged(ID1)) cycle 
+
+                                acc = accs(ID1) 
+
+                                if (abs(abs(acc) - particle_number) < 0.2) then 
+                                        skyrmion_number = skyrmion_number + 1 
+                                        cycle 
+                                end if 
+                                do itemp = -1,1
+                                        do jtemp = -1,1
+                                                xIndex = modulo(i + itemp - 1,Nx) + 1
+                                                yIndex = modulo(j + jtemp - 1,Ny) + 1
+                                                if (itemp == 0 .and. jtemp == 0) cycle
+                                                ID2 = regionID(xIndex,yIndex)
+                                                if (merged(ID2)) cycle 
+                                                if (ID2 == 0) cycle
+
+                                                if (abs(abs(accs(ID1) + accs(ID2)) - particle_number) < 0.2) then 
+                                                        skyrmion_number = skyrmion_number + 1 
+                                                        merged(ID1) = .True.
+                                                        merged(ID2) = .True.
+                                                end if 
+                                        end do 
+                                end do 
+
+                        end do 
                 end do 
                 call write_2d_real_array_to_file(density_matrix, "./density_matrix.csv")
                 call write_2d_logical_array_to_file(visited_array,"./visited_array.csv")

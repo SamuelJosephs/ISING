@@ -6,7 +6,7 @@ program PT
         use mpi_f08
         use PT_Utils
         use Rand
-
+        use LLG
         use chainMesh
         use Atom
         use EnergyMin
@@ -15,19 +15,19 @@ program PT
         use omp_lib
         implicit none 
         integer :: MPI_ierr, MPI_rank, MPI_num_procs 
-        integer, parameter :: NJ = 4 ! The number of J, D, and B values to perform the parallel tempering at.  
-        integer, parameter :: ND = 5 ! Hard code these for now but eventually they should be taken as input
+        integer, parameter :: NJ = 1 ! The number of J, D, and B values to perform the parallel tempering at.  
+        integer, parameter :: ND = 1 ! Hard code these for now but eventually they should be taken as input
         integer, parameter :: NB = 1 
-        real(kind=dp), parameter :: JMin = 0.0_dp
-        real(kind=dp), parameter :: JMax = 2.5_dp 
-        real(kind=dp), parameter :: DMin = 0.0_dp 
-        real(kind=dp), parameter :: DMax = 2.5_dp
-        real(kind=dp), parameter :: BMin = 1.0_dp 
-        real(kind=dp), parameter :: Bmax = 1.0_dp
+        real(kind=dp), parameter :: JMin = -1.0_dp
+        real(kind=dp), parameter :: JMax = -1.0_dp 
+        real(kind=dp), parameter :: DMin = 1.67_dp 
+        real(kind=dp), parameter :: DMax = 1.67_dp
+        real(kind=dp), parameter :: BMin = 1.5_dp 
+        real(kind=dp), parameter :: Bmax = 1.5_dp
 
-        real(kind=dp), parameter :: TMax = 2.50_dp 
-        real(kind=dp), parameter :: TMin = 0.01_dp 
-        integer, parameter :: numTemps = 5
+        real(kind=dp), parameter :: TMax = 5.0_dp 
+        real(kind=dp), parameter :: TMin = 0.00000001_dp 
+        integer, parameter :: numTemps = 8
         ! Set up constants for the lattice, for now they will be hardcoded but eventually they should be taken as input.
         type(Atom_t), dimension(2) :: atomsInUnitCell
         real, dimension(3), parameter :: atomParams = (/1.0, 0.0, 0.0/)
@@ -43,7 +43,7 @@ program PT
 
         integer, parameter :: numSwaps = numTemps ! Number of swaps to do per iteration
         integer, parameter :: numIterations = 20 
-        integer, parameter :: numMCSSweepsPerSwap = 300
+        integer, parameter :: numMCSSweepsPerSwap = 100
          
         integer :: NumSlots, BasePtr, TopPtr, NumParams, Iteration, meshIndex, swapIndex
         integer :: meshIndex1, meshIndex2 ! intuitive naming requires more variables than are strictly needed
@@ -110,9 +110,9 @@ program PT
         do i = 1,NumParams
                 call indicesFromSlot(ParamIndexArray(i),NJ,ND,NB,JIndex,DIndex,BIndex)
                 print *, "MPI_rank ", MPI_rank, "Has Jindex,DIndex,BIndex = ", JIndex,DIndex,BIndex
-                ParamArray(i,1) = dble(JIndex)/dble(NJ)*(Jmax - Jmin) + Jmin 
-                ParamArray(i,2) = dble(DIndex)/dble(ND)*(Dmax - Dmin) + Dmin
-                ParamArray(i,3) = dble(BIndex)/dble(NB)*(Bmax - Bmin) + Bmin
+                ParamArray(i,1) = dble(JIndex - 1)/dble(NJ)*(Jmax - Jmin) + Jmin 
+                ParamArray(i,2) = dble(DIndex - 1)/dble(ND)*(Dmax - Dmin) + Dmin
+                ParamArray(i,3) = dble(BIndex - 1)/dble(NB)*(Bmax - Bmin) + Bmin
         end do 
         print *, "DEBUG, MPI_rank ", MPI_rank, "Has paramArray: ", ParamArray(1,:)
         if (stat /= 0) error stop "Error allocating ParamArray"
@@ -200,18 +200,29 @@ program PT
                                 u = log(u)
 
                                 if (u < Delta) then 
-                                        print *, "MPI_rank", MPI_rank, "Has accepted a swap between temperatures:", index1, index2
                                         tempInt = TemperatureMeshArray(i,Index1)
                                         TemperatureMeshArray(i,index1) = TemperatureMeshArray(i,Index2) 
                                         TemperatureMeshArray(i,index2) = tempInt
                                         
                                 end if 
 
-                                print *, "TempuratureMeshArray from MPI Rank:", MPI_rank, " = ", TemperatureMeshArray(i,:)
                         end do  
                 end do 
         end do
 
+        ! Finally relax each domain
+        do i = 1,numParams 
+                do j = 1,numTemps 
+                
+                beta = 1.0_dp / TemperatureArray(j)
+                meshIndex = TemperatureMeshArray(i,j) ! The j'th temperature is being computed at this index
+                J_H = ParamArray(i,1)
+                D_H = ParamArray(i,2)
+                B_H = ParamArray(i,3)
+                call Metropolis_mcs(meshBuffer(i,meshIndex),beta,2000,&
+                        J_H,0.0_8,D_H,0.0_8,B_H,0.2_8, lockArray,demag=.False.)  
+                end do 
+        end do 
         ! Now need to collect statistics from each slot and write them to a file
 
         
@@ -259,6 +270,15 @@ program PT
                                 magnetisation%coords(2), magnetisation%coords(3)
                         output_string = output_string // string_buff // new_line('a')
 
+                        print *, "J,D,B,T, skyrmion_number_middle, winding_number_middle, winding_number_spread = ", &
+                        ParamArray(i,1), ParamArray(i,2), ParamArray(i,3),temp, skyrmion_number_middle, winding_number_middle,&
+                                                                 winding_number_spread
+                        string_buff = " "
+                        write(string_buff,'((F0.4,"_",F8.4,"_",F0.4,"_",e0.4))') ParamArray(i,1), ParamArray(i,2), & 
+                                ParamArray(i,3), temp
+                        output_string = "spins_" // trim(adjustl(string_buff)) // ".csv"
+                        call write_spins_to_file(meshBuffer(i,meshIndex),&
+                                output_string)
                 end do 
         end do 
         call MPI_FILE_WRITE_SHARED(mpi_file_handle,output_string,len(output_string),MPI_CHARACTER,mpi_status_handle,mpi_file_ierr)
