@@ -15,19 +15,19 @@ program PT
         use omp_lib
         implicit none 
         integer :: MPI_ierr, MPI_rank, MPI_num_procs 
-        integer, parameter :: NJ = 1 ! The number of J, D, and B values to perform the parallel tempering at.  
-        integer, parameter :: ND = 1 ! Hard code these for now but eventually they should be taken as input
+        integer, parameter :: NJ = 10 ! The number of J, D, and B values to perform the parallel tempering at.  
+        integer, parameter :: ND = 10 ! Hard code these for now but eventually they should be taken as input
         integer, parameter :: NB = 1 
-        real(kind=dp), parameter :: JMin = -1.0_dp
-        real(kind=dp), parameter :: JMax = -1.0_dp 
-        real(kind=dp), parameter :: DMin = 1.67_dp 
-        real(kind=dp), parameter :: DMax = 1.67_dp
+        real(kind=dp), parameter :: JMin = -2.5_dp
+        real(kind=dp), parameter :: JMax = 2.5_dp 
+        real(kind=dp), parameter :: DMin = -2.5_dp 
+        real(kind=dp), parameter :: DMax = 2.5_dp
         real(kind=dp), parameter :: BMin = 1.5_dp 
-        real(kind=dp), parameter :: Bmax = 1.5_dp
+        real(kind=dp), parameter :: BMax = 1.5_dp
 
         real(kind=dp), parameter :: TMax = 5.0_dp 
         real(kind=dp), parameter :: TMin = 0.00000001_dp 
-        integer, parameter :: numTemps = 8
+        integer, parameter :: numTemps = 10
         ! Set up constants for the lattice, for now they will be hardcoded but eventually they should be taken as input.
         type(Atom_t), dimension(2) :: atomsInUnitCell
         real, dimension(3), parameter :: atomParams = (/1.0, 0.0, 0.0/)
@@ -43,7 +43,7 @@ program PT
 
         integer, parameter :: numSwaps = numTemps ! Number of swaps to do per iteration
         integer, parameter :: numIterations = 20 
-        integer, parameter :: numMCSSweepsPerSwap = 50
+        integer, parameter :: numMCSSweepsPerSwap = 100
          
         integer :: NumSlots, BasePtr, TopPtr, NumParams, Iteration, meshIndex, swapIndex
         integer :: meshIndex1, meshIndex2 ! intuitive naming requires more variables than are strictly needed
@@ -158,7 +158,7 @@ program PT
 
         do Iteration = 1,numIterations
                 ! First need to perform the specified number of MCS sweeps on each chain mesh on this rank 
-                
+                print *, "MPI_rank", MPI_rank, "is starting iteration", Iteration, "out of", numIterations 
                 do i = 1,numParams 
                                 do j = 1,numTemps 
                                         beta = 1.0_dp / TemperatureArray(j)
