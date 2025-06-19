@@ -42,7 +42,7 @@ program PT
         real(kind=dp), parameter :: ca = 90
 
         integer, parameter :: numSwaps = numTemps ! Number of swaps to do per iteration
-        integer, parameter :: numIterations = 20 
+        integer, parameter :: numIterations = 2 
         integer, parameter :: numMCSSweepsPerSwap = 100
          
         integer :: NumSlots, BasePtr, TopPtr, NumParams, Iteration, meshIndex, swapIndex
@@ -325,10 +325,10 @@ program PT
                         ParamArray(i,1), ParamArray(i,2), ParamArray(i,3),temp, skyrmion_number_middle, winding_number_middle,&
                                                                  winding_number_spread
                         string_buff = " "
-                        write(string_buff,'((F0.4,"_",F8.4,"_",F0.4,"_",e0.4))') ParamArray(i,1), ParamArray(i,2), & 
+                        write(string_buff,'((F0.4,"_",F0.4,"_",F0.4,"_",e0.4))') ParamArray(i,1), ParamArray(i,2), & 
                                 ParamArray(i,3), temp
-                        filename_string = trim(adjustl(outputPath)) // "/"& 
-                                "spins_" // trim(adjustl(string_buff)) // ".csv"
+                        filename_string = '"' // trim(adjustl(outputPath)) // '/'& 
+                                'spins_' // trim(adjustl(string_buff)) // '.csv"'
                         call write_spins_to_file(meshBuffer(i,meshIndex),&
                                 filename_string)
                 end do 
