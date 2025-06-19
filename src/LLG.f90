@@ -100,6 +100,7 @@ module llg
             integer :: i, fileunit, iostat
             logical :: do_append, do_include_header
             character(len=20) :: frame_str
+            character(len=100) :: command_buff
             do i=1,size(chainMesh%atoms)
                 if (any(chainMesh%atomSpins(i,:) /= chainMesh%atomSpins(i,:))) then 
                         print *, "NaN value encoutered in atom ", i, "with atomParameters:", chainMesh%atomSpins(i,:)
@@ -114,6 +115,8 @@ module llg
             if (present(include_header)) do_include_header = include_header
             
             ! Open the file
+         
+            call EXECUTE_COMMAND_LINE("mkdir -p " // filename)
             if (do_append) then
                 open(newunit=fileunit, file=filename, status='unknown', position='append', action='write', iostat=iostat)
             else

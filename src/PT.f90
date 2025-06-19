@@ -76,15 +76,16 @@ program PT
         type(vecNd_t) :: magnetisation
 
         integer :: numArgs 
+        character(len=400) :: outputPath 
         call MPI_Init(MPI_ierr)
         call MPI_Comm_Rank(MPI_COMM_WORLD,MPI_rank)
         call MPI_Comm_Size(MPI_COMM_WORLD,MPI_num_procs)
 
         numArgs = command_argument_count()
         
-        if (numArgs /= 9) then 
+        if (numArgs /= 10) then 
                 write(error_unit,'(A)') "Incorrect number of command line arguments, &
-                        input: Jmin Jmax NJ Dmin Dmax ND Bmin Bmax NB"
+                        input: Jmin Jmax NJ Dmin Dmax ND Bmin Bmax NB outputFilePath"
                 call MPI_abort(MPI_COMM_WORLD,1)
         end if 
         ! Not elegant but a fancy parsing system is not a good use of time 
@@ -124,8 +125,11 @@ program PT
         string_buff = " " 
         call GET_COMMAND_ARGUMENT(9,string_buff)
         read(string_buff,*) NB
-   
-   
+        
+        outputPath = " " 
+        call GET_COMMAND_ARGUMENT(10,outputPath)
+        
+        
         AtomsInUnitCell(1) = makeAtom(0.0, 0.0, 0.0, atomParams, -1) 
         AtomsInUnitCell(2) = makeAtom(0.5, 0.5, 0.5, atomParams, -1)
         
@@ -323,7 +327,8 @@ program PT
                         string_buff = " "
                         write(string_buff,'((F0.4,"_",F8.4,"_",F0.4,"_",e0.4))') ParamArray(i,1), ParamArray(i,2), & 
                                 ParamArray(i,3), temp
-                        filename_string = "spins_" // trim(adjustl(string_buff)) // ".csv"
+                        filename_string = trim(adjustl(outputPath)) // "/"& 
+                                "spins_" // trim(adjustl(string_buff)) // ".csv"
                         call write_spins_to_file(meshBuffer(i,meshIndex),&
                                 filename_string)
                 end do 
