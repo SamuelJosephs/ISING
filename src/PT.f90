@@ -15,15 +15,15 @@ program PT
         use omp_lib
         implicit none 
         integer :: MPI_ierr, MPI_rank, MPI_num_procs 
-        integer, parameter :: NJ = 10 ! The number of J, D, and B values to perform the parallel tempering at.  
-        integer, parameter :: ND = 10 ! Hard code these for now but eventually they should be taken as input
-        integer, parameter :: NB = 1 
-        real(kind=dp), parameter :: JMin = -2.5_dp
-        real(kind=dp), parameter :: JMax = 2.5_dp 
-        real(kind=dp), parameter :: DMin = -2.5_dp 
-        real(kind=dp), parameter :: DMax = 2.5_dp
-        real(kind=dp), parameter :: BMin = 1.5_dp 
-        real(kind=dp), parameter :: BMax = 1.5_dp
+        integer :: NJ = 10 ! The number of J, D, and B values to perform the parallel tempering at.  
+        integer :: ND = 10 ! Hard code these for now but eventually they should be taken as input
+        integer :: NB = 1 
+        real(kind=dp) :: JMin = -2.5_dp
+        real(kind=dp) :: JMax = 2.5_dp 
+        real(kind=dp) :: DMin = -2.5_dp 
+        real(kind=dp) :: DMax = 2.5_dp
+        real(kind=dp) :: BMin = 1.5_dp 
+        real(kind=dp) :: BMax = 1.5_dp
 
         real(kind=dp), parameter :: TMax = 5.0_dp 
         real(kind=dp), parameter :: TMin = 0.00000001_dp 
@@ -74,11 +74,58 @@ program PT
         integer :: skyrmion_number_middle 
         real(kind=dp) :: winding_number_middle, winding_number_spread
         type(vecNd_t) :: magnetisation
+
+        integer :: numArgs 
         call MPI_Init(MPI_ierr)
         call MPI_Comm_Rank(MPI_COMM_WORLD,MPI_rank)
         call MPI_Comm_Size(MPI_COMM_WORLD,MPI_num_procs)
 
+        numArgs = command_argument_count()
         
+        if (numArgs /= 9) then 
+                write(error_unit,'(A)') "Incorrect number of command line arguments, &
+                        input: Jmin Jmax NJ Dmin Dmax ND Bmin Bmax NB"
+                call MPI_abort(MPI_COMM_WORLD,1)
+        end if 
+        ! Not elegant but a fancy parsing system is not a good use of time 
+        string_buff = " " 
+        call GET_COMMAND_ARGUMENT(1,string_buff)
+        read(string_buff,*) JMin
+
+        string_buff = " "
+        call GET_COMMAND_ARGUMENT(2,string_buff)
+        read(string_buff,*) JMax 
+
+        string_buff = " "
+        call GET_COMMAND_ARGUMENT(3,string_buff)
+        read(string_buff,*) NJ 
+
+        string_buff = " " 
+        call GET_COMMAND_ARGUMENT(4,string_buff)
+        read(string_buff,*) DMin 
+
+        string_buff = " " 
+        call GET_COMMAND_ARGUMENT(5,string_buff)
+        read(string_buff,*) DMax 
+
+        string_buff = " " 
+        call GET_COMMAND_ARGUMENT(6,string_buff)
+        read(string_buff,*) ND
+        
+
+        string_buff = " " 
+        call GET_COMMAND_ARGUMENT(7,string_buff)
+        read(string_buff,*) BMin
+
+        string_buff = " " 
+        call GET_COMMAND_ARGUMENT(8,string_buff)
+        read(string_buff,*) BMax
+ 
+        string_buff = " " 
+        call GET_COMMAND_ARGUMENT(9,string_buff)
+        read(string_buff,*) NB
+   
+   
         AtomsInUnitCell(1) = makeAtom(0.0, 0.0, 0.0, atomParams, -1) 
         AtomsInUnitCell(2) = makeAtom(0.5, 0.5, 0.5, atomParams, -1)
         
