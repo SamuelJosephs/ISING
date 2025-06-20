@@ -42,7 +42,7 @@ program PT
         real(kind=dp), parameter :: ca = 90
 
         integer, parameter :: numSwaps = numTemps ! Number of swaps to do per iteration
-        integer, parameter :: numIterations = 2 
+        integer, parameter :: numIterations = 1 
         integer, parameter :: numMCSSweepsPerSwap = 100
          
         integer :: NumSlots, BasePtr, TopPtr, NumParams, Iteration, meshIndex, swapIndex
@@ -270,8 +270,8 @@ program PT
                 J_H = ParamArray(i,1)
                 D_H = ParamArray(i,2)
                 B_H = ParamArray(i,3)
-                call Metropolis_mcs(meshBuffer(i,meshIndex),beta,2000,&
-                        J_H,0.0_8,D_H,0.0_8,B_H,0.2_8, lockArray,demag=.False.)  
+                !call Metropolis_mcs(meshBuffer(i,meshIndex),beta,2000,&
+                !        J_H,0.0_8,D_H,0.0_8,B_H,0.2_8, lockArray,demag=.False.)  
                 end do 
         end do 
         ! Now need to collect statistics from each slot and write them to a file
@@ -285,7 +285,7 @@ program PT
                 close(unit=fileunit)
 
         end if 
-
+        print *, "MPI_rank: ", MPI_rank, "Has reached the barrier"
         call MPI_barrier(MPI_COMM_WORLD)
 
 
@@ -298,8 +298,6 @@ program PT
         call MPI_FILE_OPEN(MPI_COMM_WORLD,"output.csv",mpi_mode,mpi_info_handle, &
                         mpi_file_handle,mpi_file_ierr)
         if (mpi_file_ierr /= 0) error stop "Error: Failed to open output file"
-        write(string_buff,'(I8.1)') MPI_rank  
-        output_string = "Hello from MPI_rank " // trim(adjustl(string_buff)) // new_line('a') 
 
         string_buff = " "
         output_string = ""
@@ -327,8 +325,10 @@ program PT
                         string_buff = " "
                         write(string_buff,'((F0.4,"_",F0.4,"_",F0.4,"_",e0.4))') ParamArray(i,1), ParamArray(i,2), & 
                                 ParamArray(i,3), temp
-                        filename_string = '"' // trim(adjustl(outputPath)) // '/'& 
-                                'spins_' // trim(adjustl(string_buff)) // '.csv"'
+                        filename_string = " "
+                        filename_string = trim(adjustl(outputPath)) // "/"& 
+                                "spins_" // trim(adjustl(string_buff)) // ".csv"
+                        print *, "MPI_RANK: ", MPI_rank, "Has filename_string: ", filename_string
                         call write_spins_to_file(meshBuffer(i,meshIndex),&
                                 filename_string)
                 end do 
