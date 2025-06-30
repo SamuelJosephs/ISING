@@ -116,7 +116,6 @@ module llg
             
             ! Open the file
          
-            call EXECUTE_COMMAND_LINE("mkdir -p " // filename)
             if (do_append) then
                 open(newunit=fileunit, file=filename, status='unknown', position='append', action='write', iostat=iostat)
             else

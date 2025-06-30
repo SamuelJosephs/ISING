@@ -24,7 +24,7 @@ program PT
         real(kind=dp) :: DMax = 2.5_dp
         real(kind=dp) :: BMin = 1.5_dp 
         real(kind=dp) :: BMax = 1.5_dp
-
+        logical :: demag = .False.
         real(kind=dp), parameter :: TMax = 5.0_dp 
         real(kind=dp), parameter :: TMin = 0.00000001_dp 
         integer, parameter :: numTemps = 10
@@ -68,15 +68,15 @@ program PT
         type(MPI_INFO) :: mpi_info_handle 
         type(MPI_STATUS) :: mpi_status_handle
         integer :: mpi_file_ierr
-        character(len=:), allocatable :: output_string, filename_string
+        character(len=:), allocatable :: output_string, filename_string, filename_string_spins
         character(len=500) :: string_buff
         integer :: mpi_mode
         integer :: skyrmion_number_middle 
         real(kind=dp) :: winding_number_middle, winding_number_spread
         type(vecNd_t) :: magnetisation
 
-        integer :: numArgs 
-        character(len=400) :: outputPath 
+        integer :: numArgs, fileHandle 
+        character(len=400) :: outputPath, outputPathSpins 
         call MPI_Init(MPI_ierr)
         call MPI_Comm_Rank(MPI_COMM_WORLD,MPI_rank)
         call MPI_Comm_Size(MPI_COMM_WORLD,MPI_num_procs)
@@ -218,7 +218,7 @@ program PT
                                         D_H = ParamArray(i,2)
                                         B_H = ParamArray(i,3)
                                         call Metropolis_mcs(meshBuffer(i,meshIndex),beta,numMCSSweepsPerSwap,&
-                                                J_H,0.0_8,D_H,0.0_8,B_H,0.2_8, lockArray,demag=.False.)  
+                                                J_H,0.0_8,D_H,0.0_8,B_H,0.2_8, lockArray,demag=demag)  
                                 end do 
                 end do 
 
@@ -270,8 +270,8 @@ program PT
                 J_H = ParamArray(i,1)
                 D_H = ParamArray(i,2)
                 B_H = ParamArray(i,3)
-                !call Metropolis_mcs(meshBuffer(i,meshIndex),beta,2000,&
-                !        J_H,0.0_8,D_H,0.0_8,B_H,0.2_8, lockArray,demag=.False.)  
+                call Metropolis_mcs(meshBuffer(i,meshIndex),beta,1000,&
+                        J_H,0.0_8,D_H,0.0_8,B_H,0.2_8, lockArray,demag=demag)  
                 end do 
         end do 
         ! Now need to collect statistics from each slot and write them to a file
@@ -292,15 +292,14 @@ program PT
         ! TODO calculate statistics and write them to a file
 
         print *, "All okay from rank", MPI_rank
-        mpi_info_handle = MPI_INFO_NULL 
-        mpi_mode = ior(MPI_MODE_CREATE,MPI_MODE_WRONLY)
-        mpi_mode = ior(MPI_MODE_APPEND,mpi_mode)
-        call MPI_FILE_OPEN(MPI_COMM_WORLD,"output.csv",mpi_mode,mpi_info_handle, &
-                        mpi_file_handle,mpi_file_ierr)
-        if (mpi_file_ierr /= 0) error stop "Error: Failed to open output file"
 
         string_buff = " "
         output_string = ""
+        outputPathSpins = ' '
+        outputPathSpins = trim(adjustl(outputPath)) // "_spins"
+        if (MPI_RANK == 0) call EXECUTE_COMMAND_LINE("mkdir -p " // trim(adjustl(outputPath)) // " "&
+                // trim(adjustl(outputPath)) // "_spins"&
+                ) 
         do i = 1,NumParams
                 do j = 1,numTemps
                         string_buff = " "
@@ -309,6 +308,9 @@ program PT
                                 winding_number_spread, magnetisation)
                         temp = TemperatureArray(j)
                         ! write model parameters J, D, B, T
+                        output_string = "J,D,B,T,winding_number_middle, &
+                                skyrmion_number_middle,winding_number_spread,sx,&
+                                sy, sz" // new_line('a')
                         write(string_buff,'((F8.4,",",F8.4,","F8.4,",",F0.10,","))') ParamArray(i,1), &
                                         ParamArray(i,2), ParamArray(i,3),temp
                         output_string = output_string // trim(adjustl(string_buff))
@@ -325,15 +327,23 @@ program PT
                         string_buff = " "
                         write(string_buff,'((F0.4,"_",F0.4,"_",F0.4,"_",e0.4))') ParamArray(i,1), ParamArray(i,2), & 
                                 ParamArray(i,3), temp
-                        filename_string = " "
+                        filename_string = ' '
                         filename_string = trim(adjustl(outputPath)) // "/"& 
-                                "spins_" // trim(adjustl(string_buff)) // ".csv"
+                                // trim(adjustl(string_buff)) // ".csv"
+                        filename_string_spins = ' '
+                        filename_string_spins = trim(adjustl(outputPathSpins)) // "/"&
+                                // "spins_" // trim(adjustl(string_buff)) // ".csv"
                         print *, "MPI_RANK: ", MPI_rank, "Has filename_string: ", filename_string
                         call write_spins_to_file(meshBuffer(i,meshIndex),&
-                                filename_string)
+                                filename_string_spins)
+
+                        open(newunit=fileHandle, status="replace", action="write",file=filename_string)
+
+                        write(fileHandle, '(A)') output_string
+
+                        close(fileHandle)
                 end do 
         end do 
-        call MPI_FILE_WRITE_SHARED(mpi_file_handle,output_string,len(output_string),MPI_CHARACTER,mpi_status_handle,mpi_file_ierr)
         ! Cleanup 
         do i = 1,size(lockArray)
                 call OMP_DESTROY_LOCK(lockArray(i))
