@@ -42,7 +42,7 @@ program PT
         real(kind=dp), parameter :: ca = 90
 
         integer, parameter :: numSwaps = numTemps ! Number of swaps to do per iteration
-        integer, parameter :: numIterations = 1 
+        integer, parameter :: numIterations = 40 
         integer, parameter :: numMCSSweepsPerSwap = 100
          
         integer :: NumSlots, BasePtr, TopPtr, NumParams, Iteration, meshIndex, swapIndex
