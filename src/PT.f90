@@ -328,7 +328,7 @@ program PT
                         write(string_buff,'((F0.4,"_",F0.4,"_",F0.4,"_",e0.4))') ParamArray(i,1), ParamArray(i,2), & 
                                 ParamArray(i,3), temp
                         filename_string = ' '
-                        filename_string = trim(adjustl(outputPath)) // "/"& 
+                        filename_string = trim(adjustl(outputPath)) // "/data_"& 
                                 // trim(adjustl(string_buff)) // ".csv"
                         filename_string_spins = ' '
                         filename_string_spins = trim(adjustl(outputPathSpins)) // "/"&
