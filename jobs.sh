@@ -18,7 +18,7 @@ maxTime="10:00:00"
 maxConcurrentJobs=250
 ###########################################################################################
 
-module load python openmpi
+module load python openmpi fftw
 N=$((NJ*ND*NB - 1)) # Indiced through 0 to N-1
 
 mkdir -p $outfilesDir
@@ -30,7 +30,7 @@ script=$(cat <<EOF
 #SBATCH -c 1 
 #SBATCH -J parameter-scan
 #SBATCH -t ${maxTime}
-
+#SBATCH -o ${outputfilesDir}/\${SLURM_ARRAY_TASK_ID} 
 NJ=${NJ}
 ND=${ND}
 NB=${NB}
@@ -46,8 +46,7 @@ Jval=\$(python -c "x = (\${i}/\${NJ})*(${maxJ} - ${minJ}) + ${minJ}; print(x)")
 Dval=\$(python -c "x = (\${j}/\${ND})*(${maxD} - ${minD}) + ${minD}; print(x)")
 Bval=\$(python -c "x = (\${k}/\${NB})*(${maxB} - ${minB}) + ${minB}; print(x)")
 
-stdout_name=./${outfilesDir}/\${Jval}_\${Dval}_\${Bval}
-mpirun -np 1 ./bin/PT \${Jval} \${Jval} 1 \${Dval} \${Dval} 1 \${Bval} \${Bval} 1 ${outputDir} > \$stdout_name
+mpirun -np 1 ./bin/PT \${Jval} \${Jval} 1 \${Dval} \${Dval} 1 \${Bval} \${Bval} 1 ${outputDir} 
 EOF
 )
 
