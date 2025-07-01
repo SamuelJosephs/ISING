@@ -1,31 +1,31 @@
 #!/usr/bin/bash
 
-maxJ=3.0
+maxJ=1.2
 minJ=0.0
-NJ=2
+NJ=20
 
-maxD=3.0
+maxD=3.5
 minD=0.0
-ND=2
+ND=50
 
 maxB=1.5
-minB=1.0
+minB=1.5
 NB=1
 
 outputDir="./output-dir"
-maxTime="00:15:00"
-maxConcurrentJobs=4
+outfilesDir="./outfiles" # Teh directory where stdout will be directed to
+maxTime="10:00:00"
+maxConcurrentJobs=250
 ###########################################################################################
 
 module load python openmpi
 N=$((NJ*ND*NB - 1)) # Indiced through 0 to N-1
 
-
-
+mkdir -p $outfilesDir
 
 script=$(cat <<EOF
 #!/usr/bin/bash
-#SBATCH -p test
+#SBATCH -p shared
 #SBATCH -n 1 
 #SBATCH -c 1 
 #SBATCH -J parameter-scan
@@ -46,7 +46,8 @@ Jval=\$(python -c "x = (\${i}/\${NJ})*(${maxJ} - ${minJ}) + ${minJ}; print(x)")
 Dval=\$(python -c "x = (\${j}/\${ND})*(${maxD} - ${minD}) + ${minD}; print(x)")
 Bval=\$(python -c "x = (\${k}/\${NB})*(${maxB} - ${minB}) + ${minB}; print(x)")
 
-mpirun -np 1 ./bin/PT \${Jval} \${Jval} 1 \${Dval} \${Dval} 1 \${Bval} \${Bval} 1 ${outputDir}
+stdout_name=./${outfilesDir}/\${Jval}_\${Dval}_\${Bval}
+mpirun -np 1 ./bin/PT \${Jval} \${Jval} 1 \${Dval} \${Dval} 1 \${Bval} \${Bval} 1 ${outputDir} > \$stdout_name
 EOF
 )
 
