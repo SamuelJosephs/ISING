@@ -12,9 +12,9 @@ maxB=1.5
 minB=1.5
 NB=1
 
-outputDir="./output-dir"
+outputDir="./output-dir" # prefix for data directories
 outfilesDir="./outfiles" # Teh directory where stdout will be directed to
-maxTime="10:00:00"
+maxTime="1:20:00"
 maxConcurrentJobs=250
 ###########################################################################################
 
@@ -30,7 +30,7 @@ script=$(cat <<EOF
 #SBATCH -c 1 
 #SBATCH -J parameter-scan
 #SBATCH -t ${maxTime}
-#SBATCH -o ${outputfilesDir}/\${SLURM_ARRAY_TASK_ID} 
+#SBATCH -o ${outfilesDir}/%a.out 
 NJ=${NJ}
 ND=${ND}
 NB=${NB}
