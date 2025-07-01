@@ -36,7 +36,7 @@ NB=${NB}
 N=${N}
 index=\${SLURM_ARRAY_TASK_ID}
 
-i=\$(python -c "import math; x = int(math.floor(\$(index)/($\{NB\}*$\{ND\}))); print(x)")
+i=\$(python -c "import math; x = int(math.floor(\${index}/($\{NB\}*$\{ND\}))); print(x)")
 rem=\$(python -c "x = int(\${index}) % int(\${NB}*\${ND}); print(x)")
 j=\$(python -c "import math; x = int(math.floor(\${rem} / int(\${NB}))); print(x)")
 k=\$(python -c "x = int(\${rem}) % int(\${NB}); print(x)")
