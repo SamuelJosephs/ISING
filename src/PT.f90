@@ -276,15 +276,6 @@ program PT
         end do 
         ! Now need to collect statistics from each slot and write them to a file
 
-        
-        if (MPI_rank == 0) then 
-                open(newunit=fileunit,status="replace",action="write",file="output.csv") ! Just to wipe the file
-                ! write csv header
-                write(fileunit, '(A)') "J,D,B,T,winding_number_middle,skyrmion_number_middle,winding_number_spread,&
-                                        mx,my,mz"
-                close(unit=fileunit)
-
-        end if 
         print *, "MPI_rank: ", MPI_rank, "Has reached the barrier"
         call MPI_barrier(MPI_COMM_WORLD)
 
