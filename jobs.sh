@@ -14,8 +14,8 @@ NB=1
 
 outputDir="./output-dir" # prefix for data directories
 outfilesDir="./outfiles" # Teh directory where stdout will be directed to
-maxTime="2:20:00"
-maxConcurrentJobs=400
+maxTime="3:20:00"
+maxConcurrentJobs=500
 ###########################################################################################
 
 module load python openmpi fftw
