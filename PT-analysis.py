@@ -1,14 +1,27 @@
+import os
 import pandas as pd 
 import numpy as np 
 import matplotlib.pyplot as plt
-df = pd.read_csv("./output.csv")
+
+
+directory_path = "./output-dir/"
+dfs = []
+with os.scandir(directory_path) as it: 
+    for entry in it:
+        if entry.is_file():
+            filename = entry.name
+            df = pd.read_csv(directory_path + filename)
+            dfs.append(df)
+df = pd.concat(dfs,ignore_index = True)
+df.columns = df.columns.str.strip()
+print(df)
 
 df_min_T = df[df["T"] == min(df["T"])]
-print(df_min_T)
 
 J_vals_min_T = df_min_T["J"].to_numpy()
 D_vals_min_T = df_min_T["D"].to_numpy()
-mz_vals_min_T = df_min_T["mz"].to_numpy()
+B_vals_min_T = df_min_T["B"].to_numpy
+mz_vals_min_T = df_min_T["sz"].to_numpy()
 winding_middle_vals_min_T = df_min_T["winding_number_middle"].to_numpy()
 
 skyrmion_number_min_T = df_min_T["skyrmion_number_middle"].to_numpy()
@@ -16,8 +29,8 @@ skyrmion_spread_min_T = df_min_T["winding_number_spread"].to_numpy()
 
 
 # Filter for values close to 
-#skyrmion_number_min_T = np.where(abs(skyrmion_spread_min_T) < 2.1,
-#                                        skyrmion_number_min_T,np.zeros(np.shape(skyrmion_number_min_T)))
+skyrmion_number_min_T = np.where(abs(skyrmion_spread_min_T) < 2.1,
+                                        skyrmion_number_min_T,np.zeros(np.shape(skyrmion_number_min_T)))
 J_values_unique = np.unique(J_vals_min_T)
 D_vals_unique = np.unique(D_vals_min_T)
 
