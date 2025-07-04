@@ -75,8 +75,8 @@ program main
         ! Create atoms in unit cell
         AtomsInUnitCell(1) = makeAtom(0.0, 0.0, 0.0, AtomParam1, -1) 
         AtomsInUnitCell(2) = makeAtom(0.5, 0.5, 0.5, AtomParam2, -1)
-        numCellsX = 40
-        numCellsY = 40
+        numCellsX = 30
+        numCellsY = 30
         numCellsZ = 6
         a_bravais = latticeParam
         b_bravais = latticeParam
@@ -134,7 +134,7 @@ program main
         num_frames = 0
         numMetropolisStepsTotal = 220000
         numMetropolisSteps = 2000
-        numBetaSteps = 20
+        numBetaSteps = 40
         
         lower_bound = 0.000001
         upper_bound = 0.95
@@ -147,9 +147,9 @@ program main
         end do 
         counter = 1 
         do i = 0,numBetaSteps
-                Tmax = 5.0_8 
+                Tmax = 200.0_8 
                 !Tmin = 0.1*(0.76*8*J)/(3*Kb)
-                Tmin = 0.0000001
+                Tmin = 1.0_8
                 T = Tmax - (Tmax - Tmin)*(dble(i)/dble(numBetaSteps)) 
                 beta = 1.0_8 / (Kb*T)
                 call TotalHeisenbergEnergy(testMesh,J,J_prime,Dz,Dz_prime,B,lockArray,totalEnergy1,demag=demag)

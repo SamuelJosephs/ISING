@@ -14,23 +14,27 @@ with os.scandir(directory_path) as it:
             dfs.append(df)
 df = pd.concat(dfs,ignore_index = True)
 df.columns = df.columns.str.strip()
+df.replace("********", 0, inplace=True)
 print(df)
 
 df_min_T = df[df["T"] == min(df["T"])]
 
-J_vals_min_T = df_min_T["J"].to_numpy()
-D_vals_min_T = df_min_T["D"].to_numpy()
-B_vals_min_T = df_min_T["B"].to_numpy
-mz_vals_min_T = df_min_T["sz"].to_numpy()
-winding_middle_vals_min_T = df_min_T["winding_number_middle"].to_numpy()
+J_vals_min_T = df_min_T["J"].to_numpy(dtype=np.float64)
+D_vals_min_T = df_min_T["D"].to_numpy(dtype=np.float64)
+B_vals_min_T = df_min_T["B"].to_numpy(dtype=np.float64)
+mz_vals_min_T = df_min_T["sz"].to_numpy(dtype=np.float64)
+winding_middle_vals_min_T = df_min_T["winding_number_middle"].to_numpy(dtype=np.float64)
 
 skyrmion_number_min_T = df_min_T["skyrmion_number_middle"].to_numpy()
 skyrmion_spread_min_T = df_min_T["winding_number_spread"].to_numpy()
 
 
 # Filter for values close to 
+#skyrmion_number_min_T = np.where(abs(skyrmion_spread_min_T) < 2.1,
+#                                        skyrmion_number_min_T,np.zeros(np.shape(skyrmion_number_min_T)))
+print(f"Winding numbers: {winding_middle_vals_min_T}")
 skyrmion_number_min_T = np.where(abs(skyrmion_spread_min_T) < 2.1,
-                                        skyrmion_number_min_T,np.zeros(np.shape(skyrmion_number_min_T)))
+                                        winding_middle_vals_min_T,np.zeros(np.shape(skyrmion_number_min_T)))
 J_values_unique = np.unique(J_vals_min_T)
 D_vals_unique = np.unique(D_vals_min_T)
 
