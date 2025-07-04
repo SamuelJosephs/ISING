@@ -131,21 +131,81 @@ module EnergyMin
                         r = (-1.0_8) * r / abs(r)
                         D = tempVec .x. r
                         !D = Dz*r
-                        oldEnergy = oldEnergy + (J* S*S_prime) + (D*(S .x. S_prime))
+                        oldEnergy = oldEnergy + 0.5_8*((J* S*S_prime) + (D*(S .x. S_prime)))
                         
-                        newEnergy = newEnergy + (J* S_proposed*S_prime) + (D*(S_proposed .x. S_prime))
+                        newEnergy = newEnergy + 0.5_8*((J* S_proposed*S_prime) + (D*(S_proposed .x. S_prime)))
                 end do 
-                oldEnergy = oldEnergy - B*s%coords(3) 
-                newEnergy = newEnergy - B*S_proposed%coords(3) 
+                oldEnergy = oldEnergy - g*Bohr_magneton*B*s%coords(3) 
+                newEnergy = newEnergy - g*Bohr_magneton*B*S_proposed%coords(3) 
                 if (calculate_demag) then 
-                        oldEnergy = oldEnergy - MdotH ! Half not needed due to it being a local change 
+                        oldEnergy = oldEnergy - mu_0*MdotH ! Half not needed due to it being a local change 
 
-                        newEnergy = newEnergy - MdotH_proposed
+                        newEnergy = newEnergy - mu_0*MdotH_proposed
                 end if 
 
                 ! Don't need to add magnetic field contributions again as they have already been added 
 
         end subroutine calculateHeisenbergEnergy
+
+
+        subroutine calculateTotalHeisenbergEnergyHelper(chainMesh,atomIndex, J, J_prime, Dz, Dz_prime ,B , & 
+                        lockArray, energy, demag) ! Helper with correct factors of 1/2 to avoid double counting
+                implicit none
+                type(ChainMesh_t), intent(in) :: chainMesh 
+                integer, intent(in) :: atomIndex 
+                real(kind=8), intent(in) :: J, J_prime, Dz,Dz_prime, B 
+                integer(kind=OMP_LOCK_KIND), intent(inout) :: lockArray(:)
+                real(kind=8), intent(out) ::  energy 
+                logical, optional, intent(in) :: demag 
+
+                real(kind = 8) :: x,y,z, tempEnergy, Hx, Hy, Hz, MdotH, MdotH_proposed
+                integer :: i, atomIndexTemp, dim_i, nn , nn_index  
+                type(vecNd_t) :: S, S_prime, atomPos1, atomPos2, tempVec,r, D, D_prime
+                logical :: calculate_demag 
+
+                calculate_demag = .True.
+                if (present(demag)) calculate_demag = demag
+                !call OMP_SET_LOCK(lockArray(atomIndex))
+                energy = 0.0_8
+                S = makeVecNdCheck(S, dble(chainMesh%atomSpins(atomIndex,:)))
+                x = chainMesh%atoms(atomIndex)%x
+                y = chainMesh%atoms(atomIndex)%y 
+                z = chainMesh%atoms(atomIndex)%z 
+                atomPos1 = makeVecNd([x,y,z]) 
+                tempVec = makeVecNdCheck(tempVec, [0.0_8, 0.0_8, Dz])
+                Hx = chainMesh%demagnetisation_array(atomIndex,1)
+                Hy = chainMesh%demagnetisation_array(atomIndex,2)
+                Hz = chainMesh%demagnetisation_array(atomIndex,3)
+                MdotH = S%coords(1)* Hx + S%coords(2)* Hy + S%coords(3)* Hz 
+
+                do i = 1,size(chainMesh%atoms(atomIndex)%NeighborList)
+                        atomIndexTemp = chainMesh%atoms(atomIndex)%NeighborList(i)
+                        if (atomIndexTemp == atomIndex) error stop "Encountered self interaction"
+                        call OMP_SET_LOCK(lockArray(atomIndexTemp))
+                                S_prime = makeVecNdCheck(S_prime,dble(chainMesh%atomSpins(atomIndexTemp,:)))
+                        call OMP_UNSET_LOCK(lockArray(atomIndexTemp))
+                        x = chainMesh%atoms(atomIndexTemp)%x
+                        y = chainMesh%atoms(atomIndexTemp)%y 
+                        z = chainMesh%atoms(atomIndexTemp)%z
+                        atomPos2 = makeVecNdCheck(atomPos2, [x,y,z])
+                        !r = atomPos1 - atomPos2
+                        call distance_points_vec(chainMesh,atomPos1,atomPos2, r) 
+                        r = (-1.0_8) * r / abs(r)
+                        D = tempVec .x. r
+                        !D = Dz*r
+                        energy = energy + 0.5_08*((J* S*S_prime) + (D*(S .x. S_prime)))
+                        
+                end do 
+                energy = energy - (g*Bohr_magneton*B*s%coords(3)) 
+                if (calculate_demag) then 
+                        energy = energy - (0.5_8*mu_0*MdotH) ! Half needed as this is used to calculate total energy 
+                                                             ! So there is double counting
+                end if 
+
+
+        end subroutine calculateTotalHeisenbergEnergyHelper
+
+
 
 
         subroutine Metropolis_mcs(chainMesh, beta,numMCSSweeps, J, J_prime,  Dz, Dz_prime, B, r, lockArray, &
@@ -409,42 +469,35 @@ module EnergyMin
         end subroutine Metropolis_demag
         
 
-        subroutine TotalHeisenbergEnergy(chainMesh, J, J_prime, Dz, Dz_prime, B, lockArray, totalEnergy)
+        subroutine TotalHeisenbergEnergy(chainMesh, J, J_prime, Dz, Dz_prime, B, lockArray, totalEnergy,demag)
         implicit none
 
         type(ChainMesh_t), intent(inout)            :: chainMesh
         real(kind=8),     intent(in)                :: J, J_prime, Dz, Dz_prime, B
         integer(kind=OMP_LOCK_KIND), intent(inout)  :: lockArray(:)
         real(kind=8),     intent(out)               :: totalEnergy
+        logical, intent(in) :: demag
 
         integer :: atomIndex
-        real(kind=8) :: oldE, newE
-        type(vecNd_t) :: S_dummy
-        real(kind=8), dimension(:,:), allocatable :: demagnetisation_array
-        allocate(demagnetisation_array(chainMesh%numAtoms,3))
+        real(kind=8) :: energyTemp
 
-        call calculate_demagnetisation_field(chainMesh,demagnetisation_array)
+        call calculate_demagnetisation_field(chainMesh,chainMesh%demagnetisation_array)
         ! Initialize
         totalEnergy = 0.0_8
+        energyTemp = 0.0_8
         ! create a dummy 3-vector (only used for newEnergy, which we ignore)
-        S_dummy = makeVecNdCheck(S_dummy, [0.0_8, 0.0_8, 0.0_8])
 
         do atomIndex = 1, size(chainMesh%atoms)
-                oldE = 0.0_8
-                newE = 0.0_8
-                call calculateHeisenbergEnergy( &
+                call calculateTotalHeisenbergEnergyHelper( &
                      chainMesh, atomIndex,      &
                      J, J_prime, Dz, Dz_prime, B, &
                      lockArray,                 &
-                     S_dummy,                   & ! dummy S_proposed
-                     oldE, newE,                & ! only oldE is used
-                     demagnetisation_array &
+                     energyTemp,                & ! only oldE is used
+                     demag                      &
                 )
-                totalEnergy = totalEnergy + oldE
+                totalEnergy = totalEnergy + energyTemp
          end do
 
-        ! each pair was counted twice
-           totalEnergy = totalEnergy / 2.0_8
         end subroutine TotalHeisenbergEnergy
 
 subroutine write_array_to_file(array, filename, iostat)

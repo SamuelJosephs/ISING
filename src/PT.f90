@@ -212,7 +212,7 @@ program PT
                 print *, "MPI_rank", MPI_rank, "is starting iteration", Iteration, "out of", numIterations 
                 do i = 1,numParams 
                                 do j = 1,numTemps 
-                                        beta = 1.0_dp / TemperatureArray(j)
+                                        beta = 1.0_dp / (kb*TemperatureArray(j))
                                         meshIndex = TemperatureMeshArray(i,j) ! The j'th temperature is being computed at this index
                                         J_H = ParamArray(i,1)
                                         D_H = ParamArray(i,2)
@@ -239,8 +239,10 @@ program PT
                                 B_H = ParamArray(i,3)
                                 meshIndex1 = TemperatureMeshArray(i,Index1) ! Need to find the meshes at the temperatures indexed by 
                                 meshIndex2 = TemperatureMeshArray(i,Index2) ! Index1 and Index2
-                                call totalHeisenbergEnergy(meshBuffer(i,meshIndex1),J_H,0.0_dp,D_H,0.0_dp,B_H,lockArray,E1)
-                                call totalHeisenbergEnergy(meshBuffer(i,meshIndex2),J_H,0.0_dp,D_H,0.0_dp,B_H,lockArray,E2)
+                                call totalHeisenbergEnergy(meshBuffer(i,meshIndex1),J_H,0.0_dp,D_H,0.0_dp,B_H,lockArray,E1,&
+                                        demag=demag)
+                                call totalHeisenbergEnergy(meshBuffer(i,meshIndex2),J_H,0.0_dp,D_H,0.0_dp,B_H,lockArray,E2,&
+                                        demag=demag)
 
                                 beta1 =  1.0_dp / TemperatureArray(Index1)
                                 beta2 =  1.0_dp / TemperatureArray(Index2)

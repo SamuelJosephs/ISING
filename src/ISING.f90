@@ -39,6 +39,8 @@ program main
         integer ::  skyrmion_index, num_thresholds, skyrmion_number
         integer, allocatable, dimension(:) :: winding_array
         real(kind=8) :: lower_bound, upper_bound
+
+        logical, parameter :: demag = .False.
         fftw_status = fftw_init_threads()
         if (fftw_status == 0) error stop "Error initialising fftw threads"
         argc = command_argument_count() 
@@ -149,11 +151,11 @@ program main
                 !Tmin = 0.1*(0.76*8*J)/(3*Kb)
                 Tmin = 0.0000001
                 T = Tmax - (Tmax - Tmin)*(dble(i)/dble(numBetaSteps)) 
-                beta = 1.0_8 / (T)
-                call TotalHeisenbergEnergy(testMesh,J,J_prime,Dz,Dz_prime,B,lockArray,totalEnergy1)
+                beta = 1.0_8 / (Kb*T)
+                call TotalHeisenbergEnergy(testMesh,J,J_prime,Dz,Dz_prime,B,lockArray,totalEnergy1,demag=demag)
                 call Metropolis_mcs(testMesh,beta,numMetropolisSteps,&
-                                                J,J_prime,Dz,Dz_prime,B,0.2_8, lockArray,demag=.True.)
-                call TotalHeisenbergEnergy(testMesh,J,J_prime,Dz,Dz_prime,B,lockArray,totalEnergy2)
+                                                J,J_prime,Dz,Dz_prime,B,0.2_8, lockArray,demag=demag)
+                call TotalHeisenbergEnergy(testMesh,J,J_prime,Dz,Dz_prime,B,lockArray,totalEnergy2,demag=demag)
                 winding_number_middle = calculate_winding_number2(testMesh,testMesh%numCellsZ/2)
                 winding_number_bottom = calculate_winding_number2(testMesh,1)
                 winding_number_top = calculate_winding_number2(testMesh,testMesh%numCellsZ)
