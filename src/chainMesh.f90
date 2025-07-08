@@ -1,5 +1,3 @@
-
-
 module ChainMesh
         use Atom 
         use ChainMeshCell 
@@ -8,26 +6,37 @@ module ChainMesh
         use constants
         use, intrinsic :: iso_c_binding
         include 'fftw3.f03'
-type ChainMesh_t 
-        integer :: numAtoms, numChainMeshCells
-        type(Atom_t), allocatable :: atoms(:) ! Each atom is in a chain mesh cell and points to the next atom within that cell 
-        real(kind=8), allocatable, dimension(:,:) :: atomSpins
-        type(ChainMeshCell_t), allocatable :: chainMeshCells(:)
-        integer :: numCellsX, numCellsY, numCellsZ  ! NumCellsX/Y/Z will be for the a,b,c Bravais Lattice Vectors
-        integer, allocatable, dimension(:,:,:) :: derivativeList !(i,j,k) : i=atomInex, j=dim (1,2,3), k = lower,higher (1,2)
-        type(C_ptr) :: forwardPlanX, forwardPlanY, forwardPlanZ, backwardPlanX, backwardPlanY, backwardPlanZ
-        real(kind=c_double), pointer :: fft_array_x(:,:,:), fft_array_y(:,:,:), fft_array_z(:,:,:)
-        complex(kind=c_double_complex), pointer :: fft_c_view_x(:,:,:), fft_c_view_y(:,:,:), fft_c_view_z(:,:,:)
-        type(C_ptr) :: fft_array_ptr
-        real(kind=8) :: a, b, c, Bravais_ab, Bravais_bc, Bravais_ca
-        type(vecNd_t) :: a_vec, b_vec, c_vec, ar_vec, br_vec, cr_vec ! ar stands for a reciprocal  
-        real(kind=8), allocatable, dimension(:,:) :: demagnetisation_array
-end type ChainMesh_t 
+
+        type NNContainer_t
+                integer, allocatable, dimension(:) :: NNList ! List of nearest Neighbors 
+                real(kind=8) :: distance ! At a specified distance 
+        end type NNContainer_t 
+
+
+        type ChainMesh_t 
+                integer :: numAtoms, numChainMeshCells
+                type(Atom_t), allocatable :: atoms(:) ! Each atom is in a chain mesh cell and points to the next atom within that cell 
+                real(kind=8), allocatable, dimension(:,:) :: atomSpins
+                type(ChainMeshCell_t), allocatable :: chainMeshCells(:)
+                integer :: numCellsX, numCellsY, numCellsZ  ! NumCellsX/Y/Z will be for the a,b,c Bravais Lattice Vectors
+                integer, allocatable, dimension(:,:,:) :: derivativeList !(i,j,k) : i=atomInex, j=dim (1,2,3), k = lower,higher (1,2)
+                type(C_ptr) :: forwardPlanX, forwardPlanY, forwardPlanZ, backwardPlanX, backwardPlanY, backwardPlanZ
+                real(kind=c_double), pointer :: fft_array_x(:,:,:), fft_array_y(:,:,:), fft_array_z(:,:,:)
+                complex(kind=c_double_complex), pointer :: fft_c_view_x(:,:,:), fft_c_view_y(:,:,:), fft_c_view_z(:,:,:)
+                type(C_ptr) :: fft_array_ptr
+                real(kind=8) :: a, b, c, Bravais_ab, Bravais_bc, Bravais_ca
+                type(vecNd_t) :: a_vec, b_vec, c_vec, ar_vec, br_vec, cr_vec ! ar stands for a reciprocal  
+                real(kind=8), allocatable, dimension(:,:) :: demagnetisation_array
+                
+                type(NNContainer_t), allocatable, dimension(:) :: NNNList ! N'th nearest neighbor list
+        end type ChainMesh_t 
 
         interface IndexFromCoordinates
                 module procedure IndexFromCoordinatesInteger
         end interface IndexFromCoordinates
         contains
+
+
         subroutine getNeighboringCells(chainMesh,cellIndex,neighborCellList)
                 type(chainMesh_t), intent(in) :: chainMesh 
                 integer, intent(out) :: neighborCellList(27)
@@ -75,6 +84,7 @@ end type ChainMesh_t
                         end do 
 
         end subroutine getNeighboringCells
+
         function distance(chainMesh, atomIndex1, atomIndex2) result(d)
                 type(ChainMesh_t), intent(in) :: chainMesh
                 integer, intent(in) :: atomIndex1, atomIndex2 
@@ -100,17 +110,9 @@ end type ChainMesh_t
                 b_coeff = dx*chainMesh%br_vec%coords(1) + dy*chainMesh%br_vec%coords(2) + dz*chainMesh%br_vec%coords(3)
                 c_coeff = dx*chainMesh%cr_vec%coords(1) + dy*chainMesh%cr_vec%coords(2) + dz*chainMesh%cr_vec%coords(3)
                 
-                a_coeff = a_coeff / widthX ! Fractional Coordinates 
-                b_coeff = b_coeff / widthY 
-                c_coeff = c_coeff / widthZ 
-
-                a_coeff = a_coeff - floor(a_coeff + 0.5_8 + eps)
-                b_coeff = b_coeff - floor(b_coeff + 0.5_8 + eps)
-                c_coeff = c_coeff - floor(c_coeff + 0.5_8 + eps)
-
-                a_coeff = a_coeff * widthX 
-                b_coeff = b_coeff * widthY 
-                c_coeff = c_coeff * widthZ
+                a_coeff = a_coeff - widthX*nint(a_coeff/widthX)
+                b_coeff = b_coeff - widthY*nint(b_coeff/widthY)
+                c_coeff = c_coeff - widthZ*nint(c_coeff/widthZ)
                 ! Now reconstruct the cartesian distance from these vectors 
                 dx = a_coeff*chainMesh%a_vec%coords(1) + b_coeff*chainMesh%b_vec%coords(1) + c_coeff*chainMesh%c_vec%coords(1)
                 dy = a_coeff*chainMesh%a_vec%coords(2) + b_coeff*chainMesh%b_vec%coords(2) + c_coeff*chainMesh%c_vec%coords(2)
@@ -340,7 +342,6 @@ end type ChainMesh_t
                         ! For each atom determine the nearest neighbor list 
                         
                         do while (AtomIdent .ne. -1 )
-                                !print *, "DEBUG: Looping with AtomIdent = ", AtomIdent
                                 !$omp critical 
                                 call AssignAtomNearestNeighbhors(chainMesh,AtomIdent,idex,neighborCellList,atomLockArray) 
                                 !$omp end critical
@@ -355,6 +356,132 @@ end type ChainMesh_t
                     call omp_destroy_lock(atomLockArray(i))
                 end do        
         end subroutine assignNearestNeighbors
+
+
+        subroutine initNNNList(chainMesh,N)
+                implicit none
+                type(chainMesh_t), intent(inout) :: chainMesh 
+                integer, intent(in) :: N 
+
+                integer :: i, atomIndex, cellIndex, numAtomsInCell, cellIndexTemp, atomIndexTemp
+                integer :: distanceCounter, j
+                integer, allocatable, dimension(:) :: distanceLoc
+                real(kind=8) :: currentDistance, distance_val, prevDistance
+                type(NNContainer_t), allocatable, dimension(:,:) :: NNNArray
+                integer, allocatable :: NNeighboringCells(:)
+                real(kind=8), allocatable, dimension(:) :: distanceArray
+                if (allocated(chainMesh%NNNList)) then 
+                        deallocate(chainMesh%NNNList)
+                end if 
+                
+                allocate(chainMesh%NNNList(0))
+                
+                allocate(distanceArray(N))
+                distanceArray(:) = 0.0_8
+
+                allocate(NNNArray(chainMesh%numAtoms,N))
+                do i = 1,N 
+                        do j = 1, chainMesh%numAtoms
+                                allocate(NNNArray(j,i)%NNList(N))
+                        end do 
+                end do 
+                do cellIndex = 1,chainMesh%numChainMeshCells 
+                                numAtomsIncell = chainMesh%chainMeshCells(cellIndex)%NumAtomsPerUnitCell
+                                ! Compute N'th neighboring cell indexes.
+                                call NNearestCells(chainMesh,cellIndex,N,NNeighboringCells)
+                                atomIndex = chainMesh%chainMeshCells(cellIndex)%firstAtomInMeshCell
+
+
+                                do while (atomIndex /= -1)  
+
+                                        prevDistance = -1.0_8
+                                        do distanceCounter = 1,N  
+
+                                                currentDistance = HUGE(currentDistance)
+                                                ! For each atom in Cell 
+                                                ! For each potential neighbor cell
+                                                do i = 1,size(NNeighboringCells)
+                                                        atomIndexTemp = chainMesh%chainMeshCells(&
+                                                                NNeighboringCells(i))%firstAtomInMeshCell
+                                                        ! For each potential neighbor atom in neighbouring cells  
+                                                        do while (atomIndexTemp /= -1)
+                                                                if (atomIndexTemp == atomIndex) cycle
+                                                                distance_val = distance(chainMesh,atomIndex,atomIndexTemp)  
+
+                                                                if (distance_val < currentDistance .and. &
+                                                                         currentDistance > prevDistance) currentDistance = &
+                                                                                        distance_val 
+                                                                atomIndexTemp = chainMesh%atoms(atomIndexTemp)%nextAtom
+                                                        end do 
+                                                end do 
+                                                prevDistance = currentDistance
+                                                distanceArray(distanceCounter) = currentDistance 
+                                        end do 
+                                        ! Now that we have the ranks of distances for the current atom we can do another pass
+                                        ! through it's neighbors and assign them into bins by their distance 
+                                         
+                                        do i = 1,size(NNeighboringCells)
+                                                atomIndexTemp = chainMesh%chainMeshCells(&
+                                                        NNeighboringCells(i))%firstAtomInMeshCell
+                                                ! For each potential neighbor atom in neighbouring cells  
+                                                do while (atomIndexTemp /= -1)
+                                                        if (atomIndexTemp == atomIndex) cycle
+                                                        distance_val = distance(chainMesh,atomIndex,atomIndexTemp)  
+                                                        
+                                                        distanceLoc = findloc(abs(distanceArray - distance_val) < 1e-5,.True.)
+                                                        if (size(distanceLoc) < 1) error stop "Error: Cannot find distance entry &
+                                                                in array"
+                                                        NNNArray(atomIndex,distanceLoc(1))%NNList = &
+                                                                [NNNArray(atomIndex,distanceLoc(1))%NNList,atomIndexTemp]
+                                                        atomIndexTemp = chainMesh%atoms(atomIndexTemp)%nextAtom
+                                                end do 
+                                        end do 
+
+                                        do i = 1,N 
+                                                NNNArray(atomIndex,i)%distance = distanceArray(i)
+                                        end do 
+                                        atomIndex = chainMesh%atoms(atomIndex)%nextAtom
+                                end do 
+                end do 
+        end subroutine initNNNList 
+
+
+        subroutine NNearestCells(chainMesh,cellIndex,N,list)
+                type(chainMesh_t), intent(in) :: chainMesh 
+                integer, intent(in) :: cellIndex, N 
+                integer, allocatable, dimension(:), intent(inout) :: list 
+
+                integer :: aCoord,bCoord,cCoord, atemp,btemp,ctemp
+                integer :: i,j,k,cellIndexOut, counter
+                if (allocated(list)) then 
+                        if (size(list) /= (N+1)**3) then 
+                                deallocate(list)
+                                allocate(list((N+1)**3))
+                        end if 
+                else 
+                        allocate(list((N+1)**3))
+                end if 
+                
+                call coordinatesFromIndex(chainMesh,cellIndex,aCoord,bCoord,cCoord)
+                counter = 1
+                do i = -N,N 
+                        do j = -N,N 
+                                do k = -N,N 
+                                        atemp = aCoord + i 
+                                        btemp = bCoord + j 
+                                        ctemp = cCoord + k 
+
+                                        atemp = modulo(atemp - 1,chainMesh%numCellsX) + 1 
+                                        btemp = modulo(btemp - 1,chainMesh%numCellsY) + 1 
+                                        ctemp = modulo(ctemp - 1,chainMesh%numCellsZ) + 1 
+                                        
+                                        cellIndexOut = IndexFromCoordinates(chainmesh, atemp, btemp, ctemp)
+                                        list(counter) = cellIndexOut 
+                                        counter = counter + 1
+                                end do 
+                        end do 
+                end do 
+        end subroutine 
 
         subroutine enumerateChainMeshCells(chainMesh)
                 type(chainMesh_t), intent(inout), target :: chainMesh 
@@ -685,5 +812,7 @@ end type ChainMesh_t
                 lowerAtom = currentMinIndex 
                 HigherAtom = currentMAxIndex 
         end subroutine computeAdjacentAtoms
+
+
 end module ChainMesh 
 
