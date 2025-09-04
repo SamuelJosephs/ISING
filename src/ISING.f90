@@ -12,7 +12,7 @@ program main
         implicit none
         integer :: numCellsX, numCellsY, numCellsZ, i, skyrmion_type, frame, num_frames, numMetropolisStepsTotal, numMetropolisSteps
         type(ChainMesh_t) :: testMesh
-        type(Atom_t) :: AtomsInUnitCell(2)
+        type(Atom_t) :: AtomsInUnitCell(7)
         type(vecNd_t) :: skyrmion_center
         real(kind=8), allocatable :: center_coords(:), skyrmion_radius
         real :: AtomParam1(3), AtomParam2(3), latticeParam
@@ -69,23 +69,31 @@ program main
         ! Initialize parameters
         latticeParam = 2.8
         ! Create 3D spin parameters for atoms (initialize all spins pointing up)
-        AtomParam1 = (/0.0, 0.0, 1.0/)
-        AtomParam2 = (/0.0, 0.0, 1.0/)
         
         ! Create atoms in unit cell
-        AtomsInUnitCell(1) = makeAtom(0.0, 0.0, 0.0, AtomParam1, -1) 
-        AtomsInUnitCell(2) = makeAtom(0.5, 0.5, 0.5, AtomParam2, -1)
+        AtomsInUnitCell(1) = makeAtom(0.000000,   0.000000,   0.479139, -1) 
+        AtomsInUnitCell(2) = makeAtom(0.333330,   0.666660,   0.519691, -1)
+
+        AtomsInUnitCell(3) = makeAtom(0.000000,   0.640832,   0.338337, -1)
+
+        AtomsInUnitCell(4) = makeAtom(0.000000,   0.693028,   0.664703, -1)
+
+        AtomsInUnitCell(5) = makeAtom(0.000000,   0.333738,   0.001466, -1)
+
+        AtomsInUnitCell(6) = makeAtom(0.000000,   0.000000,   0.276663, -1)
+
+        AtomsInUnitCell(7) = makeAtom(0.333330,   0.666660,   0.733149, -1)
         numCellsX = 30
         numCellsY = 30
         numCellsZ = 6
-        a_bravais = latticeParam
-        b_bravais = latticeParam
-        c_bravais = latticeParam
-        ab = 90 
-        bc = 90 
-        ca = 90 
+        a_bravais = 6.14
+        b_bravais = 6.14
+        c_bravais = 11.44
+        ab = 90.0 
+        bc = 90.0 
+        ca = 120.0
         ! Create the chain mesh
-        testMesh = makeChainMesh(2, numCellsX, numCellsY, numCellsZ, AtomsInUnitCell,&
+        testMesh = makeChainMesh(numCellsX, numCellsY, numCellsZ, AtomsInUnitCell,&
                                 a_bravais,b_bravais,c_bravais,ab,bc,ca)
         print *, "Attempting to allocate ", testMesh%numAtoms, "atoms"
         ! Assign nearest neighbors

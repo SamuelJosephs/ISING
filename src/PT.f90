@@ -24,7 +24,7 @@ program PT
         real(kind=dp) :: DMax = 2.5_dp
         real(kind=dp) :: BMin = 1.5_dp 
         real(kind=dp) :: BMax = 1.5_dp
-        logical :: demag = .False.
+        logical :: demag = .True.
         real(kind=dp), parameter :: TMax = 5.0_dp 
         real(kind=dp), parameter :: TMin = 0.00000001_dp 
         integer, parameter :: numTemps = 10
@@ -130,8 +130,8 @@ program PT
         call GET_COMMAND_ARGUMENT(10,outputPath)
         
         
-        AtomsInUnitCell(1) = makeAtom(0.0, 0.0, 0.0, atomParams, -1) 
-        AtomsInUnitCell(2) = makeAtom(0.5, 0.5, 0.5, atomParams, -1)
+        AtomsInUnitCell(1) = makeAtom(0.0, 0.0, 0.0, -1) 
+        AtomsInUnitCell(2) = makeAtom(0.5, 0.5, 0.5, -1)
         
         
 
@@ -173,7 +173,7 @@ program PT
         
         do i = 1,NumParams
                 do j = 1,numTemps 
-                        meshBuffer(i,j) = makeChainMesh(2, numCellsX, numCellsY, numCellsZ, AtomsInUnitCell,&
+                        meshBuffer(i,j) = makeChainMesh(numCellsX, numCellsY, numCellsZ, AtomsInUnitCell,&
                                                 a_bravais,b_bravais,c_bravais,ab,bc,ca)
                 end do 
         end do 

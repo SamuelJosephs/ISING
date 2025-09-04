@@ -3,7 +3,7 @@ module Atom
         use omp_lib
         type Atom_t 
                 real :: x,y,z, tmpx, tmpy, tmpz
-                integer :: NumAtomParameters
+                !integer :: NumAtomParameters
                 !real , allocatable :: AtomParameters(:) ! e.g. spin
                 integer :: nextAtom
                 integer, allocatable :: NeighborList(:)
@@ -11,15 +11,15 @@ module Atom
         end type
         
 contains
-        function makeAtom(x,y,z,atomParameters,  NextAtom) result(res)
-                real, intent(in) :: x,y,z
-                integer, intent(in) :: NextAtom
-                real, intent(in) :: AtomParameters(:)
-                type(Atom_t) :: res
+        function makeAtom(x,y,z,  NextAtom) result(res)
+               implicit none
+               real, intent(in) :: x,y,z
+               integer, intent(in) :: NextAtom
+               type(Atom_t) :: res
                res%x = x
                res%y = y
                res%z = z
-               res%NumAtomParameters = NumAtomParameters
+               !res%NumAtomParameters = NumAtomParameters
                !allocate(res%atomParameters(size(atomParameters)))
                !res%atomParameters = atomParameters
 
@@ -34,7 +34,7 @@ contains
         res%x = atom%x 
         res%y = atom%y
         res%z = atom%z
-        res%numAtomParameters = atom%numAtomParameters 
+        !res%numAtomParameters = atom%numAtomParameters 
         !allocate(res%atomParameters(size(atom%atomPArameters)))
         !res%atomParameters = atom%atomParameters 
         allocate(res%NeighborList((size(atom%NeighborList))))
