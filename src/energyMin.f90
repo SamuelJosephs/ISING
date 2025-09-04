@@ -109,7 +109,7 @@ module EnergyMin
                 y = chainMesh%atoms(atomIndex)%y 
                 z = chainMesh%atoms(atomIndex)%z 
                 atomPos1 = makeVecNd([x,y,z]) 
-                tempVec = makeVecNdCheck(tempVec, [0.0_8, 0.0_8, Dz])
+                tempVec = Dz*(chainMesh%c_vec / abs(chainMesh%c_vec))
                 Hx = demagnetisation_array(atomIndex,1)
                 Hy = demagnetisation_array(atomIndex,2)
                 Hz = demagnetisation_array(atomIndex,3)
@@ -308,6 +308,7 @@ module EnergyMin
   
                                 call calculateHeisenbergEnergy(chainMesh,atomIndex,J,J_prime,Dz,Dz_prime,&
                                         B,lockArray,S_proposed,oldEnergy,newEnergy,chainMesh%demagnetisation_array, calculate_demag)
+
                                 if (newEnergy < oldEnergy) then 
                                         Z = 1.0_8 
                                 else 
@@ -338,6 +339,8 @@ module EnergyMin
                 if (mod(MCScounter,demag_update_interval) == 0 .and. calculate_demag) then                         
                         !$omp single
                         call calculate_demagnetisation_field(chainMesh,chainMesh%demagnetisation_array)
+                        write(*,*) "Demag maxval, minval = ", &
+                                minval(chainMesh%demagnetisation_array), maxval(chainMesh%demagnetisation_array)
                         !$omp end single
                 end if 
 

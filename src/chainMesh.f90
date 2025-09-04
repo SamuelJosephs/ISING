@@ -575,16 +575,16 @@ module ChainMesh
                 chainMesh%backwardPlanZ = fftw_plan_dft_c2r_3d(M,L,N,chainMesh%fft_c_view_z,chainMesh%fft_array_z,FFTW_ESTIMATE)
         end subroutine create_chainMesh_plan
 
-        function makeChainMesh(numAtomsPerUnitCell, numCellsX, numCellsY, numCellsZ, & 
+        function makeChainMesh(numCellsX, numCellsY, numCellsZ, & 
                         AtomsInUnitCell, &
                         a,b,c,ab_deg,bc_deg,ca_deg) result(chainMesh)
                 implicit none 
-                integer, intent(in) :: numAtomsPerUnitCell, numCellsX, numCellsY, numCellsZ 
-                type(Atom_t), intent(in) :: AtomsInUnitCell(numAtomsPerUnitCell)
+                integer, intent(in) ::  numCellsX, numCellsY, numCellsZ 
+                type(Atom_t), intent(in) :: AtomsInUnitCell(:)
                 real(kind=8), intent(in) :: a,b,c,ab_deg,bc_deg,ca_deg
                 ! Need to create all the atoms, create all the ChainMeshCells, then allocate all of the atoms to a chain mesh cell 
                 type(ChainMesh_t), target :: chainMesh 
-                integer :: numChainMeshCells, padX, stat
+                integer :: numChainMeshCells, padX, stat, numAtomsPerUnitCell
                 integer :: numAtoms, stride 
                 integer :: i,j,k, icoord, jcoord, kcoord
                 type(ChainMeshCell_t) :: tempChainMeshCell
@@ -595,6 +595,7 @@ module ChainMesh
                                         pos
                 real(kind=8) :: cx, cy, cz, ab, bc,ca 
                 
+                numAtomsPerUnitCell = size(AtomsInUnitCell)
                 ab = ab_deg*(pi/180.0_8)
                 bc = bc_deg*(pi/180.0_8)
                 ca = ca_deg*(pi/180.0_8)
@@ -610,8 +611,8 @@ module ChainMesh
                 cy = (c*b*cos(bc)-cx*b_vec%coords(1))
                 cz = sqrt(c**2 - cx**2 - cy**2)
                 c_vec = makeVecNd([cx,cy,cz])
-                chainMesh%a_vec = a_vec 
-                chainMesh%b_vec = b_vec 
+                chainMesh%a_vec = a_vec
+                chainMesh%b_vec = b_vec
                 chainMesh%c_vec = c_vec 
                 
 
