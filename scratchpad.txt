@@ -1,0 +1,1 @@
+./bin/ISING -1.00 0.0 1.67 0.0 1.5 ./test_output_omp > log.txt && python3 skyrmion_evolution_simple.py test_output_omp test_output_omp_visualisations __prefix__ && python3 heatmaps.py &
