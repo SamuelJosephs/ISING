@@ -21,7 +21,8 @@ OBJDIR = obj
 BINDIR = bin
 
 # Source files and their corresponding object files
-SOURCES = $(SRCDIR)/rand.f90 $(SRCDIR)/CubePartition.f90 $(SRCDIR)/ISING.f90  $(SRCDIR)/atom.f90 $(SRCDIR)/chainMeshCell.f90 $(SRCDIR)/chainMesh.f90 $(SRCDIR)/energyMin.f90 $(SRCDIR)/vecNd.f90 $(SRCDIR)/LLG.f90 $(SRCDIR)/StereographicProjection.f90 $(SRCDIR)/constants.f90 $(SRCDIR)/reciprocalSpaceProcesses.f90 $(SRCDIR)/PT.f90 $(SRCDIR)/PT-Utils.f90 
+SOURCES = $(SRCDIR)/rand.f90 $(SRCDIR)/CubePartition.f90 $(SRCDIR)/ISING.f90  $(SRCDIR)/atom.f90 $(SRCDIR)/chainMeshCell.f90 $(SRCDIR)/chainMesh.f90 $(SRCDIR)/energyMin.f90 $(SRCDIR)/vecNd.f90 $(SRCDIR)/LLG.f90 $(SRCDIR)/StereographicProjection.f90 $(SRCDIR)/constants.f90 $(SRCDIR)/reciprocalSpaceProcesses.f90 $(SRCDIR)/PT.f90 $(SRCDIR)/PT-Utils.f90 $(SRCDIR)/algo.f90 $(SRCDIR)/tests.f90 
+
 # Not in use: $(SRCDIR)/RGFlow.f90
 
 OBJECTS = $(patsubst $(SRCDIR)/%.f90,$(OBJDIR)/%.o,$(SOURCES))
@@ -30,21 +31,25 @@ OBJECTS = $(patsubst $(SRCDIR)/%.f90,$(OBJDIR)/%.o,$(SOURCES))
 $(shell mkdir -p $(OBJDIR) $(BINDIR))
 
 # Main target
-all: $(BINDIR)/ISING $(BINDIR)/PT
+all: $(BINDIR)/ISING $(BINDIR)/PT $(BINDIR)/tests
 
 # Linking the final executable
-$(BINDIR)/ISING: $(filter-out $(OBJDIR)/PT.o, $(OBJECTS))
+$(BINDIR)/ISING: $(filter-out $(OBJDIR)/PT.o $(OBJDIR)/tests.o, $(OBJECTS))
 	$(FC) $(FCFLAGS) -o $@ $^ $(FFTWFLAGS)
 
-$(BINDIR)/PT: $(filter-out $(OBJDIR)/ISING.o, $(OBJECTS))
+$(BINDIR)/PT: $(filter-out $(OBJDIR)/ISING.o $(OBJDIR)/tests.o, $(OBJECTS))
+	$(FC) $(FCFLAGS) -o $@ $^ $(FFTWFLAGS)
+$(BINDIR)/tests: $(filter-out $(OBJDIR)/PT.o  $(OBJDIR)/ISING.o, $(OBJECTS))
 	$(FC) $(FCFLAGS) -o $@ $^ $(FFTWFLAGS)
 # Generic rule for object files
 $(OBJDIR)/%.o: $(SRCDIR)/%.f90
 	$(FC) $(FCFLAGS) $(MODDIR) -c $< -o $@ $(FFTWFLAGS)
 
 # Dependencies
-$(OBJDIR)/ISING.o: $(OBJDIR)/rand.o $(OBJDIR)/CubePartition.o $(OBJDIR)/atom.o $(OBJDIR)/chainMeshCell.o $(OBJDIR)/chainMesh.o $(OBJDIR)/energyMin.o $(OBJDIR)/LLG.o $(OBJDIR)/reciprocalSpaceProcesses.o 
-$(OBJDIR)/PT.o: $(OBJDIR)/rand.o $(OBJDIR)/CubePartition.o $(OBJDIR)/atom.o $(OBJDIR)/chainMeshCell.o $(OBJDIR)/chainMesh.o $(OBJDIR)/energyMin.o $(OBJDIR)/LLG.o $(OBJDIR)/reciprocalSpaceProcesses.o 	
+$(OBJDIR)/ISING.o: $(OBJDIR)/rand.o $(OBJDIR)/CubePartition.o $(OBJDIR)/atom.o $(OBJDIR)/chainMeshCell.o $(OBJDIR)/chainMesh.o $(OBJDIR)/energyMin.o $(OBJDIR)/LLG.o $(OBJDIR)/reciprocalSpaceProcesses.o $(OBJDIR)/algo.o 
+$(OBJDIR)/PT.o: $(OBJDIR)/rand.o $(OBJDIR)/CubePartition.o $(OBJDIR)/atom.o $(OBJDIR)/chainMeshCell.o $(OBJDIR)/chainMesh.o $(OBJDIR)/energyMin.o $(OBJDIR)/LLG.o $(OBJDIR)/reciprocalSpaceProcesses.o $(OBJDIR)/algo.o	
+
+$(OBJDIR)/tests.o: $(OBJDIR)/rand.o $(OBJDIR)/CubePartition.o $(OBJDIR)/atom.o $(OBJDIR)/chainMeshCell.o $(OBJDIR)/chainMesh.o $(OBJDIR)/energyMin.o $(OBJDIR)/LLG.o $(OBJDIR)/reciprocalSpaceProcesses.o $(OBJDIR)/algo.o	
 $(OBJDIR)/energyMin.o: $(OBJDIR)/chainMesh.o $(OBJDIR)/constants.o $(OBJDIR)/reciprocalSpaceProcesses.o
 $(OBJDIR)/chainMesh.o: $(OBJDIR)/atom.o $(OBJDIR)/chainMeshCell.o $(OBJDIR)/vecNd.o $(OBJDIR)/constants.o 
 $(OBJDIR)/chainMeshCell.o: $(OBJDIR)/atom.o 
@@ -58,6 +63,7 @@ $(OBJDIR)/PT-Utils.o: $(OBJDIR)/chainMesh.o $(OBJDIR)/constants.o $(OBJDIR)/reci
 $(OBJDIR)/LLG.o: $(OBJDIR)/chainMesh.o $(OBJDIR)/vecNd.o $(OBJDIR)/StereographicProjection.o $(OBJDIR)/reciprocalSpaceProcesses.o	
 $(OBJDIR)/StereographicProjection.o: $(OBJDIR)/vecNd.o
 $(OBJDIR)/reciprocalSpaceProcesses.o: $(OBJDIR)/chainMesh.o $(OBJDIR)/vecNd.o $(OBJDIR)/constants.o
+$(OBJDIR)/algo.o: 
 # Clean target
 clean:
 	rm -f $(OBJDIR)/*.o $(OBJDIR)/*.mod $(BINDIR)/ISING
