@@ -5,9 +5,12 @@ program tests
         implicit none 
 
         real(kind=dp), dimension(3) :: array 
+        integer, dimension(3) :: qs_companion_array
 
 
         array = (/9,3,6/)
-        call quicksort(array) 
+        qs_companion_array = (/1,2,3/)
+        call quicksort(array,integer_companion=qs_companion_array) 
         print *, "Sorted Array = ", array
+        print *, "sorted integer companion = ", qs_companion_array
 end program tests 
