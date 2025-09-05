@@ -12,7 +12,7 @@ program main
         implicit none
         integer :: numCellsX, numCellsY, numCellsZ, i, skyrmion_type, frame, num_frames, numMetropolisStepsTotal, numMetropolisSteps
         type(ChainMesh_t) :: testMesh
-        type(Atom_t) :: AtomsInUnitCell(7)
+        type(Atom_t) :: AtomsInUnitCell(2)
         type(vecNd_t) :: skyrmion_center
         real(kind=8), allocatable :: center_coords(:), skyrmion_radius
         real :: AtomParam1(3), AtomParam2(3), latticeParam
@@ -71,34 +71,38 @@ program main
         ! Create 3D spin parameters for atoms (initialize all spins pointing up)
         
         ! Create atoms in unit cell
-        AtomsInUnitCell(1) = makeAtom(0.000000,   0.000000,   0.479139, -1) 
-        AtomsInUnitCell(2) = makeAtom(0.333330,   0.666660,   0.519691, -1)
+        !AtomsInUnitCell(1) = makeAtom(0.000000,   0.000000,   0.479139, -1) 
+        !AtomsInUnitCell(2) = makeAtom(0.333330,   0.666660,   0.519691, -1)
 
-        AtomsInUnitCell(3) = makeAtom(0.000000,   0.640832,   0.338337, -1)
+        !AtomsInUnitCell(3) = makeAtom(0.000000,   0.640832,   0.338337, -1)
 
-        AtomsInUnitCell(4) = makeAtom(0.000000,   0.693028,   0.664703, -1)
+        !AtomsInUnitCell(4) = makeAtom(0.000000,   0.693028,   0.664703, -1)
 
-        AtomsInUnitCell(5) = makeAtom(0.000000,   0.333738,   0.001466, -1)
+        !AtomsInUnitCell(5) = makeAtom(0.000000,   0.333738,   0.001466, -1)
 
-        AtomsInUnitCell(6) = makeAtom(0.000000,   0.000000,   0.276663, -1)
+        !AtomsInUnitCell(6) = makeAtom(0.000000,   0.000000,   0.276663, -1)
 
-        AtomsInUnitCell(7) = makeAtom(0.333330,   0.666660,   0.733149, -1)
+        !AtomsInUnitCell(7) = makeAtom(0.333330,   0.666660,   0.733149, -1)
+        AtomsInUnitCell(1) = makeAtom(0.0,0.0,0.0,-1) 
+        AtomsInUnitCell(2) = makeAtom(0.5,0.5,0.5,-1)
         numCellsX = 30
         numCellsY = 30
         numCellsZ = 6
         a_bravais = 6.14
         b_bravais = 6.14
-        c_bravais = 11.44
+        !c_bravais = 11.44
+        c_bravais = 6.14
         ab = 90.0 
         bc = 90.0 
-        ca = 120.0
+        !ca = 120.0
+        ca = 90.0
         ! Create the chain mesh
         testMesh = makeChainMesh(numCellsX, numCellsY, numCellsZ, AtomsInUnitCell,&
                                 a_bravais,b_bravais,c_bravais,ab,bc,ca)
         print *, "Attempting to allocate ", testMesh%numAtoms, "atoms"
         ! Assign nearest neighbors
         do i = 1,size(testMesh%atoms) 
-                print *, "Num nearest Neighbours = ", size(testMesh%atoms(i)%NeighborList)
+                print *, "Num nearest Neighbours = ", size(testMesh%atomShells(i,1)%NNList)
         end do 
 
         ! Define skyrmion center position (middle of the mesh)

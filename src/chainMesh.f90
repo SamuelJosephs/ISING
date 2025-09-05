@@ -446,13 +446,13 @@ module ChainMesh
                 end do 
         end subroutine initNNNList 
 
-        subroutine initAtomShells(chainMesh,N,distance_threshold) ! Initialise N shells around each atom 
+        subroutine initAtomShells(chainMesh,N,NNeighbourCells,distance_threshold) ! Initialise N shells around each atom 
                 use iso_fortran_env, only: dp=>real64
                 use algo, only: quicksort 
 
                 implicit none 
                 type(chainMesh_t), intent(inout) :: chainMesh 
-                integer, intent(in) :: N 
+                integer, intent(in) :: N, NNeighbourCells 
                 real(kind=dp), intent(in) :: distance_threshold
 
                 integer :: i, j, atomIndex, atomIndexTemp,  cellIndex, NCellIndex, stat, &
@@ -484,27 +484,32 @@ module ChainMesh
                     end do 
                 end do 
 
-                allocate(distanceArray(N*chainMesh%chainMeshCells(1)%numAtomsPerUnitCell),stat=stat)
+                allocate(distanceArray((2*NNeighbourCells+1)**3*chainMesh%chainMeshCells(1)%numAtomsPerUnitCell),stat=stat)
                 if (stat /= 0) error stop "Error: failed to allocate distanceArray"
-                allocate(distanceArrayAtomIndices(N*chainMesh%chainMeshCells(1)%numAtomsPerUnitCell),stat=stat)
+                allocate(distanceArrayAtomIndices((2*NNeighbourCells+1)**3*chainMesh%chainMeshCells(1)%numAtomsPerUnitCell),&
+                        stat=stat)
                 if (stat /= 0) error stop "Error: failed to allocate distanceArray"
                                
                 ! Now start iterating through each atom, each atoms neighbors in N neibouring cells, and recording the distances in
                 ! an array 
                 
                 do cellIndex = 1, chainMesh%numchainMeshCells
-                        call NNearestCells(chainMesh,cellIndex,N,NCellList)
+                        call NNearestCells(chainMesh,cellIndex,NNeighbourCells,NCellList)
                         ! At this stage the atoms should have been assigned to each cell 
                         atomIndex = chainMesh%chainMeshCells(cellIndex)%firstAtomInMeshCell
-                        distanceArrayIndex = 1
-                        distanceArray(:) = HUGE(distanceArray(1)) 
-                        distanceArrayAtomIndices(:) = -1
+
                         do while (atomIndex /= -1)
-                                
+                                distanceArrayIndex = 1
+                                distanceArray(:) = HUGE(distanceArray(1)) 
+                                distanceArrayAtomIndices(:) = -1                               
                                 do i = 1, size(NCellList)
                                         NCellIndex = NCellList(i) 
                                         NCAtomIndex = chainMesh%chainMeshCells(NCellIndex)%firstAtomInMeshCell 
                                         do while (NCAtomIndex /= -1)
+                                                if (NCAtomIndex == atomIndex) then 
+                                                        NCAtomIndex = chainMesh%atoms(NCAtomIndex)%nextAtom 
+                                                        cycle 
+                                                end if 
                                                 dist = distance(chainMesh,atomIndex,NCAtomIndex) 
                                                 distanceArray(distanceArrayIndex) = dist 
                                                 distanceArrayAtomIndices(distanceArrayIndex) = NCAtomIndex 
@@ -515,9 +520,11 @@ module ChainMesh
                                 ! Now for the atom given by atomIndex, we have a set of distances, we can sort these and compute
                                 ! "shells" 
                                 ! Naively there should be no excess elements but we will put in a check just in case 
-                                if (any(distanceArrayAtomIndices == -1)) error stop "Error: Excess entries in distanceArray"
+                                !if (any(distanceArrayAtomIndices == -1)) error stop "Error: Excess entries in distanceArray"
+
                                 call quicksort(distanceArray,integer_companion=distanceArrayAtomIndices)
-                                
+                                write(*,*) "Distance Array: ", distanceArray
+                                write(*,*) "Distance Indices: ", distanceArrayAtomIndices                                
 
                                 shellIndex = 1
                                 chainMesh%atomShells(atomIndex,shellIndex)%NNList = [chainMesh%atomShells(atomIndex,&
@@ -527,11 +534,12 @@ module ChainMesh
                                         dist=distanceArray(j)
                                         prevDist=distanceArray(j - 1)
                                         if (abs(dist - prevDist) > distance_threshold) shellIndex = shellIndex + 1 
+                                        if (shellIndex > N) exit
                                          chainMesh%atomShells(atomIndex,shellIndex)%NNList = &
                                                     [chainMesh%atomShells(atomIndex,shellIndex)%NNList,&
                                                                 distanceArrayAtomIndices(j)]
                                 end do 
-
+                                
                                 atomIndex = chainMesh%atoms(atomIndex)%nextAtom
 
                         end do 
@@ -547,13 +555,13 @@ module ChainMesh
                 integer :: aCoord,bCoord,cCoord, atemp,btemp,ctemp
                 integer :: i,j,k,cellIndexOut, counter, stat
                 if (allocated(list)) then 
-                        if (size(list) /= (N+1)**3) then 
+                        if (size(list) /= (2*N+1)**3) then 
                                 deallocate(list)
-                                allocate(list((N+1)**3), stat=stat)
+                                allocate(list((2*N+1)**3), stat=stat)
                                 if (stat /= 0) error stop "Error: Failed to allocate list array"
                         end if 
                 else 
-                        allocate(list((N+1)**3),stat=stat)
+                        allocate(list((2*N+1)**3),stat=stat)
                         if (stat /= 0) error stop "Error: Failed to allocate list array"
                 end if 
                 
@@ -790,6 +798,7 @@ module ChainMesh
                allocate(chainMesh%atomSpins(chainMesh%numAtoms,3),stat=stat)
                if (stat /= 0) error stop "Error: Failed to allocated atomSpins array"
                call DerivativeList(chainMesh,chainMesh%derivativeList)        
+               call initAtomShells(chainMesh,1,1,chainMesh%a/5.0)
         end function makeChainMesh 
 
 

@@ -4,7 +4,7 @@ program tests
         use iso_fortran_env, only: dp=>real64 
         implicit none 
 
-        real(kind=dp), dimension(3) :: array 
+        real(kind=8), dimension(3) :: array 
         integer, dimension(3) :: qs_companion_array
 
 
