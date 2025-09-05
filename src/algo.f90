@@ -36,21 +36,21 @@ contains
                                 temp = array(lesserPartitionIndex)
                                 array(lesserPartitionIndex) = pivot 
                                 array(pivotIndex) = temp 
-                        else if (array(GreaterPartitionIndex) < pivot) then 
+                                pivotIndex = lesserPartitionIndex 
+                        end if 
+                        if (array(GreaterPartitionIndex) < pivot) then 
                                 temp = array(GreaterPartitionIndex)
                                 array(GreaterPartitionIndex) = pivot 
                                 array(pivotIndex) = temp 
+                                pivotIndex = GreaterPartitionIndex 
                         end if 
                 
                         lesserPartitionIndex = lesserPartitionIndex + 1
                         GreaterPartitionIndex = GreaterPartitionIndex - 1
                 end do 
 
-                print *, "pivot = ", pivot 
-                print *, "Lower partition = ", array(1:GreaterPartitionIndex)
-                print *, "Upper Partition = ", array(GreaterPartitionIndex:size(array))
                 
                 call quicksort_dp(array(1:GreaterPartitionIndex))
-                call quicksort_dp(array(GreaterPartitionIndex:size(array))) 
+                call quicksort_dp(array(GreaterPartitionIndex + 1:size(array))) 
         end subroutine quicksort_dp 
 end module algo 
