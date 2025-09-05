@@ -28,7 +28,8 @@ module ChainMesh
                 type(vecNd_t) :: a_vec, b_vec, c_vec, ar_vec, br_vec, cr_vec ! ar stands for a reciprocal  
                 real(kind=8), allocatable, dimension(:,:) :: demagnetisation_array
                 
-                type(NNContainer_t), allocatable, dimension(:) :: NNNList ! N'th nearest neighbor list
+                type(NNContainer_t), allocatable, dimension(:) :: NNNList ! N'th nearest neighbor list OBSOLETE
+                type(NNContainer_t), allocatable, dimension(:,:) ::  atomShells ! (atomIndex, shellIndex)
         end type ChainMesh_t 
 
         interface IndexFromCoordinates
@@ -358,7 +359,7 @@ module ChainMesh
         end subroutine assignNearestNeighbors
 
 
-        subroutine initNNNList(chainMesh,N)
+        subroutine initNNNList(chainMesh,N) ! This routine is suspect and will be replaced with initAtomShells
                 implicit none
                 type(chainMesh_t), intent(inout) :: chainMesh 
                 integer, intent(in) :: N 
@@ -409,7 +410,7 @@ module ChainMesh
                                                                 distance_val = distance(chainMesh,atomIndex,atomIndexTemp)  
 
                                                                 if (distance_val < currentDistance .and. &
-                                                                         currentDistance > prevDistance) currentDistance = &
+                                                                         distance_val  > prevDistance) currentDistance = &
                                                                                         distance_val 
                                                                 atomIndexTemp = chainMesh%atoms(atomIndexTemp)%nextAtom
                                                         end do 
@@ -445,21 +446,115 @@ module ChainMesh
                 end do 
         end subroutine initNNNList 
 
+        subroutine initAtomShells(chainMesh,N,distance_threshold) ! Initialise N shells around each atom 
+                use iso_fortran_env, only: dp=>real64
+                use algo, only: quicksort 
 
-        subroutine NNearestCells(chainMesh,cellIndex,N,list)
+                implicit none 
+                type(chainMesh_t), intent(inout) :: chainMesh 
+                integer, intent(in) :: N 
+                real(kind=dp), intent(in) :: distance_threshold
+
+                integer :: i, j, atomIndex, atomIndexTemp,  cellIndex, NCellIndex, stat, &
+                        NCAtomIndex
+                real(kind=dp), allocatable, dimension(:) :: distanceArray 
+                integer, allocatable, dimension(:) :: distanceArrayAtomIndices
+                integer :: distanceArrayIndex, shellIndex
+                real(kind=dp) :: dist, prevDist 
+
+                integer, dimension(:), allocatable :: NCellList
+
+                ! Initialise chainMesh%atomShells 
+
+                if (allocated(chainMesh%atomShells)) then 
+                    do i = 1, chainMesh%numAtoms
+                        do j = 1, N
+                                deallocate(chainMesh%atomShells(i,j)%NNList) ! Initial allocation
+                        end do
+                    end do
+                    deallocate(chainMesh%atomShells)
+                end if 
+
+                allocate(chainMesh%atomShells(chainMesh%numAtoms,N),stat=stat)
+                if (stat /=0 ) error stop "Error: Failed to allocated atomShells array"
+                do i = 1, chainMesh%numAtoms 
+                    do j = 1, N
+                        allocate(chainMesh%atomShells(i,j)%NNList(0)) ! Initial allocation 
+                        chainMesh%atomShells(i,j)%distance = 0.0_dp 
+                    end do 
+                end do 
+
+                allocate(distanceArray(N*chainMesh%chainMeshCells(1)%numAtomsPerUnitCell),stat=stat)
+                if (stat /= 0) error stop "Error: failed to allocate distanceArray"
+                allocate(distanceArrayAtomIndices(N*chainMesh%chainMeshCells(1)%numAtomsPerUnitCell),stat=stat)
+                if (stat /= 0) error stop "Error: failed to allocate distanceArray"
+                               
+                ! Now start iterating through each atom, each atoms neighbors in N neibouring cells, and recording the distances in
+                ! an array 
+                
+                do cellIndex = 1, chainMesh%numchainMeshCells
+                        call NNearestCells(chainMesh,cellIndex,N,NCellList)
+                        ! At this stage the atoms should have been assigned to each cell 
+                        atomIndex = chainMesh%chainMeshCells(cellIndex)%firstAtomInMeshCell
+                        distanceArrayIndex = 1
+                        distanceArray(:) = HUGE(distanceArray(1)) 
+                        distanceArrayAtomIndices(:) = -1
+                        do while (atomIndex /= -1)
+                                
+                                do i = 1, size(NCellList)
+                                        NCellIndex = NCellList(i) 
+                                        NCAtomIndex = chainMesh%chainMeshCells(NCellIndex)%firstAtomInMeshCell 
+                                        do while (NCAtomIndex /= -1)
+                                                dist = distance(chainMesh,atomIndex,NCAtomIndex) 
+                                                distanceArray(distanceArrayIndex) = dist 
+                                                distanceArrayAtomIndices(distanceArrayIndex) = NCAtomIndex 
+                                                distanceArrayIndex = distanceArrayIndex + 1
+                                                NCAtomIndex = chainMesh%atoms(NCAtomIndex)%nextAtom 
+                                        end do 
+                                end do         
+                                ! Now for the atom given by atomIndex, we have a set of distances, we can sort these and compute
+                                ! "shells" 
+                                ! Naively there should be no excess elements but we will put in a check just in case 
+                                if (any(distanceArrayAtomIndices == -1)) error stop "Error: Excess entries in distanceArray"
+                                call quicksort(distanceArray,integer_companion=distanceArrayAtomIndices)
+                                
+
+                                shellIndex = 1
+                                chainMesh%atomShells(atomIndex,shellIndex)%NNList = [chainMesh%atomShells(atomIndex,&
+                                        shellIndex)%NNList,&
+                                        distanceArrayAtomIndices(1)] ! Add the closest atom to the first shell 
+                                do j = 2,size(distanceArray)
+                                        dist=distanceArray(j)
+                                        prevDist=distanceArray(j - 1)
+                                        if (abs(dist - prevDist) > distance_threshold) shellIndex = shellIndex + 1 
+                                         chainMesh%atomShells(atomIndex,shellIndex)%NNList = &
+                                                    [chainMesh%atomShells(atomIndex,shellIndex)%NNList,&
+                                                                distanceArrayAtomIndices(j)]
+                                end do 
+
+                                atomIndex = chainMesh%atoms(atomIndex)%nextAtom
+
+                        end do 
+                                
+                end do 
+        end subroutine initAtomShells 
+
+        subroutine NNearestCells(chainMesh,cellIndex,N,list) ! Computed the cell indices of the N nearest cells and put them in list 
                 type(chainMesh_t), intent(in) :: chainMesh 
                 integer, intent(in) :: cellIndex, N 
                 integer, allocatable, dimension(:), intent(inout) :: list 
 
                 integer :: aCoord,bCoord,cCoord, atemp,btemp,ctemp
-                integer :: i,j,k,cellIndexOut, counter
+                integer :: i,j,k,cellIndexOut, counter, stat
                 if (allocated(list)) then 
                         if (size(list) /= (N+1)**3) then 
                                 deallocate(list)
-                                allocate(list((N+1)**3))
+                                allocate(list((N+1)**3), stat=stat)
+                                if (stat /= 0) error stop "Error: Failed to allocate list array"
                         end if 
                 else 
-                        allocate(list((N+1)**3))
+                        allocate(list((N+1)**3),stat=stat)
+                        if (stat /= 0) error stop "Error: Failed to allocate list array"
                 end if 
                 
                 call coordinatesFromIndex(chainMesh,cellIndex,aCoord,bCoord,cCoord)
