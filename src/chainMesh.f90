@@ -520,11 +520,8 @@ module ChainMesh
                                 ! Now for the atom given by atomIndex, we have a set of distances, we can sort these and compute
                                 ! "shells" 
                                 ! Naively there should be no excess elements but we will put in a check just in case 
-                                !if (any(distanceArrayAtomIndices == -1)) error stop "Error: Excess entries in distanceArray"
 
                                 call mergesort(distanceArray,integer_companion=distanceArrayAtomIndices)
-                                write(*,*) "Distance Array: ", distanceArray
-                                write(*,*) "Distance Indices: ", distanceArrayAtomIndices                                
 
                                 shellIndex = 1
                                 chainMesh%atomShells(atomIndex,shellIndex)%NNList = [chainMesh%atomShells(atomIndex,&
@@ -571,7 +568,6 @@ module ChainMesh
                 aCoord = aCoord  ! 1 - numCellsX 
                 bCoord = bCoord 
                 cCoord = cCoord 
-                write(*,*) "a,b,c = ",acoord,bcoord,ccoord
                 counter = 1
                 do i = -N,N 
                         do j = -N,N 
@@ -580,19 +576,16 @@ module ChainMesh
                                         btemp = bCoord + j 
                                         ctemp = cCoord + k 
 
-                                        print *, "atemp, btemp, ctemp = ", atemp,btemp,ctemp 
                                         atemp = modulo(atemp,chainMesh%numCellsX) + 1 
                                         btemp = modulo(btemp,chainMesh%numCellsY) + 1 
                                         ctemp = modulo(ctemp,chainMesh%numCellsZ) + 1 
                                         
-                                        print *, "atemp, btemp, ctemp = ", atemp,btemp,ctemp 
                                         cellIndexOut = IndexFromCoordinates(chainmesh, atemp, btemp, ctemp)
                                         list(counter) = cellIndexOut 
                                         counter = counter + 1
                                 end do 
                         end do 
                 end do 
-                write(*,*) "NeighbourArray = ", list
         end subroutine NNearestCells  
 
         subroutine enumerateChainMeshCells(chainMesh)
@@ -689,11 +682,12 @@ module ChainMesh
 
         function makeChainMesh(numCellsX, numCellsY, numCellsZ, & 
                         AtomsInUnitCell, &
-                        a,b,c,ab_deg,bc_deg,ca_deg) result(chainMesh)
+                        a,b,c,ab_deg,bc_deg,ca_deg,distance_threshold) result(chainMesh)
                 implicit none 
                 integer, intent(in) ::  numCellsX, numCellsY, numCellsZ 
                 type(Atom_t), intent(in) :: AtomsInUnitCell(:)
                 real(kind=8), intent(in) :: a,b,c,ab_deg,bc_deg,ca_deg
+                real(kind=8), intent(in), optional :: distance_threshold ! For Neighbour atom shells 
                 ! Need to create all the atoms, create all the ChainMeshCells, then allocate all of the atoms to a chain mesh cell 
                 type(ChainMesh_t), target :: chainMesh 
                 integer :: numChainMeshCells, padX, stat, numAtomsPerUnitCell
@@ -705,7 +699,11 @@ module ChainMesh
                 type(C_ptr) :: temp_c_ptr
                 type(vecNd_t) :: a_vec, b_vec, c_vec, ar_vec, br_vec, cr_vec, tmp_vec, &
                                         pos
-                real(kind=8) :: cx, cy, cz, ab, bc,ca 
+                real(kind=8) :: cx, cy, cz, ab, bc,ca,&
+                       my_threshold 
+                
+                my_threshold = 0.1_8*a 
+                if (present(distance_threshold)) my_threshold = distance_threshold   
                 
                 numAtomsPerUnitCell = size(AtomsInUnitCell)
                 ab = ab_deg*(pi/180.0_8)
@@ -799,7 +797,7 @@ module ChainMesh
                         end do
                end do
 
-               call assignNearestNeighbors(chainMesh)
+               call assignNearestNeighbors(chainMesh) ! TODO: This should be depreciated in favour of initAtomShells 
 
                allocate(chainMesh%demagnetisation_array(chainMesh%numAtoms,3),stat=stat)
                if (stat /= 0) error stop "Error: Failed to allocate demagnetisation_array"
@@ -807,7 +805,7 @@ module ChainMesh
                allocate(chainMesh%atomSpins(chainMesh%numAtoms,3),stat=stat)
                if (stat /= 0) error stop "Error: Failed to allocated atomSpins array"
                call DerivativeList(chainMesh,chainMesh%derivativeList)        
-               call initAtomShells(chainMesh,1,1,chainMesh%a/10.0)
+               call initAtomShells(chainMesh,1,1,my_threshold) 
         end function makeChainMesh 
 
 
