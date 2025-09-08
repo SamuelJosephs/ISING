@@ -448,7 +448,7 @@ module ChainMesh
 
         subroutine initAtomShells(chainMesh,N,NNeighbourCells,distance_threshold) ! Initialise N shells around each atom 
                 use iso_fortran_env, only: dp=>real64
-                use algo, only: quicksort 
+                use algo, only: mergesort  
 
                 implicit none 
                 type(chainMesh_t), intent(inout) :: chainMesh 
@@ -522,7 +522,7 @@ module ChainMesh
                                 ! Naively there should be no excess elements but we will put in a check just in case 
                                 !if (any(distanceArrayAtomIndices == -1)) error stop "Error: Excess entries in distanceArray"
 
-                                call quicksort(distanceArray,integer_companion=distanceArrayAtomIndices)
+                                call mergesort(distanceArray,integer_companion=distanceArrayAtomIndices)
                                 write(*,*) "Distance Array: ", distanceArray
                                 write(*,*) "Distance Indices: ", distanceArrayAtomIndices                                
 

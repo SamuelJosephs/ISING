@@ -95,21 +95,33 @@ contains
                 end if 
         end subroutine quicksort_dp 
 
-        subroutine mergesort_dp(array)
+        subroutine mergesort_dp(array, integer_companion)
                 use iso_fortran_env, only: dp=>real64 
                 implicit none 
 
                 real(kind=dp), dimension(:), intent(out), target :: array 
-                
+                integer, dimension(:), optional, target :: integer_companion 
+
                 real(kind=dp), dimension(:), allocatable :: scratchSpace  
+                integer, dimension(:), allocatable :: integer_scratch_space
                 real(kind=dp), dimension(:), pointer :: A,B
+                integer, dimension(:), pointer :: AComp, BComp 
                 logical :: sorted 
                 integer :: stat, NBins, i, strideIndex, NBinsTemp, counter  
                 integer, parameter :: stride = 2   
                 integer, dimension(:,:), allocatable :: Bins, BinsTemp  
 
+
+                if (present(integer_companion)) then 
+                        if (size(integer_companion) /= size(array)) error stop "Error: &
+                                Integer Companion must have the same size as the array to be sorted"
+
+                        allocate(integer_scratch_space(size(array)),stat=stat)
+                        if (stat /= 0) error stop "Failed to allocate integer scratch space "
+                end if 
                 sorted = .False.
                 allocate(scratchSpace(size(array)),stat=stat )
+                
                 if (stat /= 0) error stop "Failed to allocate scratchSpace" 
                 
                 NBins = size(array) 
@@ -143,7 +155,20 @@ contains
                                 end if   
                                 A => array(Bins(strideIndex,1):Bins(strideIndex,2))
                                 B => array(Bins(strideIndex + 1,1):Bins(strideIndex + 1,2))
-                                call merge_dp(A,B,scratchSpace)
+                                if (present(integer_companion)) then 
+                                        AComp => integer_companion(Bins(strideIndex,1):Bins(strideIndex,2))
+                                        BComp => integer_companion(Bins(strideIndex + 1,1):Bins(strideIndex + 1,2))
+                                        
+                                        call merge_dp(A,B,scratchSpace,Acomp=Acomp,BComp=BComp,&
+                                                integer_scratch_space=integer_scratch_space)
+                                        
+                                        
+                                        integer_companion(Bins(strideIndex,1):Bins(strideIndex + 1,2)) = &
+                                                integer_scratch_space(1:size(AComp) + size(BComp))
+
+                                else 
+                                        call merge_dp(A,B,scratchSpace)
+                                end if 
                                 array(Bins(strideIndex,1):Bins(strideIndex + 1,2)) = scratchSpace(1:size(A) + size(B))
                                 NBinsTemp = NBinsTemp - 1 ! Each Merge reduces the number of subarrays by 1
                                 binsTemp(counter,1) =bins(strideIndex,1) ! Start is the start 
@@ -160,15 +185,32 @@ contains
 
         end subroutine mergesort_dp 
 
-        recursive subroutine merge_dp(A,B,scratchSpace,scratchIndex)
+        recursive subroutine merge_dp(A,B,scratchSpace,scratchIndex, AComp, BComp,&
+                        integer_scratch_space)
+                ! TODO; Add integer companion ordering
                 use iso_fortran_env, only: dp=>real64 
                 implicit none 
                 real(kind=dp), dimension(:), intent(inout) :: A,B,scratchSpace 
+                integer, dimension(:), optional :: AComp, BComp, integer_scratch_space  
                 integer, optional, intent(in) :: scratchIndex
                 integer :: SI 
 
                 if (size(scratchSpace) < size(A) + size(B)) error stop "Error: Insufficient scratchspace"
 
+                if (present(Acomp)) then 
+                        if (size(Acomp) /= size(A)) error stop "A and it's integer companion &
+                                must be the same size"
+                end if 
+
+                if (present(Bcomp)) then 
+                        if (size(Bcomp) /= size(B)) error stop "Error: B and it's integer companion must be of the same size"
+                end if 
+
+                if (present(integer_scratch_space)) then 
+                        if (size(integer_scratch_space) /= size(scratchSpace)) error stop "Error: &
+                                integer scratch space must have the same size as scratch space"
+                end if 
+                
                 if (present(scratchIndex)) then 
                         SI = scratchIndex
                 else 
@@ -178,17 +220,36 @@ contains
                 
                 if (size(A) == 0) then 
                         scratchSpace(SI:SI + size(B)) = B(:)
+                        if (present(integer_scratch_space)) then 
+                                integer_scratch_space(SI:SI + size(B)) = BComp(:)
+                        end if 
                         return 
                 else if (size(B) == 0) then 
                         scratchSpace(SI:SI + size(A)) = A(:)
+                        if (present(integer_scratch_space)) then 
+                                integer_scratch_space(SI:SI + size(A)) = AComp 
+                        end if 
                         return 
                 end if 
                 
                 if (A(1) < B(1)) then 
                         scratchSpace(SI) = A(1)
+                        if (present(integer_scratch_space)) then 
+                                integer_scratch_space(SI) = AComp(1)
+                                call merge_dp(A(2:size(A)),B,scratchSpace,SI+1,&
+                                         AComp(2:size(AComp)), BComp,integer_scratch_space)
+                                return  
+                        end if 
                         call merge_dp(A(2:size(A)),B,scratchSpace,SI+1)
                 else 
                         scratchSpace(SI) = B(1)
+                        if (present(integer_scratch_space)) then 
+                                integer_scratch_space(SI) = BComp(1)
+
+                                call merge_dp(A,B(2:size(B)),scratchSpace,SI+1,&
+                                        AComp,BComp(2:size(BComp)),integer_scratch_space)
+                                return 
+                        end if 
                         call merge_dp(A,B(2:size(B)),scratchSpace,SI+1)
                 end if 
 
