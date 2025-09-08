@@ -103,6 +103,8 @@ program main
         ! Assign nearest neighbors
         do i = 1,size(testMesh%atoms) 
                 print *, "Num nearest Neighbours = ", size(testMesh%atomShells(i,1)%NNList)
+                
+                !print *, "Num nearest Neighbours = ", size(testMesh%atoms(1)%NeighborList)
         end do 
 
         ! Define skyrmion center position (middle of the mesh)

@@ -548,6 +548,7 @@ module ChainMesh
         end subroutine initAtomShells 
 
         subroutine NNearestCells(chainMesh,cellIndex,N,list) ! Computed the cell indices of the N nearest cells and put them in list 
+                implicit none
                 type(chainMesh_t), intent(in) :: chainMesh 
                 integer, intent(in) :: cellIndex, N 
                 integer, allocatable, dimension(:), intent(inout) :: list 
@@ -566,6 +567,11 @@ module ChainMesh
                 end if 
                 
                 call coordinatesFromIndex(chainMesh,cellIndex,aCoord,bCoord,cCoord)
+
+                aCoord = aCoord  ! 1 - numCellsX 
+                bCoord = bCoord 
+                cCoord = cCoord 
+                write(*,*) "a,b,c = ",acoord,bcoord,ccoord
                 counter = 1
                 do i = -N,N 
                         do j = -N,N 
@@ -574,17 +580,20 @@ module ChainMesh
                                         btemp = bCoord + j 
                                         ctemp = cCoord + k 
 
-                                        atemp = modulo(atemp - 1,chainMesh%numCellsX) + 1 
-                                        btemp = modulo(btemp - 1,chainMesh%numCellsY) + 1 
-                                        ctemp = modulo(ctemp - 1,chainMesh%numCellsZ) + 1 
+                                        print *, "atemp, btemp, ctemp = ", atemp,btemp,ctemp 
+                                        atemp = modulo(atemp,chainMesh%numCellsX) + 1 
+                                        btemp = modulo(btemp,chainMesh%numCellsY) + 1 
+                                        ctemp = modulo(ctemp,chainMesh%numCellsZ) + 1 
                                         
+                                        print *, "atemp, btemp, ctemp = ", atemp,btemp,ctemp 
                                         cellIndexOut = IndexFromCoordinates(chainmesh, atemp, btemp, ctemp)
                                         list(counter) = cellIndexOut 
                                         counter = counter + 1
                                 end do 
                         end do 
                 end do 
-        end subroutine 
+                write(*,*) "NeighbourArray = ", list
+        end subroutine NNearestCells  
 
         subroutine enumerateChainMeshCells(chainMesh)
                 type(chainMesh_t), intent(inout), target :: chainMesh 
@@ -798,7 +807,7 @@ module ChainMesh
                allocate(chainMesh%atomSpins(chainMesh%numAtoms,3),stat=stat)
                if (stat /= 0) error stop "Error: Failed to allocated atomSpins array"
                call DerivativeList(chainMesh,chainMesh%derivativeList)        
-               call initAtomShells(chainMesh,1,1,chainMesh%a/5.0)
+               call initAtomShells(chainMesh,1,1,chainMesh%a/10.0)
         end function makeChainMesh 
 
 
