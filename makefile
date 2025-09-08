@@ -51,7 +51,7 @@ $(OBJDIR)/PT.o: $(OBJDIR)/rand.o $(OBJDIR)/CubePartition.o $(OBJDIR)/atom.o $(OB
 
 $(OBJDIR)/tests.o: $(OBJDIR)/rand.o $(OBJDIR)/CubePartition.o $(OBJDIR)/atom.o $(OBJDIR)/chainMeshCell.o $(OBJDIR)/chainMesh.o $(OBJDIR)/energyMin.o $(OBJDIR)/LLG.o $(OBJDIR)/reciprocalSpaceProcesses.o $(OBJDIR)/algo.o	
 $(OBJDIR)/energyMin.o: $(OBJDIR)/chainMesh.o $(OBJDIR)/constants.o $(OBJDIR)/reciprocalSpaceProcesses.o
-$(OBJDIR)/chainMesh.o: $(OBJDIR)/atom.o $(OBJDIR)/chainMeshCell.o $(OBJDIR)/vecNd.o $(OBJDIR)/constants.o 
+$(OBJDIR)/chainMesh.o: $(OBJDIR)/atom.o $(OBJDIR)/chainMeshCell.o $(OBJDIR)/vecNd.o $(OBJDIR)/constants.o $(OBJDIR)/algo.o 
 $(OBJDIR)/chainMeshCell.o: $(OBJDIR)/atom.o 
 $(OBJDIR)/rand.o: $(OBJDIR)/chainMesh.o 
 $(OBJDIR)/CubePartition.o: $(OBJDIR)/chainMesh.o 
