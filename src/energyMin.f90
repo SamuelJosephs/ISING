@@ -116,8 +116,11 @@ module EnergyMin
                 MdotH = S%coords(1)* Hx + S%coords(2)* Hy + S%coords(3)* Hz 
                 MdotH_proposed = S_proposed%coords(1)* Hx + S_proposed%coords(2)* Hy + S_proposed%coords(3)* Hz
 
-                do i = 1,size(chainMesh%atoms(atomIndex)%NeighborList)
-                        atomIndexTemp = chainMesh%atoms(atomIndex)%NeighborList(i)
+
+                do i = 1,size(chainMesh%atomShells(atomIndex,1)%NNList)
+                     
+                        atomIndexTemp = chainMesh%atomShells(atomIndex,1)%NNList(i)
+
                         if (atomIndexTemp == atomIndex) error stop "Encountered self interaction"
                         call OMP_SET_LOCK(lockArray(atomIndexTemp))
                                 S_prime = makeVecNdCheck(S_prime,dble(chainMesh%atomSpins(atomIndexTemp,:)))
