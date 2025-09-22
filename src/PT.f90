@@ -304,12 +304,12 @@ program PT
                         output_string = "J,D,B,T,winding_number_middle, &
                                 skyrmion_number_middle,winding_number_spread,sx,&
                                 sy, sz" // new_line('a')
-                        write(string_buff,'((F8.4,",",F8.4,","F8.4,",",F0.10,","))') ParamArray(i,1), &
+                        write(string_buff,'((F0.4,",",F0.4,","F0.4,",",F0.10,","))') ParamArray(i,1), &
                                         ParamArray(i,2), ParamArray(i,3),temp
                         output_string = output_string // trim(adjustl(string_buff))
                         string_buff = " "
                         ! write model statistics 
-                        write(string_buff,'((F8.4,",",I8.4,",",F8.2,",",F8.2,",",F8.2,",",F8.2))') winding_number_middle, &
+                        write(string_buff,'((F0.4,",",I0.4,",",F0.2,",",F0.2,",",F0.2,",",F0.2))') winding_number_middle, &
                                 skyrmion_number_middle,winding_number_spread,magnetisation%coords(1),&
                                 magnetisation%coords(2), magnetisation%coords(3)
                         output_string = output_string // string_buff // new_line('a')
