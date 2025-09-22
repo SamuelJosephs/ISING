@@ -1,0 +1,1 @@
+For paralell tempering use jobs.sh to farm single threaded jobs, then use PTConcatResults.sh to merge all of the results into a single file that PT-analysis-concat.py can then process.
