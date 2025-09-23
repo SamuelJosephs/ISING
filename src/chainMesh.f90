@@ -805,7 +805,7 @@ module ChainMesh
                allocate(chainMesh%atomSpins(chainMesh%numAtoms,3),stat=stat)
                if (stat /= 0) error stop "Error: Failed to allocated atomSpins array"
                call DerivativeList(chainMesh,chainMesh%derivativeList)        
-               call initAtomShells(chainMesh,1,1,my_threshold) 
+               call initAtomShells(chainMesh,2,2,my_threshold) 
         end function makeChainMesh 
 
 

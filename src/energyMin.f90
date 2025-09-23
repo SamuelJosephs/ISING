@@ -138,6 +138,16 @@ module EnergyMin
                         
                         newEnergy = newEnergy + ((J* S_proposed*S_prime) + (D*(S_proposed .x. S_prime)))
                 end do 
+
+                ! Now calculate contribution from next nearest neighbours J coupling 
+                do i = 1,size(chainMesh%atomShells(atomIndex,2))
+                        atomIndexTemp = chainMesh%atomShells(atomIndex,2)%NNList(i)
+                        call OMP_SET_LOCK(lockArray(atomIndexTemp))
+                                S_prime = chainMesh%atomSpins(atomIndexTemp,:)
+                        call OMP_UNSET_LOCK(atomIndexTemp)
+                        oldEnergy = oldEnergy + J_prime*(S*S_prime)
+                        newEnergy = newEnergy + J_prime*(S_proposed*S_prime)
+                end do 
                 oldEnergy = oldEnergy - g*Bohr_magneton*B*s%coords(3) 
                 newEnergy = newEnergy - g*Bohr_magneton*B*S_proposed%coords(3) 
                 if (calculate_demag) then 
