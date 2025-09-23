@@ -6,19 +6,19 @@ NJ=40
 
 maxD=3.5
 minD=-3.5
-ND=100
+ND=40
 
 maxB=1.5
-minB=1.5
-NB=1
+minB=0.2
+NB=2
 
 outputDir="./output-dir" # prefix for data directories
 outfilesDir="./outfiles" # Teh directory where stdout will be directed to
-maxTime="02:15:00"
-maxConcurrentJobs=500
+maxTime="05:15:00"
+maxConcurrentJobs=800
 ###########################################################################################
 
-module load python openmpi fftw
+module load gcc python openmpi fftw
 N=$((NJ*ND*NB - 1)) # Indiced through 0 to N-1
 
 mkdir -p $outfilesDir
@@ -46,6 +46,7 @@ Jval=\$(python -c "x = (\${i}/\${NJ})*(${maxJ} - ${minJ}) + ${minJ}; print(x)")
 Dval=\$(python -c "x = (\${j}/\${ND})*(${maxD} - ${minD}) + ${minD}; print(x)")
 Bval=\$(python -c "x = (\${k}/\${NB})*(${maxB} - ${minB}) + ${minB}; print(x)")
 
+module load gcc openmpi fftw
 mpirun -np 1 ./bin/PT \${Jval} \${Jval} 1 \${Dval} \${Dval} 1 \${Bval} \${Bval} 1 ${outputDir} 
 EOF
 )
