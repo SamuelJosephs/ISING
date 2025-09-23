@@ -24,26 +24,26 @@ program PT
         real(kind=dp) :: DMax = 2.5_dp
         real(kind=dp) :: BMin = 1.5_dp 
         real(kind=dp) :: BMax = 1.5_dp
-        logical :: demag = .True.
-        real(kind=dp), parameter :: TMax = 5.0_dp 
-        real(kind=dp), parameter :: TMin = 0.00000001_dp 
+        logical :: demag = .False.
+        real(kind=dp), parameter :: TMax = 2000_dp 
+        real(kind=dp), parameter :: TMin = 100_dp 
         integer, parameter :: numTemps = 10
         ! Set up constants for the lattice, for now they will be hardcoded but eventually they should be taken as input.
-        type(Atom_t), dimension(2) :: atomsInUnitCell
+        type(Atom_t), dimension(1) :: atomsInUnitCell
         real, dimension(3), parameter :: atomParams = (/1.0, 0.0, 0.0/)
         integer, parameter :: numCellsX = 30 
         integer, parameter :: numCellsY = 30
         integer, parameter :: numCellsZ = 6
-        real(kind=dp), parameter :: a_bravais = 2.8
-        real(kind=dp), parameter :: b_bravais = 2.8
-        real(kind=dp), parameter :: c_bravais = 2.8 
-        real(kind=dp), parameter :: ab = 90
-        real(kind=dp), parameter :: bc = 90 
-        real(kind=dp), parameter :: ca = 90
+        real(kind=dp):: a_bravais = 2.8
+        real(kind=dp) :: b_bravais = 2.8
+        real(kind=dp) :: c_bravais = 2.8 
+        real(kind=dp) :: ab = 90
+        real(kind=dp) :: bc = 90 
+        real(kind=dp) :: ca = 90
 
         integer, parameter :: numSwaps = numTemps ! Number of swaps to do per iteration
-        integer, parameter :: numIterations = 40 
-        integer, parameter :: numMCSSweepsPerSwap = 100
+        integer, parameter :: numIterations = 100 
+        integer, parameter :: numMCSSweepsPerSwap = 1000
          
         integer :: NumSlots, BasePtr, TopPtr, NumParams, Iteration, meshIndex, swapIndex
         integer :: meshIndex1, meshIndex2 ! intuitive naming requires more variables than are strictly needed
@@ -130,10 +130,15 @@ program PT
         call GET_COMMAND_ARGUMENT(10,outputPath)
         
         
-        AtomsInUnitCell(1) = makeAtom(0.0, 0.0, 0.0, -1) 
-        AtomsInUnitCell(2) = makeAtom(0.5, 0.5, 0.5, -1)
+        AtomsInUnitCell(1) = makeAtom(0.0, 0.33738, 0.001466, -1) ! YMnO3 only the single Mn is magnetic.
         
+        a_bravais = 6.14_dp
+        b_bravais = 6.14_dp
+        c_bravais = 11.44_dp
         
+        ab = 90.0_dp
+        bc = 90.0_dp
+        ca = 120.00_dp 
 
         NumSlots = NJ*ND*NB
         NumParams = NumSlots / MPI_num_procs
