@@ -11,6 +11,7 @@ program PT
         use Atom
         use EnergyMin
         use constants
+        use io
         use iso_fortran_env, only: error_unit
         use omp_lib
         implicit none 
@@ -80,6 +81,8 @@ program PT
         call MPI_Init(MPI_ierr)
         call MPI_Comm_Rank(MPI_COMM_WORLD,MPI_rank)
         call MPI_Comm_Size(MPI_COMM_WORLD,MPI_num_procs)
+
+        call io_parsefile("testInput.txt")
 
         numArgs = command_argument_count()
         
