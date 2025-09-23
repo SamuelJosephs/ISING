@@ -140,7 +140,7 @@ module EnergyMin
                 end do 
 
                 ! Now calculate contribution from next nearest neighbours J coupling 
-                do i = 1,size(chainMesh%atomShells(atomIndex,2))
+                do i = 1,size(chainMesh%atomShells(atomIndex,2)%NNList)
                         atomIndexTemp = chainMesh%atomShells(atomIndex,2)%NNList(i)
                         call OMP_SET_LOCK(lockArray(atomIndexTemp))
                                 S_prime = chainMesh%atomSpins(atomIndexTemp,:)
