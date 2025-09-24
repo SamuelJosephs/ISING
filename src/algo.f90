@@ -113,6 +113,8 @@ contains
                 integer, dimension(:,:), allocatable :: Bins, BinsTemp  
 
 
+                if (size(array) <= 1) return 
+
                 if (present(integer_companion)) then 
                         if (size(integer_companion) /= size(array)) error stop "Error: &
                                 Integer Companion must have the same size as the array to be sorted"
@@ -202,6 +204,7 @@ contains
                 integer, parameter :: stride = 2   
                 integer, dimension(:,:), allocatable :: Bins, BinsTemp  
 
+                if (size(array) <= 1) return 
 
                 if (present(integer_companion)) then 
                         if (size(integer_companion) /= size(array)) error stop "Error: &
