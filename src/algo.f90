@@ -219,15 +219,15 @@ contains
                 
                 
                 if (size(A) == 0) then 
-                        scratchSpace(SI:SI + size(B)) = B(:)
+                        scratchSpace(SI:SI + size(B) - 1) = B(:)
                         if (present(integer_scratch_space)) then 
-                                integer_scratch_space(SI:SI + size(B)) = BComp(:)
+                                integer_scratch_space(SI:SI + size(B) - 1) = BComp(:)
                         end if 
                         return 
                 else if (size(B) == 0) then 
-                        scratchSpace(SI:SI + size(A)) = A(:)
+                        scratchSpace(SI:SI + size(A) - 1) = A(:)
                         if (present(integer_scratch_space)) then 
-                                integer_scratch_space(SI:SI + size(A)) = AComp 
+                                integer_scratch_space(SI:SI + size(A) - 1) = AComp 
                         end if 
                         return 
                 end if 
