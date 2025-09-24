@@ -63,7 +63,42 @@ module io
                         close(fileunit)
                 end subroutine io_parsefile 
 
-                subroutine nextWhiteSpacePosition(string,position,FirstNonWhiteSpacePosition)
+                
+                subroutine TokensInLine(lineBuffer, TokenArray)
+                        implicit none 
+
+                        character(len=*), intent(in) :: lineBuffer
+                        type(stringWrapper), allocatable, dimension(:), intent(out) :: TokenArray
+
+                        integer :: i, stat, temp
+                        character(len=:) :: TokenBuffer
+                        allocate(TokenArray(0), stat=stat)
+                        if (stat /= 0) error stop "Error: TokensInLine Failed to allocate TokenArray"
+                       
+                        i = 1
+
+                        do while (i < len(lineBuffer))
+                                
+                                call skipWhiteSpace(lineBuffer,i,temp)
+                                if (temp == -1) return 
+                                i = temp
+                                call nextWhiteSpacePosition(lineBuffer,i,temp)
+                                if (temp == -1) then 
+                                       temp = len(lineBuffer)
+                                else
+                                      temp = temp - 1
+                                end if 
+
+                                TokenBuffer = lineBuffer(i:temp)
+                                TokenArray = [TokenArray, TokenBuffer]
+                                
+                                i = i + 1
+                        end do  
+
+                        
+                end subroutine TokenArray
+
+                subroutine nextWhiteSpacePosition(string,position,FirstWhiteSpacePosition)
                         character(len=*), intent(in) :: string 
                         integer, intent(in) :: position ! Starting Index to begin search 
                         integer, intent(out) :: FirstNonWhiteSpacePosition
@@ -84,7 +119,7 @@ module io
                                 end if 
                         end do 
 
-                        FirstNonWhiteSpacePosition = i 
+                        FirstWhiteSpacePosition = i 
                 end subroutine nextWhiteSpacePosition
                 subroutine skipWhiteSpace(string,position,FirstNonWhiteSpacePosition)
                         character(len=*), intent(in) :: string 
