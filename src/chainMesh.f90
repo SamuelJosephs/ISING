@@ -682,17 +682,21 @@ module ChainMesh
 
         function makeChainMesh(numCellsX, numCellsY, numCellsZ, & 
                         AtomsInUnitCell, &
-                        a,b,c,ab_deg,bc_deg,ca_deg,distance_threshold) result(chainMesh)
+                        a,b,c,ab_deg,bc_deg,ca_deg,distance_threshold,numShells,debug) result(chainMesh)
+                use algo, only: mergesort
                 implicit none 
                 integer, intent(in) ::  numCellsX, numCellsY, numCellsZ 
                 type(Atom_t), intent(in) :: AtomsInUnitCell(:)
                 real(kind=8), intent(in) :: a,b,c,ab_deg,bc_deg,ca_deg
                 real(kind=8), intent(in), optional :: distance_threshold ! For Neighbour atom shells 
-                ! Need to create all the atoms, create all the ChainMeshCells, then allocate all of the atoms to a chain mesh cell 
+                ! Need to create all the atoms, create all the ChainMeshCells, then allocate all of the atoms to a chain mesh cell
+                ! default = 0.1*a where a is the first Bravais lattice dimension length
+                integer, intent(in), optional :: numShells ! the number of shells we wish to compute, default = 2
+                logical, intent(in), optional :: debug
                 type(ChainMesh_t), target :: chainMesh 
                 integer :: numChainMeshCells, padX, stat, numAtomsPerUnitCell
                 integer :: numAtoms, stride 
-                integer :: i,j,k, icoord, jcoord, kcoord
+                integer :: i,j,k, icoord, jcoord, kcoord, my_numShells
                 type(ChainMeshCell_t) :: tempChainMeshCell
                 type(Atom_t) :: tempAtoms(size(AtomsInUnitCell))
                 real :: domainWidth
@@ -701,10 +705,16 @@ module ChainMesh
                                         pos
                 real(kind=8) :: cx, cy, cz, ab, bc,ca,&
                        my_threshold 
-                
+                integer, allocatable, dimension(:) :: intBuffer
+                logical :: my_debug 
+
+                my_debug = .False.
+                if (present(debug)) my_debug = debug 
                 my_threshold = 0.1_8*a 
+                my_numShells = 2
                 if (present(distance_threshold)) my_threshold = distance_threshold   
-                
+                if (present(numShells)) my_numShells = numShells  
+                if (my_numShells < 1) error stop "Error in makeChainMesh: numShells must be greater than or equal to 1"
                 numAtomsPerUnitCell = size(AtomsInUnitCell)
                 ab = ab_deg*(pi/180.0_8)
                 bc = bc_deg*(pi/180.0_8)
@@ -805,7 +815,24 @@ module ChainMesh
                allocate(chainMesh%atomSpins(chainMesh%numAtoms,3),stat=stat)
                if (stat /= 0) error stop "Error: Failed to allocated atomSpins array"
                call DerivativeList(chainMesh,chainMesh%derivativeList)        
-               call initAtomShells(chainMesh,2,2,my_threshold) 
+               call initAtomShells(chainMesh,my_numShells,my_numShells,my_threshold) 
+
+               ! DEBUG: Check that initAtomShells first shell is identical to assignNearestNeighbors calculation 
+               if (my_debug) then 
+                       do i = 1,chainMesh%numAtoms
+                                do j = 1,my_numShells
+                                        call mergesort(chainMesh%atomShells(i,j)%NNList)         
+                                end do 
+                                call mergesort(chainMesh%atoms(i)%NeighborList)
+                                if (all(chainMesh%atoms(i)%NeighborList == chainMesh%atomShells(i,1)%NNList)) then 
+                                        print *, "Atom ", i ," Has correct Neighbours"
+                                else 
+                                        print *, "ERROR: atom ", i, " has inconsistent neighbours initAtoms gives :",&
+                                                chainMesh%atomShells(i,1)%NNList, " The old method gives :", chainMesh%atoms(i)%NeighborList
+                                end if 
+                        
+                       end do 
+               end if 
         end function makeChainMesh 
 
 
