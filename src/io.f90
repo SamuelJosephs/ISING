@@ -4,59 +4,111 @@ module io
 
         public :: io_NJ, io_ND, io_NB
         public :: io_parsefile
-        contains 
 
+        type stringWrapper
+                character(len=:), allocatable :: string
+        end type stringWrapper 
+        contains 
 
                 subroutine io_parsefile(filename)
                         implicit none 
-                        character(len=*), intent(in) :: filename
+                        character(len=*), intent(in) :: filename 
+
+                        integer :: fileunit, stat, i, temp, startPos, endPos, j
+                        character(len=:), allocatable :: TokenBuffer, lineBuffer
+                        type(stringWrapper), allocatable, dimension(:) :: TokenArray
+                        type(stringWrapper) :: tempStringWrapper
+
+                        open(file=filename, newunit=fileunit,action="read",iostat=stat)
+                        if (stat /= 0) error stop "Error: io_parsefile failed to open file"
+                        allocate(character(len=1024) :: TokenBuffer, stat=stat)
+                        if (stat /= 0) error stop "Error: io_parsefile failed to allocate TokenBuffer"
+                        allocate(character(len=1024) :: lineBuffer, stat=stat)
+                        if (stat /= 0) error stop "Error: io_parsefile failed to allocate lineBuffer"
                         
-                        integer :: fileunit, stat, counter, temp 
-                        character(len=:), allocatable :: lineBuffer, tagBuffer, valBuffer
-                        logical :: foundSeperator
-                        open(newunit=fileunit, file=filename, action="read", iostat=stat)
-                        if (stat /= 0) error stop "Error: io_parsefile failed to open input file"
+                        outermost_do: do 
+                                
+                              i = 1
+                              read(fileunit,'(A)',iostat=stat) lineBuffer
+                              if (stat /= 0) exit outermost_do  
+                              print *, "Read in line ", lineBuffer
+                              
+                               
+                              call skipWhiteSpace(lineBuffer,i,temp)
+                              i = temp
+                              if (i == -1) cycle outermost_do 
+                              print *, "First non whitespace Character Found = ", lineBuffer(i:i)
+                              
+                              startPos = i
+                              call nextWhiteSpacePosition(lineBuffer,i,endPos)
+                              if (endPos == -1) then 
+                                      endPos = len(lineBuffer)
+                              else 
+                                      endPos = endPos - 1
+                              end if 
 
-                        
-                        allocate(character(len=1024) :: lineBuffer,stat=stat)
-                        if (stat /= 0) error stop "Error: io_parsefile failed to allocate array"
-                        ! Read file line by line:
+                                
+                              ! Now Find Token
+                              tempStringWrapper%string = lineBuffer(startPos:endPos)
+                              print *, "TokenBuffer = ", TokenBuffer, " len(TokenBuffer) = ", len(TokenBuffer)
+                              TokenArray = [TokenArray, tempStringWrapper]
+                              
+                              do j = 1,size(TokenArray)
+                                  print *, "Collected Token: ", TokenArray(j)%string
+                              end do 
 
-                        counter = 1
-                        do 
-                               read(fileunit,'(A)', iostat=stat) lineBuffer
-                               print *, "Read in line : ", lineBuffer
-                               if (stat /= 0) exit
-                               ! Now parse each line 
-                               call io_Token(lineBuffer,counter,temp,tagBuffer)
-                               counter = temp 
-                               print *, "Counter after io_Token = ", counter
-                               if (counter < len(lineBuffer) - 1) then 
-                                        ! Find : 
-                                        do 
-                                                if (counter > len(lineBuffer)) then 
-                                                        foundSeperator = .False.
-                                                        exit 
-                                                else if (lineBuffer(counter:counter) == ':') then 
-                                                        foundSeperator = .True.
-                                                        exit 
-                                                else 
-                                                        counter = counter + 1 
-                                                        cycle 
-                                                end if 
-                                                
-                                        end do 
-                                        if (foundSeperator .and. (counter < len(lineBuffer))) then 
-                                                call io_Token(lineBuffer,counter,temp,valBuffer)
-                                                counter = temp
-                                        end if 
-                               end if 
+                        end do outermost_do 
 
-                        print *, "Tag = ", trim(tagBuffer), "val =", trim(valBuffer)
-                        end do 
+
                         close(fileunit)
-                end subroutine io_parsefile
+                end subroutine io_parsefile 
 
+                subroutine nextWhiteSpacePosition(string,position,FirstNonWhiteSpacePosition)
+                        character(len=*), intent(in) :: string 
+                        integer, intent(in) :: position ! Starting Index to begin search 
+                        integer, intent(out) :: FirstNonWhiteSpacePosition
+                        
+                        integer :: i
+                        
+                        if (position > len(string)) then 
+                                FirstNonWhiteSpacePosition = -1
+                                return 
+                        end if 
+
+                        i = position 
+                        do while (.not. isWhiteSpace(string(i:i)))
+                                i = i + 1
+                                if (i > len(string)) then 
+                                        FirstNonWhiteSpacePosition = -1
+                                        return 
+                                end if 
+                        end do 
+
+                        FirstNonWhiteSpacePosition = i 
+                end subroutine nextWhiteSpacePosition
+                subroutine skipWhiteSpace(string,position,FirstNonWhiteSpacePosition)
+                        character(len=*), intent(in) :: string 
+                        integer, intent(in) :: position ! Starting Index to begin search 
+                        integer, intent(out) :: FirstNonWhiteSpacePosition
+                        
+                        integer :: i
+                        
+                        if (position > len(string)) then 
+                                FirstNonWhiteSpacePosition = -1
+                                return 
+                        end if 
+
+                        i = position 
+                        do while (isWhiteSpace(string(i:i)))
+                                i = i + 1
+                                if (i > len(string)) then 
+                                        FirstNonWhiteSpacePosition = -1
+                                        return 
+                                end if 
+                        end do 
+
+                        FirstNonWhiteSpacePosition = i 
+                end subroutine skipWhiteSpace
                 function isWhiteSpace(a) result(ret)
                         character, intent(in) :: a
                         logical :: ret
@@ -66,45 +118,23 @@ module io
                         else 
                                 ret = .False.
                         end if 
-                 end function isWhiteSpace
+                end function isWhiteSpace 
+
+                function isChar(a) result(res)
+                        character, intent(in) :: a
+                        integer :: a_char 
+                        logical :: res 
                         
-                 subroutine io_Token(string,startIndex,finishPointer,res) 
-                         implicit none 
-                         character(len=*), intent(in) :: string 
-                         integer, intent(in) :: startIndex
-                         integer, intent(out) :: finishPointer 
-                         character(len=:), allocatable, intent(out) :: res 
+                        a_char = iachar(a)
 
-                         integer :: i, stat, counter   
-                         ! From startIndex return the first token, that is a string of consecutive non whitespace characters 
+                        if (( a_char >= iachar('a')) .and. (a_char <= iachar('z'))) then 
+                              res = .True.
+                        else if ((a_char >= iachar('A')) .and. (a_char <= iachar('Z'))) then
+                              res = .True.
+                        else 
+                              res = .False.
+                        end if    
 
-                         !allocate(character(len=1024) :: res, stat=stat)
-                         
-                         if (startIndex > len(string)) then 
-                                 finishPointer = startIndex 
-                                 return 
-                         end if 
-                         i = startIndex 
-
-                         do 
-
-                                if (i > len(string)) exit 
-                                if (isWhiteSpace(string(i:i))) then 
-                                        i = i + 1 
-                                        cycle 
-                                end if 
-                                
-                                ! Now that we know that string(i:i) is our first non whitespace character start appending to res 
-                                counter = i
-                                do while(.not. isWhiteSpace(string(counter:counter)))
-                                        counter = counter + 1 
-                                        if (counter > len(string)) exit
-                                end do 
-                                res = string(i:counter)
-                                exit 
-                         end do 
-                         finishPointer = counter 
-                         return 
-                 end subroutine io_Token 
-
+                        return
+                end function isChar
 end module io
