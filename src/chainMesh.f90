@@ -828,7 +828,8 @@ module ChainMesh
                                         print *, "Atom ", i ," Has correct Neighbours"
                                 else 
                                         print *, "ERROR: atom ", i, " has inconsistent neighbours initAtoms gives :",&
-                                                chainMesh%atomShells(i,1)%NNList, " The old method gives :", chainMesh%atoms(i)%NeighborList
+                                                chainMesh%atomShells(i,1)%NNList, " The old method gives :",&
+                                                         chainMesh%atoms(i)%NeighborList
                                 end if 
                         
                        end do 
