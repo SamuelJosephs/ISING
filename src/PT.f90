@@ -82,7 +82,7 @@ program PT
         call MPI_Comm_Rank(MPI_COMM_WORLD,MPI_rank)
         call MPI_Comm_Size(MPI_COMM_WORLD,MPI_num_procs)
 
-        call io_parsefile("testInput.txt")
+        !call io_parsefile("testInput.txt")
 
         numArgs = command_argument_count()
         
