@@ -69,9 +69,8 @@ module io
 
                         character(len=*), intent(in) :: lineBuffer
                         type(stringWrapper), allocatable, dimension(:), intent(out) :: TokenArray
-
                         integer :: i, stat, temp
-                        character(len=:) :: TokenBuffer
+                        type(stringWrapper) :: TokenBuffer
                         allocate(TokenArray(0), stat=stat)
                         if (stat /= 0) error stop "Error: TokensInLine Failed to allocate TokenArray"
                        
@@ -89,24 +88,26 @@ module io
                                       temp = temp - 1
                                 end if 
 
-                                TokenBuffer = lineBuffer(i:temp)
+                                TokenBuffer%string = lineBuffer(i:temp)
+
                                 TokenArray = [TokenArray, TokenBuffer]
                                 
                                 i = i + 1
                         end do  
 
                         
-                end subroutine TokenArray
+                end subroutine TokensInLine
 
                 subroutine nextWhiteSpacePosition(string,position,FirstWhiteSpacePosition)
+                        implicit none
                         character(len=*), intent(in) :: string 
                         integer, intent(in) :: position ! Starting Index to begin search 
-                        integer, intent(out) :: FirstNonWhiteSpacePosition
+                        integer, intent(out) :: FirstWhiteSpacePosition
                         
                         integer :: i
                         
                         if (position > len(string)) then 
-                                FirstNonWhiteSpacePosition = -1
+                                FirstWhiteSpacePosition = -1
                                 return 
                         end if 
 
@@ -114,7 +115,7 @@ module io
                         do while (.not. isWhiteSpace(string(i:i)))
                                 i = i + 1
                                 if (i > len(string)) then 
-                                        FirstNonWhiteSpacePosition = -1
+                                        FirstWhiteSpacePosition = -1
                                         return 
                                 end if 
                         end do 
