@@ -143,13 +143,16 @@ module EnergyMin
                 ! Now calculate contribution from next nearest neighbours J coupling 
                 if (size(chainMesh%atomShells,2) > 1) then 
 
+                        
                         do i = 1,size(chainMesh%atomShells(atomIndex,2)%NNList)
                                 atomIndexTemp = chainMesh%atomShells(atomIndex,2)%NNList(i)
+
                                 call OMP_SET_LOCK(lockArray(atomIndexTemp))
                                         S_prime = chainMesh%atomSpins(atomIndexTemp,:)
-                                call OMP_UNSET_LOCK(atomIndexTemp)
+                                call OMP_UNSET_LOCK(lockArray(atomIndexTemp))
                                 oldEnergy = oldEnergy + J_prime*(S*S_prime)
                                 newEnergy = newEnergy + J_prime*(S_proposed*S_prime)
+
                         end do 
                 else 
                        write(stderr,*) "Warning: Not calculating next to nearest neighbour interactions becuase numShells < 2"
