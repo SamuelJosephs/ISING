@@ -1,10 +1,13 @@
 module io
-        
+        use iso_fortran_env, only: dp=>real64
         integer, save :: io_NJ, io_ND, io_NB
+        real(kind=dp) :: io_JMIN, io_JMAX, io_DMIN, io_DMAX, io_BMIN, io_BMAX
 
         character, parameter, dimension(2) :: SeperatorArray = (/'=', ':'/)
+        character, parameter, dimension(2) :: OperatorArray  = (/'=', ':'/)
+        logical, parameter, dimension(2) :: IsBinaryOperator = (/.True., .True./)
 
-        public :: io_NJ, io_ND, io_NB
+        public :: io_NJ, io_ND, io_NB, io_JMIN, io_JMAX, io_DMIN, io_DMAX
         public :: io_parsefile
 
         type stringWrapper
@@ -38,16 +41,71 @@ module io
                               
                               call TokensInLine(lineBuffer,TokenArray)
 
-                              do j = 1,size(TokenArray)
-                                print *, "Token ", j, " = ", TokenArray(j)%string
-                              end do 
+                              call ParseTokensInLine(TokenArray)
+
+                              
                         end do outermost_do 
 
+                        print *,"io_NJ = ", io_NJ
+                        print *,"io_ND = ", io_ND
+                        print *,"io_NB = ", io_NB
+                        print *,"io_JMin = ", io_JMIN
+                        print *,"io_JMax = ", io_JMAX
+                        print *, "io_DMin = ", io_DMIN
+                        print *, "io_DMax = ", io_DMAX
+                        print *, "io_BMin = ", io_BMIN
+                        print *, "io_BMax = ", io_BMAX
 
                         close(fileunit)
                 end subroutine io_parsefile 
 
+                subroutine ParseTokensInLine(TokenArray)
+                        type(stringWrapper), dimension(:), intent(in) :: TokenArray
+                        
+                        integer :: i, j, operatorIndex
+                        character :: operatorChar
+                        outer_loop: do i = 1,size(TokenArray)
+                                ! Test to see if it is in operatorArray 
+                                do j = 1,size(operatorArray)
+                                        if (trim(adjustl(TokenArray(i)%string)) == operatorArray(j)) then 
+                                               
+                                               if (isBinaryOperator(j)) then 
+                                                       operatorIndex = i
+                                                       call ParseBinaryOperator(TokenArray,OperatorIndex)
+                                                       cycle outer_loop
+                                               end if 
+                                        end if 
+                                end do 
+                        end do outer_loop
+                end subroutine ParseTokensInLine
                 
+                subroutine ParseBinaryOperator(TokenArray,OperatorIndex)
+                        type(stringWrapper), dimension(:), intent(in) :: TokenArray
+                        integer, intent(in) :: OperatorIndex
+
+                        character(len=:), allocatable :: VarArray, valArray
+                        if (TokenArray(OperatorIndex)%string == '=') then 
+                                if (OperatorIndex - 1 < 1) error stop "Error: Invalid input string encountered"
+                                if (OperatorIndex + 1 > size(TokenArray)) error stop "Error: Invalid input string encountered"
+                                
+                                varArray = TokenArray(OperatorIndex - 1)%string
+                                valArray = TokenArray(OperatorIndex + 1)%string 
+
+                                call to_upper(varArray)
+                                if (varArray == "NJ") read(valArray,*) io_NJ
+                                if (varArray == "ND") read(valArray,*) io_ND
+                                if (varArray == "NB") read(valArray,*) io_NB
+                                if (varArray == "JMIN") read(valArray,*) io_JMIN
+                                if (varArray == "JMAX") read(valArray,*) io_JMAX
+                                if (varArray == "DMIN") read(valArray,*) io_DMIN
+                                if (varArray == "DMAX") read(valArray,*) io_DMAX
+                                if (varArray == "BMIN") read(valArray,*) io_BMIN
+                                if (varArray == "BMAX") read(valArray,*) io_BMAX
+
+
+
+                        end if 
+                end subroutine ParseBinaryOperator
                 subroutine TokensInLine(lineBuffer, TokenArray)
                         implicit none 
 
@@ -118,6 +176,7 @@ module io
 
                         FirstWhiteSpacePosition = i 
                 end subroutine endOfTokenPosition
+
                 subroutine skipWhiteSpace(string,position,FirstNonWhiteSpacePosition)
                         character(len=*), intent(in) :: string 
                         integer, intent(in) :: position ! Starting Index to begin search 
@@ -169,4 +228,16 @@ module io
 
                         return
                 end function isChar
+
+                subroutine to_upper(s)
+                        character(len=*), intent(inout) :: s
+                        integer :: i, ich
+
+                        do i = 1, len_trim(s)
+                                ich = iachar(s(i:i))
+                                if (ich >= iachar('a') .and. ich <= iachar('z')) then
+                                        s(i:i) = achar(ich - 32)   ! shift lowercase to uppercase
+                                end if
+                        end do
+                end subroutine to_upper
 end module io
