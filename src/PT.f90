@@ -82,15 +82,17 @@ program PT
         call MPI_Comm_Rank(MPI_COMM_WORLD,MPI_rank)
         call MPI_Comm_Size(MPI_COMM_WORLD,MPI_num_procs)
 
+        numArgs = command_argument_count()
+
         call io_parsefile("testInput.txt")
 
-        numArgs = command_argument_count()
         
         if (numArgs /= 10) then 
                 write(error_unit,'(A)') "Incorrect number of command line arguments, &
                         input: Jmin Jmax NJ Dmin Dmax ND Bmin Bmax NB outputFilePath"
                 call MPI_abort(MPI_COMM_WORLD,1)
         end if 
+
         ! Not elegant but a fancy parsing system is not a good use of time 
         string_buff = " " 
         call GET_COMMAND_ARGUMENT(1,string_buff)
