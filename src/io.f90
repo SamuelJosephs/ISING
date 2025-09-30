@@ -84,6 +84,7 @@ module io
                         integer, intent(in) :: OperatorIndex
 
                         character(len=:), allocatable :: VarArray, valArray
+                        integer :: stat
                         if (TokenArray(OperatorIndex)%string == '=') then 
                                 if (OperatorIndex - 1 < 1) error stop "Error: Invalid input string encountered"
                                 if (OperatorIndex + 1 > size(TokenArray)) error stop "Error: Invalid input string encountered"
@@ -93,27 +94,28 @@ module io
 
                                 call to_upper(varArray)
                                 if (varArray == "NJ") then 
-                                        read(valArray,*) io_NJ
+                                        read(valArray,*,iostat=stat) io_NJ
                                 else if (varArray == "ND") then 
-                                        read(valArray,*) io_ND
+                                        read(valArray,*,iostat=stat) io_ND
                                 else if (varArray == "NB") then 
-                                        read(valArray,*) io_NB
+                                        read(valArray,*,iostat=stat) io_NB
                                 else if (varArray == "JMIN") then 
-                                        read(valArray,*) io_JMIN
+                                        read(valArray,*,iostat=stat) io_JMIN
                                 else if (varArray == "JMAX") then 
-                                        read(valArray,*) io_JMAX
+                                        read(valArray,*,iostat=stat) io_JMAX
                                 else if (varArray == "DMIN") then 
-                                        read(valArray,*) io_DMIN
+                                        read(valArray,*,iostat=stat) io_DMIN
                                 else if (varArray == "DMAX") then 
-                                        read(valArray,*) io_DMAX
+                                        read(valArray,*,iostat=stat) io_DMAX
                                 else if (varArray == "BMIN") then 
-                                        read(valArray,*) io_BMIN
+                                        read(valArray,*,iostat=stat) io_BMIN
                                 else if (varArray == "BMAX") then 
-                                        read(valArray,*) io_BMAX
+                                        read(valArray,*,iostat=stat) io_BMAX
                                 else 
                                         error stop "Error: Unrecognised LHS Value for the = operator"
                                 end if 
-
+                                
+                                if (stat /= 0) error stop "Error: Failed to parse input parameter"
 
 
                         end if 
