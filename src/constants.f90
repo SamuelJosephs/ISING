@@ -12,6 +12,5 @@ implicit none
         real(kind=8), parameter :: Bohr_magneton = 5.7883818060e-5 ! ev/ T
         real(kind=8), parameter :: mu_0 = 1.25663706127e-6
         real(kind=8), parameter :: pi = 3.14159265358979323846 
-        integer, parameter :: dp = real64
-        public :: Kb, gyromagnetic_ratio, Bohr_magneton, dp
+        public :: Kb, gyromagnetic_ratio, Bohr_magneton
 end module constants 

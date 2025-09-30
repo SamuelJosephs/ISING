@@ -2,6 +2,7 @@ module PT_Utils
         use chainMesh
         use reciprocal_space_processes
         use constants
+        use iso_fortran_env, only: dp=>real64
         implicit none 
         
         public :: indicesFromSlot, SlotFromIndices

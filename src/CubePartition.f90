@@ -1,12 +1,13 @@
 module cube_partition
     use constants
+    use iso_fortran_env, only: dp=>real64
     implicit none
     private  ! Make everything private by default
     
     ! Define precision
     
     ! Make these types public so they can be used by calling code
-    public :: bounds_type, partition_unit_cube, dp
+    public :: bounds_type, partition_unit_cube
     
     ! Define bounds type to hold min and max points
     type :: bounds_type

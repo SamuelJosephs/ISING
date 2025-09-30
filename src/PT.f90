@@ -12,7 +12,7 @@ program PT
         use EnergyMin
         use constants
         use io
-        use iso_fortran_env, only: error_unit
+        use iso_fortran_env, only: error_unit, dp=>real64
         use omp_lib
         implicit none 
         integer :: MPI_ierr, MPI_rank, MPI_num_procs 
@@ -30,7 +30,7 @@ program PT
         real(kind=dp), parameter :: TMin = 100_dp 
         integer, parameter :: numTemps = 10
         ! Set up constants for the lattice, for now they will be hardcoded but eventually they should be taken as input.
-        type(Atom_t), dimension(1) :: atomsInUnitCell
+        type(Atom_t), dimension(4) :: atomsInUnitCell
         real, dimension(3), parameter :: atomParams = (/1.0, 0.0, 0.0/)
         integer, parameter :: numCellsX = 30 
         integer, parameter :: numCellsY = 30
@@ -82,7 +82,7 @@ program PT
         call MPI_Comm_Rank(MPI_COMM_WORLD,MPI_rank)
         call MPI_Comm_Size(MPI_COMM_WORLD,MPI_num_procs)
 
-        !call io_parsefile("testInput.txt")
+        call io_parsefile("testInput.txt")
 
         numArgs = command_argument_count()
         
@@ -133,15 +133,18 @@ program PT
         call GET_COMMAND_ARGUMENT(10,outputPath)
         
         
-        AtomsInUnitCell(1) = makeAtom(0.0, 0.33738, 0.001466, -1) ! YMnO3 only the single Mn is magnetic.
+        AtomsInUnitCell(1) = makeAtom(0.13475782,  0.13475782,  0.13475782, -1)
+        AtomsInUnitCell(2) = makeAtom(0.36524218,  0.86524218,  0.63475782, -1)
+        AtomsInUnitCell(3) = makeAtom(0.63475782,  0.36524218,  0.86524218, -1)
+        AtomsInUnitCell(4) = makeAtom(0.86524218,  0.63475782,  0.36524218, -1)
         
-        a_bravais = 6.14_dp
-        b_bravais = 6.14_dp
-        c_bravais = 11.44_dp
+        a_bravais = 4.72_dp
+        b_bravais = 4.72_dp
+        c_bravais = 4.72_dp
         
         ab = 90.0_dp
         bc = 90.0_dp
-        ca = 120.00_dp 
+        ca = 90.0_dp 
 
         NumSlots = NJ*ND*NB
         NumParams = NumSlots / MPI_num_procs

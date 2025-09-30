@@ -4,10 +4,11 @@ module EnergyMin
         use ChainMesh 
         use ChainMeshCell
         use Rand, only: makeRandom, algor_uniform_random, random, Normal
-        use cube_partition, only: bounds_type, partition_unit_cube, dp 
+        use cube_partition, only: bounds_type, partition_unit_cube 
         use constants, only: gyromagnetic_ratio, Kb, Bohr_magneton
         use reciprocal_space_processes
         use omp_lib 
+        use iso_fortran_env, only: dp=>real64
         implicit none 
         contains 
 

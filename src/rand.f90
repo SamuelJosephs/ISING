@@ -1,7 +1,7 @@
 
 module Rand
         use constants
-        use iso_fortran_env, only: int32
+        use iso_fortran_env, only: int32, dp=>real64
         type random 
                 integer :: seed, ix, iy  
         end type random 
