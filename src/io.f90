@@ -92,15 +92,27 @@ module io
                                 valArray = TokenArray(OperatorIndex + 1)%string 
 
                                 call to_upper(varArray)
-                                if (varArray == "NJ") read(valArray,*) io_NJ
-                                if (varArray == "ND") read(valArray,*) io_ND
-                                if (varArray == "NB") read(valArray,*) io_NB
-                                if (varArray == "JMIN") read(valArray,*) io_JMIN
-                                if (varArray == "JMAX") read(valArray,*) io_JMAX
-                                if (varArray == "DMIN") read(valArray,*) io_DMIN
-                                if (varArray == "DMAX") read(valArray,*) io_DMAX
-                                if (varArray == "BMIN") read(valArray,*) io_BMIN
-                                if (varArray == "BMAX") read(valArray,*) io_BMAX
+                                if (varArray == "NJ") then 
+                                        read(valArray,*) io_NJ
+                                else if (varArray == "ND") then 
+                                        read(valArray,*) io_ND
+                                else if (varArray == "NB") then 
+                                        read(valArray,*) io_NB
+                                else if (varArray == "JMIN") then 
+                                        read(valArray,*) io_JMIN
+                                else if (varArray == "JMAX") then 
+                                        read(valArray,*) io_JMAX
+                                else if (varArray == "DMIN") then 
+                                        read(valArray,*) io_DMIN
+                                else if (varArray == "DMAX") then 
+                                        read(valArray,*) io_DMAX
+                                else if (varArray == "BMIN") then 
+                                        read(valArray,*) io_BMIN
+                                else if (varArray == "BMAX") then 
+                                        read(valArray,*) io_BMAX
+                                else 
+                                        error stop "Error: Unrecognised LHS Value for the = operator"
+                                end if 
 
 
 
