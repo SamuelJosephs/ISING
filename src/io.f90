@@ -2,6 +2,8 @@ module io
         
         integer, save :: io_NJ, io_ND, io_NB
 
+        character, parameter, dimension(2) :: SeperatorArray = (/'=', ':'/)
+
         public :: io_NJ, io_ND, io_NB
         public :: io_parsefile
 
@@ -26,37 +28,19 @@ module io
                         allocate(character(len=1024) :: lineBuffer, stat=stat)
                         if (stat /= 0) error stop "Error: io_parsefile failed to allocate lineBuffer"
                         
+
                         outermost_do: do 
                                 
                               i = 1
                               read(fileunit,'(A)',iostat=stat) lineBuffer
                               if (stat /= 0) exit outermost_do  
-                              print *, "Read in line ", lineBuffer
+                              print *, "Read in line: ", trim(lineBuffer)
                               
-                               
-                              call skipWhiteSpace(lineBuffer,i,temp)
-                              i = temp
-                              if (i == -1) cycle outermost_do 
-                              print *, "First non whitespace Character Found = ", lineBuffer(i:i)
-                              
-                              startPos = i
-                              call nextWhiteSpacePosition(lineBuffer,i,endPos)
-                              if (endPos == -1) then 
-                                      endPos = len(lineBuffer)
-                              else 
-                                      endPos = endPos - 1
-                              end if 
+                              call TokensInLine(lineBuffer,TokenArray)
 
-                                
-                              ! Now Find Token
-                              tempStringWrapper%string = lineBuffer(startPos:endPos)
-                              print *, "TokenBuffer = ", TokenBuffer, " len(TokenBuffer) = ", len(TokenBuffer)
-                              TokenArray = [TokenArray, tempStringWrapper]
-                              
                               do j = 1,size(TokenArray)
-                                  print *, "Collected Token: ", TokenArray(j)%string
+                                print *, "Token ", j, " = ", TokenArray(j)%string
                               end do 
-
                         end do outermost_do 
 
 
@@ -68,9 +52,10 @@ module io
                         implicit none 
 
                         character(len=*), intent(in) :: lineBuffer
-                        type(stringWrapper), allocatable, dimension(:), intent(out) :: TokenArray
+                        type(stringWrapper), allocatable, dimension(:), intent(inout) :: TokenArray
                         integer :: i, stat, temp
                         type(stringWrapper) :: TokenBuffer
+                        if (allocated(TokenArray)) deallocate(TokenArray)
                         allocate(TokenArray(0), stat=stat)
                         if (stat /= 0) error stop "Error: TokensInLine Failed to allocate TokenArray"
                        
@@ -81,7 +66,17 @@ module io
                                 call skipWhiteSpace(lineBuffer,i,temp)
                                 if (temp == -1) return 
                                 i = temp
-                                call nextWhiteSpacePosition(lineBuffer,i,temp)
+                                if (any(lineBuffer(i:i) == seperatorArray)) then 
+                                        TokenBuffer%string = lineBuffer(i:i)
+                                        TokenArray = [TokenArray,TokenBuffer]
+                                        if (i == len(lineBuffer)) then
+                                                return 
+                                        else 
+                                                i = i + 1
+                                                cycle 
+                                        end if 
+                                end if 
+                                call endOfTokenPosition(lineBuffer,i,temp)
                                 if (temp == -1) then 
                                        temp = len(lineBuffer)
                                 else
@@ -92,27 +87,28 @@ module io
 
                                 TokenArray = [TokenArray, TokenBuffer]
                                 
-                                i = i + 1
+                                i = i + len(TokenBuffer%string)
                         end do  
 
                         
                 end subroutine TokensInLine
 
-                subroutine nextWhiteSpacePosition(string,position,FirstWhiteSpacePosition)
+                subroutine endOfTokenPosition(string,position,FirstWhiteSpacePosition)
                         implicit none
                         character(len=*), intent(in) :: string 
                         integer, intent(in) :: position ! Starting Index to begin search 
                         integer, intent(out) :: FirstWhiteSpacePosition
                         
                         integer :: i
-                        
                         if (position > len(string)) then 
                                 FirstWhiteSpacePosition = -1
                                 return 
                         end if 
 
                         i = position 
-                        do while (.not. isWhiteSpace(string(i:i)))
+                        do while ((.not. isWhiteSpace(string(i:i))) .and. &
+                                (.not. (any(string(i:i) == SeperatorArray)))&
+                                )
                                 i = i + 1
                                 if (i > len(string)) then 
                                         FirstWhiteSpacePosition = -1
@@ -121,7 +117,7 @@ module io
                         end do 
 
                         FirstWhiteSpacePosition = i 
-                end subroutine nextWhiteSpacePosition
+                end subroutine endOfTokenPosition
                 subroutine skipWhiteSpace(string,position,FirstNonWhiteSpacePosition)
                         character(len=*), intent(in) :: string 
                         integer, intent(in) :: position ! Starting Index to begin search 
