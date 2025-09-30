@@ -1,12 +1,27 @@
 module io
         use iso_fortran_env, only: dp=>real64
+        implicit none
         integer, save :: io_NJ, io_ND, io_NB
         real(kind=dp) :: io_JMIN, io_JMAX, io_DMIN, io_DMAX, io_BMIN, io_BMAX
         character(len=:), allocatable :: io_outputPath
+        character(len=:), allocatable :: io_inputFile
+        character(len=1000) :: helpMessage = "Options: " // NEW_LINE('a') //&
+                "NJ: Number of J values " // NEW_LINE('a') //&
+                "ND: Number of D values " // NEW_LINE('a') //&
+                "NB: Number of B values " // NEW_LINE('a') //&
+                "JMin: Minimum J value " // NEW_LINE('a') //&
+                "JMax: Maximum J value " // NEW_LINE('a') //&
+                "DMin: Minimum D value " // NEW_LINE('a') //&
+                "DMax: Maximum D value " // NEW_LINE('a') //&
+                "BMin: Minimum B value " // NEW_LINE('a') //&
+                "BMax: Maximum B value " // NEW_LINE('a') //&
+                "OutputPath: Minimum D value " // NEW_LINE('a') //&
+                "Note: InputFile is case insensitive " // NEW_LINE('a')
 
-        character, parameter, dimension(2) :: SeperatorArray = (/'=', ':'/)
-        character, parameter, dimension(2) :: OperatorArray  = (/'=', ':'/)
-        logical, parameter, dimension(2) :: IsBinaryOperator = (/.True., .True./)
+
+        character(len=1), parameter, dimension(3) :: SeperatorArray = (/'=', ':','-'/)
+        character(len=1), parameter, dimension(3) :: OperatorArray  = (/'=', ':','-'/)
+        logical, parameter, dimension(3) :: IsBinaryOperator = (/.True., .True.,.False./)
 
         public :: io_NJ, io_ND, io_NB, io_JMIN, io_JMAX, io_DMIN, io_DMAX, io_outputPath
         public :: io_parsefile
@@ -15,6 +30,25 @@ module io
                 character(len=:), allocatable :: string
         end type stringWrapper 
         contains 
+
+                subroutine io_processFlags()
+                        implicit none 
+
+                        integer :: numArgs, i 
+                        
+                        character(len=100) :: arg
+                        numArgs = command_argument_count()
+
+                        do i = 1,numArgs
+                                arg(1:len(arg)) = ' '
+                                call get_command_argument(i,arg)
+                                
+                                if (trim(adjustl(arg)) == "-h") then 
+                                       print *, helpMessage
+                                       stop 0 
+                                end if 
+                        end do 
+                end subroutine io_processFlags
 
                 subroutine io_parsefile(filename)
                         implicit none 
@@ -75,18 +109,47 @@ module io
                                                        operatorIndex = i
                                                        call ParseBinaryOperator(TokenArray,OperatorIndex)
                                                        cycle outer_loop
-                                               end if 
+                                               else if (TokenArray(i)%string == '-') then
+
+                                                       OperatorIndex = i
+                                                       call ParseFlag(TokenArray,OperatorIndex)
+                                                       cycle outer_loop
+                                               end if  
                                         end if 
                                 end do 
                         end do outer_loop
                 end subroutine ParseTokensInLine
                 
+                subroutine ParseFlag(TokenArray,OperatorIndex)
+                        type(stringWrapper), dimension(:), intent(in) :: TokenArray
+                        integer, intent(in) :: OperatorIndex 
+
+                        type(stringWrapper) :: flag
+                        if (OperatorIndex + 1 > size(TokenArray)) then 
+                                error stop "Error: Invalid flag in input file"
+                        end if 
+
+                        flag%string = TokenArray(OperatorIndex + 1)%string
+
+                        print *, "Flag Token = ", TokenArray(OperatorIndex + 1)%string
+                        select case (flag%string)
+                                case ('h')
+                                        print *, helpMessage
+                                        stop 0 
+
+                                case default
+                                        error stop "Error: Unrecognised Flag In Input File"
+                        
+                        end select 
+                end subroutine ParseFlag
+
                 subroutine ParseBinaryOperator(TokenArray,OperatorIndex)
                         type(stringWrapper), dimension(:), intent(in) :: TokenArray
                         integer, intent(in) :: OperatorIndex
 
                         character(len=:), allocatable :: VarArray, valArray
                         integer :: stat
+                        stat = 0
                         if (TokenArray(OperatorIndex)%string == '=') then 
                                 if (OperatorIndex - 1 < 1) error stop "Error: Invalid input string encountered"
                                 if (OperatorIndex + 1 > size(TokenArray)) error stop "Error: Invalid input string encountered"
@@ -119,6 +182,8 @@ module io
                                         error stop "Error: Unrecognised LHS Value for the = operator"
                                 end if 
                                 
+                                print *, "valArray = ", valArray
+                                print *, "iostat = ", stat
                                 if (stat /= 0) error stop "Error: Failed to parse input parameter"
 
 
