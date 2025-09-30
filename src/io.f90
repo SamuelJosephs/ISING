@@ -2,14 +2,15 @@ module io
         use iso_fortran_env, only: dp=>real64
         integer, save :: io_NJ, io_ND, io_NB
         real(kind=dp) :: io_JMIN, io_JMAX, io_DMIN, io_DMAX, io_BMIN, io_BMAX
+        character(len=:), allocatable :: io_outputPath
 
         character, parameter, dimension(2) :: SeperatorArray = (/'=', ':'/)
         character, parameter, dimension(2) :: OperatorArray  = (/'=', ':'/)
         logical, parameter, dimension(2) :: IsBinaryOperator = (/.True., .True./)
 
-        public :: io_NJ, io_ND, io_NB, io_JMIN, io_JMAX, io_DMIN, io_DMAX
+        public :: io_NJ, io_ND, io_NB, io_JMIN, io_JMAX, io_DMIN, io_DMAX, io_outputPath
         public :: io_parsefile
-
+        
         type stringWrapper
                 character(len=:), allocatable :: string
         end type stringWrapper 
@@ -55,6 +56,7 @@ module io
                         print *, "io_DMax = ", io_DMAX
                         print *, "io_BMin = ", io_BMIN
                         print *, "io_BMax = ", io_BMAX
+                        if (allocated(io_outputPath)) print *, "io_outputPath = ", io_outputPath
 
                         close(fileunit)
                 end subroutine io_parsefile 
@@ -111,6 +113,8 @@ module io
                                         read(valArray,*,iostat=stat) io_BMIN
                                 else if (varArray == "BMAX") then 
                                         read(valArray,*,iostat=stat) io_BMAX
+                                else if (varArray == "OUTPUTPATH") then 
+                                        io_outputPath = trim(adjustl(valArray))
                                 else 
                                         error stop "Error: Unrecognised LHS Value for the = operator"
                                 end if 
