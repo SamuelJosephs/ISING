@@ -6,17 +6,17 @@ import pandas as pd
 
 
 
-def render_single(path,outputPath):
+def render_single(path,outputPath,winding_number,skyrmion_number):
     print(f"Plotting {path}")
     df = pd.read_csv(path)
 
-    x = df['x'].to_numpy()
-    y = df['y'].to_numpy()
-    z = df['z'].to_numpy()
+    x = df['x'].to_numpy(dtype=np.float64)
+    y = df['y'].to_numpy(dtype=np.float64)
+    z = df['z'].to_numpy(dtype=np.float64)
 
-    Sx = df['Sx'].to_numpy()
-    Sy = df['Sy'].to_numpy()
-    Sz = df['Sz'].to_numpy()
+    Sx = df['Sx'].to_numpy(dtype=np.float64)
+    Sy = df['Sy'].to_numpy(dtype=np.float64)
+    Sz = df['Sz'].to_numpy(dtype=np.float64)
 
     x_unique = np.unique(x)
     y_unique = np.unique(y)
@@ -40,9 +40,12 @@ def render_single(path,outputPath):
 
     if outputPath != None:
         head,tail = os.path.split(path)
-        tail = tail.replace(".csv",".pdf")
+        tail = tail.replace(".csv","")
+        tail = tail + f"_{int(winding_number)}_{int(skyrmion_number)}" + ".pdf"
+        #tail = tail.replace(".csv",".pdf")
         savePath = os.path.join(outputPath,tail)
 
+        print(f"savePath = {savePath}")
         fig.savefig(savePath,bbox_inches="tight")
     fig.clf()
     plt.close(fig)
@@ -68,38 +71,67 @@ def enumerate_spins(outputPath=None):
     with ThreadPoolExecutor(max_workers=10) as tp:
         tp.map(render_single,pathList,repeat(outputPath))
 
-def fortran_E(x, d):
+def fortran_E(x, d: int):
     import math
+    from decimal import Decimal, ROUND_HALF_DOWN
+
     if x == 0:
         return f"{0:.{d}f}E+00"
     exp = math.floor(math.log10(abs(x)))
     mantissa = x / (10**exp)
     # Shift mantissa to [0.1,1.0)
     mantissa /= 10
+    #mantissa = round(mantissa,d+1)
+    zeros = "0"*int(d)
+    precision = "0." + zeros + "1"
+    mantissa = Decimal(mantissa).quantize(Decimal(precision),rounding=ROUND_HALF_DOWN)
     exp += 1
-    return f"{mantissa:.{d}f}E{exp:+03d}"
+    signString = ""
+    if x < 0.0:
+        signString = "-"
+    if exp == 0:
+        return f"{signString}{mantissa:.{d}f}"
+    else:
+        return f"{signString}{mantissa:.{d}f}E{exp:+d}"
 
 if __name__ == "__main__":
+    from concurrent.futures import ProcessPoolExecutor
+    from itertools import repeat
     dataPath = "./concatenated_data.csv"
 
     df = pd.read_csv(dataPath,na_values="********")
-    df = df.fillna(-1)
-    JVals = df['J'].to_numpy()
-    DVals = df['D'].to_numpy()
-    BVals = df['B'].to_numpy()
-    TVals = df['T'].to_numpy()
-    winding_numbers = df['winding_number_middle'].to_numpy()
-    skyrmion_numbers = df[' skyrmion_number_middle'].to_numpy()
-    winding_number_spread = df['winding_number_spread'].to_numpy()
+    #df = df.fillna(-1)
+    JVals = df['J'].to_numpy(dtype=np.float64)
+    DVals = df['D'].to_numpy(dtype=np.float64)
+    BVals = df['B'].to_numpy(dtype=np.float64) 
+    TVals = df['T'].to_numpy(dtype=np.float64)
+    winding_numbers = df['winding_number_middle'].to_numpy(dtype=np.float64)
+    skyrmion_numbers = df[' skyrmion_number_middle'].to_numpy(dtype=np.float64)
+    winding_number_spread = df['winding_number_spread'].to_numpy(dtype=np.float64)
 
     JVals_unique = np.unique(JVals)
     DVals_unique = np.unique(DVals)
     BVals_unique = np.unique(BVals)
+    TVals_unique = np.unique(TVals)
+ 
+    wd = os.getcwd()
+    outputPath = os.path.join(wd,"Test-Paper-Visualisations")   
+    spin_dirname = os.path.join(wd,"output_dir-spins")
 
-
+    paths = []
+    windNums = []
+    skyrmNums = []
     for i in range(0,len(winding_numbers)):
-            if winding_numbers[i] != skyrmion_numbers[i]:
-                # Need to construct the file name
+            if np.isnan(skyrmion_numbers[i]) or np.isnan(winding_numbers[i]):
+                print(f"NaN Found: Skyrmion Number: {skyrmion_numbers[i]}, winding_number: {winding_numbers[i]}")
+                continue 
+            elif (abs(int(skyrmion_numbers[i])) == abs(int(winding_numbers[i]))):
+                print(f"Matching SK and WND numbers: {skyrmion_numbers[i]} , {winding_numbers[i]}")
+
+            elif abs(int(winding_numbers[i])) != abs(int(skyrmion_numbers[i])):
+                
+                print(f"Non Matching SK and WND numbers: {int(skyrmion_numbers[i])} , {int(winding_numbers[i])}")
+                # Need to construct the file name 
                 d = 4
                 JString = f"{JVals[i]:.{d}f}"
                 if JString.startswith("0"):
@@ -112,17 +144,28 @@ if __name__ == "__main__":
                 elif DString.startswith("-0"):
                     DString = "-" + DString[2:]
 
-                BString = f"{BVals[i]:.{d}E}"
+                BString = f"{BVals[i]:.{d}f}"
                 if BString.startswith("0"):
                     BString = BString[1:]
                 elif BString.startswith("-0"):
                     BString = "-" + BString[2:]
 
                 TString = fortran_E(TVals[i],d)
+                
+                TString_Index = np.where(TVals_unique == TVals[i])[0][0] + 1
+                nameString = f"spins_{JString}_{DString}_{BString}_{TString}.csv"
+                filename = os.path.join(spin_dirname,nameString)
+               
+                if os.path.isfile(filename):
+                    print(f"Found File {filename}")
+                    paths.append(filename)
+                    windNums.append(int(winding_numbers[i]))
+                    skyrmNums.append(int(skyrmion_numbers[i]))
+                else:
+                    print(f"Failed to find file {filename}")
 
-                print(f"{JString}_{DString}_{BString}_{TString}")
+                
+    with ProcessPoolExecutor(max_workers=15) as pp:
+        pp.map(render_single,paths,repeat(outputPath),windNums,skyrmNums)
 
 
-    wd = os.getcwd()
-    outputPath = os.path.join(wd,"Test-Paper-Visualisations")
-    #enumerate_spins(outputPath=outputPath)
