@@ -158,8 +158,8 @@ module EnergyMin
                 else 
                        write(stderr,*) "Warning: Not calculating next to nearest neighbour interactions becuase numShells < 2"
                 end if   
-                oldEnergy = oldEnergy - g*Bohr_magneton*B*s%coords(3) 
-                newEnergy = newEnergy - g*Bohr_magneton*B*S_proposed%coords(3) 
+                oldEnergy = oldEnergy - B*s%coords(3) 
+                newEnergy = newEnergy - B*S_proposed%coords(3) 
                 if (calculate_demag) then 
                         oldEnergy = oldEnergy - mu_0*MdotH ! Half not needed due to it being a local change 
 
@@ -300,6 +300,7 @@ module EnergyMin
                 !$omp end do
                 !$omp do 
                 do i = 1,nsteps
+
                                 !atomIndex = int((algor_uniform_random(rand)*dble(size(chainMesh%atoms)))/&
                                         !(dble(size(chainMesh%atoms))+1) * dble(size(chainMesh%atoms)-1)) + 1 
 
