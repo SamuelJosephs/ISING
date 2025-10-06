@@ -32,8 +32,8 @@ program PT
         ! Set up constants for the lattice, for now they will be hardcoded but eventually they should be taken as input.
         type(Atom_t), dimension(2) :: atomsInUnitCell
         real, dimension(3), parameter :: atomParams = (/1.0, 0.0, 0.0/)
-        integer, parameter :: numCellsX = 30 
-        integer, parameter :: numCellsY = 30
+        integer, parameter :: numCellsX = 20 
+        integer, parameter :: numCellsY = 20
         integer, parameter :: numCellsZ = 6
         real(kind=dp):: a_bravais = 2.8
         real(kind=dp) :: b_bravais = 2.8
@@ -302,6 +302,8 @@ program PT
         outputPathSpins = ' '
         outputPathSpins = trim(adjustl(outputPath)) // "_spins"
         outputPathDensity = trim(adjustl(outputPath)) // "_density"
+        if (MPI_RANK == 0) call EXECUTE_COMMAND_LINE("mkdir -p " // trim(adjustl(outputPath)))
+
         if (MPI_RANK == 0) call EXECUTE_COMMAND_LINE("mkdir -p " // trim(adjustl(outputPathSpins)))
                 
         if (MPI_RANK == 0) call EXECUTE_COMMAND_LINE("mkdir -p " // trim(adjustl(outputPathDensity)))
