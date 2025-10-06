@@ -695,41 +695,52 @@ module reciprocal_space_processes
                 integer, dimension(:), allocatable, intent(inout) :: winding_array
                 real(kind=8), intent(in) :: min_threshold, max_threshold 
                 integer,intent(in) :: num_thresholds, Z_index
-
-                integer :: i, j, sigma_index
+                integer, dimension(:), allocatable :: closest_skyrmion_number
+                integer :: i, j, sigma_index, current_winding_number,stat
                 real(kind=8) :: total_charge, threshold, winding, sigma
                 
                 if (max_threshold < min_threshold) error stop "max_threshold must be greater than min_threshold"
                 if (allocated(winding_array)) then 
                         if (size(winding_array) /= N) then 
                                 deallocate(winding_array)
-                                allocate(winding_array(N))
+                                allocate(winding_array(N),stat=stat)
                         end if 
 
                 else 
-                        allocate(winding_array(N))
+                        allocate(winding_array(N),stat=stat)
                 end if 
+                allocate(closest_skyrmion_number(N),stat=stat)
+                if (stat /= 0) error stop "Error allocating skyrmion distribution arrays"
 
                 total_charge = calculate_winding_number2(chainMesh, Z_index)
                 winding_array = 0.0_8
+                closest_skyrmion_number = HUGE(closest_skyrmion_number(1))
                 do i = 1,num_thresholds
                         do sigma_index = 1,20
                         ! sigma = (dble(sigma_index)/20.0_8) * (1.0_8 - 0.001_8) + 0.001_8 
                         sigma = 1.0_8 - (dble(sigma_index)/20.0_8)*(1.0_8 - 0.00001_8)
                         winding = 0.0_8
+                        current_winding_number = 0
                         !threshold = (dble(i) / dble(num_thresholds)) * (max_threshold - min_threshold) + min_threshold
                         threshold = max_threshold - (dble(i) / dble(num_thresholds)) * (max_threshold - min_threshold)
                         do j = 1, N 
                                 winding_array(j) = calculate_skyrmion_number(chainMesh,Z_index,threshold,j,sigma)
                                 winding = winding + j * winding_array(j)
+                                
+                                current_winding_number = current_winding_number + j*closest_skyrmion_number(j)
                         end do 
+                        if (abs(nint(winding) - nint(total_charge)) < &
+                                abs(current_winding_number - nint(total_charge))) then
+                                closest_skyrmion_number = winding_array
+                        end if 
                         !print *, "Winding array = ", winding_array, "threshold = ", threshold, "sigma = ", sigma
+
                         if (abs(abs(winding) - abs(total_charge)) < 0.1) then 
                                 !print *, "Solution found at q_threshold = ", threshold, "threshold = ", threshold, "sigma = ", sigma
                                 return
                         end if 
                         end do
                 end do 
-                winding_array = 0 
+                winding_array(:) = closest_skyrmion_number(:) 
         end subroutine compute_skyrmion_distribution
 end module reciprocal_space_processes 
