@@ -30,7 +30,7 @@ program PT
         real(kind=dp), parameter :: TMin = 100_dp 
         integer, parameter :: numTemps = 10
         ! Set up constants for the lattice, for now they will be hardcoded but eventually they should be taken as input.
-        type(Atom_t), dimension(4) :: atomsInUnitCell
+        type(Atom_t), dimension(2) :: atomsInUnitCell
         real, dimension(3), parameter :: atomParams = (/1.0, 0.0, 0.0/)
         integer, parameter :: numCellsX = 30 
         integer, parameter :: numCellsY = 30
@@ -69,7 +69,8 @@ program PT
         type(MPI_INFO) :: mpi_info_handle 
         type(MPI_STATUS) :: mpi_status_handle
         integer :: mpi_file_ierr
-        character(len=:), allocatable :: output_string, filename_string, filename_string_spins
+        character(len=:), allocatable :: output_string, filename_string, filename_string_spins,&
+                filename_string_density
         character(len=500) :: string_buff
         integer :: mpi_mode
         integer :: skyrmion_number_middle 
@@ -77,14 +78,14 @@ program PT
         type(vecNd_t) :: magnetisation
 
         integer :: numArgs, fileHandle 
-        character(len=400) :: outputPath, outputPathSpins 
+        character(len=400) :: outputPath, outputPathSpins, outputPathDensity 
         call MPI_Init(MPI_ierr)
         call MPI_Comm_Rank(MPI_COMM_WORLD,MPI_rank)
         call MPI_Comm_Size(MPI_COMM_WORLD,MPI_num_procs)
 
         numArgs = command_argument_count()
 
-        call io_parsefile("testInput.txt")
+        !call io_parsefile("testInput.txt")
 
         
         if (numArgs /= 10) then 
@@ -135,14 +136,12 @@ program PT
         call GET_COMMAND_ARGUMENT(10,outputPath)
         
         
-        AtomsInUnitCell(1) = makeAtom(0.13475782,  0.13475782,  0.13475782, -1)
-        AtomsInUnitCell(2) = makeAtom(0.36524218,  0.86524218,  0.63475782, -1)
-        AtomsInUnitCell(3) = makeAtom(0.63475782,  0.36524218,  0.86524218, -1)
-        AtomsInUnitCell(4) = makeAtom(0.86524218,  0.63475782,  0.36524218, -1)
+        AtomsInUnitCell(1) = makeAtom(0.0,  0.0,  0.0, -1)
+        AtomsInUnitCell(2) = makeAtom(0.5,  0.5,  0.5, -1)
         
-        a_bravais = 4.72_dp
-        b_bravais = 4.72_dp
-        c_bravais = 4.72_dp
+        a_bravais = 1.0_dp
+        b_bravais = 1.0_dp
+        c_bravais = 1.0_dp
         
         ab = 90.0_dp
         bc = 90.0_dp
@@ -295,17 +294,18 @@ program PT
         call MPI_barrier(MPI_COMM_WORLD)
 
 
-        ! TODO calculate statistics and write them to a file
-
+        ! TODO calculate statistics and write them to a 
         print *, "All okay from rank", MPI_rank
 
         string_buff = " "
         output_string = ""
         outputPathSpins = ' '
         outputPathSpins = trim(adjustl(outputPath)) // "_spins"
-        if (MPI_RANK == 0) call EXECUTE_COMMAND_LINE("mkdir -p " // trim(adjustl(outputPath)) // " "&
-                // trim(adjustl(outputPath)) // "_spins"&
-                ) 
+        outputPathDensity = trim(adjustl(outputPath)) // "_density"
+        if (MPI_RANK == 0) call EXECUTE_COMMAND_LINE("mkdir -p " // trim(adjustl(outputPathSpins)))
+                
+        if (MPI_RANK == 0) call EXECUTE_COMMAND_LINE("mkdir -p " // trim(adjustl(outputPathDensity)))
+
         do i = 1,NumParams
                 do j = 1,numTemps
                         string_buff = " "
@@ -340,9 +340,14 @@ program PT
                         filename_string_spins = trim(adjustl(outputPathSpins)) // "/"&
                                 // "spins_" // trim(adjustl(string_buff)) // ".csv"
                         print *, "MPI_RANK: ", MPI_rank, "Has filename_string: ", filename_string
+
+                        filename_string_density = trim(adjustl(outputPathDensity)) // "/" // "density_" &
+                                // trim(adjustl(string_buff)) // ".csv"
+
                         call write_spins_to_file(meshBuffer(i,meshIndex),&
                                 filename_string_spins)
 
+                        call write_winding_number_density(meshBuffer(i,meshIndex),filename_string_density)
                         open(newunit=fileHandle, status="replace", action="write",file=filename_string)
 
                         write(fileHandle, '(A)') output_string
