@@ -18,7 +18,7 @@ program PT
         integer :: MPI_ierr, MPI_rank, MPI_num_procs 
         integer :: NJ = 10 ! The number of J, D, and B values to perform the parallel tempering at.  
         integer :: ND = 10 ! Hard code these for now but eventually they should be taken as input
-        integer :: NB = 1 
+        integer :: NB = 10 
         real(kind=dp) :: JMin = -2.5_dp
         real(kind=dp) :: JMax = 2.5_dp 
         real(kind=dp) :: DMin = -2.5_dp 
@@ -26,8 +26,8 @@ program PT
         real(kind=dp) :: BMin = 1.5_dp 
         real(kind=dp) :: BMax = 1.5_dp
         logical :: demag = .False.
-        real(kind=dp), parameter :: TMax = 2000_dp 
-        real(kind=dp), parameter :: TMin = 100_dp 
+        real(kind=dp), parameter :: TMax = 20000_dp 
+        real(kind=dp), parameter :: TMin = 400_dp 
         integer, parameter :: numTemps = 10
         ! Set up constants for the lattice, for now they will be hardcoded but eventually they should be taken as input.
         type(Atom_t), dimension(2) :: atomsInUnitCell
@@ -43,8 +43,8 @@ program PT
         real(kind=dp) :: ca = 90
 
         integer, parameter :: numSwaps = numTemps ! Number of swaps to do per iteration
-        integer, parameter :: numIterations = 100 
-        integer, parameter :: numMCSSweepsPerSwap = 1000
+        integer, parameter :: numIterations = 40
+        integer, parameter :: numMCSSweepsPerSwap = 100
          
         integer :: NumSlots, BasePtr, TopPtr, NumParams, Iteration, meshIndex, swapIndex
         integer :: meshIndex1, meshIndex2 ! intuitive naming requires more variables than are strictly needed
