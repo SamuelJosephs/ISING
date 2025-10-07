@@ -5,17 +5,13 @@ import pandas as pd
 
 
 def render_single_density(path,outputPath,winding_number,skyrmion_number):
-    print(f"Plotting {path}")
+
+    print(f"Plotting {path}, outputPath = {outputPath}")
+
     df = pd.read_csv(path)
 
-    x = df['x'].to_numpy(dtype=np.float64)
-    y = df['y'].to_numpy(dtype=np.float64)
     z = df['z'].to_numpy(dtype=np.float64)
 
-    Winding_Density = df['Winding_Density'].to_numpy(dtype=np.float64)
-
-    x_unique = np.unique(x)
-    y_unique = np.unique(y)
     z_unique = np.unique(z)
 
     maxZ = z_unique[-1]
@@ -25,50 +21,59 @@ def render_single_density(path,outputPath,winding_number,skyrmion_number):
 
     df_slice = df[df['z'] == z_unique[halfwayZ]]
 
+    x = df_slice['x'].to_numpy(dtype=np.float64)
+    y = df_slice['y'].to_numpy(dtype=np.float64)
+    z = df_slice['z'].to_numpy(dtype=np.float64)
+
+    print(f"x = {x}")
+    print(f"y = {y}")
+
+    Winding_Density = df_slice['Winding_Density'].to_numpy(dtype=np.float64)
+
 
     fig, ax = plt.subplots()
 
+    print(f"About to make image, len(x), len(y), len(winding) = {len(x)}, {len(y)}, {len(Winding_Density)}")
     im = ax.tricontourf(x,y,Winding_Density,levels=100,cmap='jet')
     fig.colorbar(im,label='Winding Density',ax=ax)
     ax.set_xlabel(r'x $(\AA)$')
     ax.set_ylabel(r'y $(\AA)$')
 
-    if outputPath != None:
-        head,tail = os.path.split(path)
-        tail = tail.replace(".csv","")
-        tail = tail + f"_{int(winding_number)}_{int(skyrmion_number)}" + ".pdf"
-        #tail = tail.replace(".csv",".pdf")
-        savePath = os.path.join(outputPath,tail)
+    print("Made Image")
+    head,tail = os.path.split(path)
+    tail = tail.replace(".csv","")
+    tail = tail + f"_{int(winding_number)}_{int(skyrmion_number)}" + ".pdf"
+    #tail = tail.replace(".csv",".pdf")
+    savePath = os.path.join(outputPath,tail)
 
-        print(f"savePath = {savePath}")
-        fig.savefig(savePath,bbox_inches="tight")
+    print(f"savePath = {savePath}")
+    fig.savefig(savePath,bbox_inches="tight")
+
     fig.clf()
     plt.close(fig)
-
 
 
 def render_single(path,outputPath,winding_number,skyrmion_number):
     print(f"Plotting {path}")
     df = pd.read_csv(path)
 
-    x = df['x'].to_numpy(dtype=np.float64)
-    y = df['y'].to_numpy(dtype=np.float64)
     z = df['z'].to_numpy(dtype=np.float64)
 
-    Sx = df['Sx'].to_numpy(dtype=np.float64)
-    Sy = df['Sy'].to_numpy(dtype=np.float64)
-    Sz = df['Sz'].to_numpy(dtype=np.float64)
-
-    x_unique = np.unique(x)
-    y_unique = np.unique(y)
     z_unique = np.unique(z)
 
     maxZ = z_unique[-1]
     minZ = z_unique[0]
 
     halfwayZ = int((maxZ - minZ) / 2)
-
     df_slice = df[df['z'] == z_unique[halfwayZ]]
+
+    x = df_slice['x'].to_numpy(dtype=np.float64)
+    y = df_slice['y'].to_numpy(dtype=np.float64)
+    z = df_slice['z'].to_numpy(dtype=np.float64)
+
+    Sx = df_slice['Sx'].to_numpy(dtype=np.float64)
+    Sy = df_slice['Sy'].to_numpy(dtype=np.float64)
+    Sz = df_slice['Sz'].to_numpy(dtype=np.float64)
 
 
     fig, ax = plt.subplots()
@@ -79,15 +84,15 @@ def render_single(path,outputPath,winding_number,skyrmion_number):
     ax.set_xlabel(r'x $(\AA)$')
     ax.set_ylabel(r'y $(\AA)$')
 
-    if outputPath != None:
-        head,tail = os.path.split(path)
-        tail = tail.replace(".csv","")
-        tail = tail + f"_{int(winding_number)}_{int(skyrmion_number)}" + ".pdf"
-        #tail = tail.replace(".csv",".pdf")
-        savePath = os.path.join(outputPath,tail)
+    head,tail = os.path.split(path)
+    tail = tail.replace(".csv","")
+    tail = tail + f"_{int(winding_number)}_{int(skyrmion_number)}" + ".pdf"
+    #tail = tail.replace(".csv",".pdf")
+    savePath = os.path.join(outputPath,tail)
 
-        print(f"savePath = {savePath}")
-        fig.savefig(savePath,bbox_inches="tight")
+    print(f"savePath = {savePath}")
+    fig.savefig(savePath,bbox_inches="tight")
+
     fig.clf()
     plt.close(fig)
 
@@ -173,10 +178,10 @@ if __name__ == "__main__":
             if np.isnan(skyrmion_numbers[i]) or np.isnan(winding_numbers[i]):
                 print(f"NaN Found: Skyrmion Number: {skyrmion_numbers[i]}, winding_number: {winding_numbers[i]}")
                 continue 
-           # elif (abs(int(skyrmion_numbers[i])) == abs(int(winding_numbers[i]))):
-           #     print(f"Matching SK and WND numbers: {skyrmion_numbers[i]} , {winding_numbers[i]}")
+            elif (abs(int(skyrmion_numbers[i])) == abs(int(winding_numbers[i]))):
+                print(f"Matching SK and WND numbers: {skyrmion_numbers[i]} , {winding_numbers[i]}")
 
-            elif abs(int(winding_numbers[i])) == abs(int(skyrmion_numbers[i])):
+            elif abs(int(winding_numbers[i])) != abs(int(skyrmion_numbers[i])):
                 
                 print(f"Non Matching SK and WND numbers: {int(skyrmion_numbers[i])} , {int(winding_numbers[i])}")
                 # Need to construct the file name 
@@ -220,8 +225,13 @@ if __name__ == "__main__":
 
     print(f"paths_density = {paths_density}") 
 
-    with ProcessPoolExecutor(max_workers=15) as pp:
-        pp.map(render_single_density,paths_density,repeat(outputPath_density),windNums,skyrmNums)
-        pp.map(render_single,paths,repeat(outputPath),windNums,skyrmNums)
+    with ProcessPoolExecutor(max_workers=1) as pp:
+        it1 = pp.map(render_single_density,paths_density,repeat(outputPath_density),windNums,skyrmNums)
+        it2 = pp.map(render_single,paths,repeat(outputPath),windNums,skyrmNums)
 
+        for process in it1:
+            print("Got: ", process)
+
+        for process in it2:
+            print("Got: ", process)
 
