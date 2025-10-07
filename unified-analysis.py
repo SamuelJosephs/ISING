@@ -4,6 +4,47 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 
+def render_single_density(path,outputPath,winding_number,skyrmion_number):
+    print(f"Plotting {path}")
+    df = pd.read_csv(path)
+
+    x = df['x'].to_numpy(dtype=np.float64)
+    y = df['y'].to_numpy(dtype=np.float64)
+    z = df['z'].to_numpy(dtype=np.float64)
+
+    Winding_Density = df['Winding_Density'].to_numpy(dtype=np.float64)
+
+    x_unique = np.unique(x)
+    y_unique = np.unique(y)
+    z_unique = np.unique(z)
+
+    maxZ = z_unique[-1]
+    minZ = z_unique[0]
+
+    halfwayZ = int((maxZ - minZ) / 2)
+
+    df_slice = df[df['z'] == z_unique[halfwayZ]]
+
+
+    fig, ax = plt.subplots()
+
+    im = ax.tricontourf(x,y,Winding_Density,levels=100,cmap='jet')
+    fig.colorbar(im,label='Winding Density',ax=ax)
+    ax.set_xlabel(r'x $(\AA)$')
+    ax.set_ylabel(r'y $(\AA)$')
+
+    if outputPath != None:
+        head,tail = os.path.split(path)
+        tail = tail.replace(".csv","")
+        tail = tail + f"_{int(winding_number)}_{int(skyrmion_number)}" + ".pdf"
+        #tail = tail.replace(".csv",".pdf")
+        savePath = os.path.join(outputPath,tail)
+
+        print(f"savePath = {savePath}")
+        fig.savefig(savePath,bbox_inches="tight")
+    fig.clf()
+    plt.close(fig)
+
 
 
 def render_single(path,outputPath,winding_number,skyrmion_number):
@@ -116,19 +157,26 @@ if __name__ == "__main__":
  
     wd = os.getcwd()
     outputPath = os.path.join(wd,"Test-Paper-Visualisations")   
-    spin_dirname = os.path.join(wd,"output_dir-spins")
+    outputPath_density = os.path.join(wd,"Test-Paper-Visualisations-Density")
+
+    spin_dirname = os.path.join(wd,"output-dir_spins")
+    density_dirname = os.path.join(wd,"output-dir_density")
+
+    os.makedirs(outputPath,exist_ok=True)
+    os.makedirs(outputPath_density,exist_ok=True)
 
     paths = []
+    paths_density = []
     windNums = []
     skyrmNums = []
     for i in range(0,len(winding_numbers)):
             if np.isnan(skyrmion_numbers[i]) or np.isnan(winding_numbers[i]):
                 print(f"NaN Found: Skyrmion Number: {skyrmion_numbers[i]}, winding_number: {winding_numbers[i]}")
                 continue 
-            elif (abs(int(skyrmion_numbers[i])) == abs(int(winding_numbers[i]))):
-                print(f"Matching SK and WND numbers: {skyrmion_numbers[i]} , {winding_numbers[i]}")
+           # elif (abs(int(skyrmion_numbers[i])) == abs(int(winding_numbers[i]))):
+           #     print(f"Matching SK and WND numbers: {skyrmion_numbers[i]} , {winding_numbers[i]}")
 
-            elif abs(int(winding_numbers[i])) != abs(int(skyrmion_numbers[i])):
+            elif abs(int(winding_numbers[i])) == abs(int(skyrmion_numbers[i])):
                 
                 print(f"Non Matching SK and WND numbers: {int(skyrmion_numbers[i])} , {int(winding_numbers[i])}")
                 # Need to construct the file name 
@@ -154,8 +202,10 @@ if __name__ == "__main__":
                 
                 TString_Index = np.where(TVals_unique == TVals[i])[0][0] + 1
                 nameString = f"spins_{JString}_{DString}_{BString}_{TString}.csv"
+                nameString_density = f"density_{JString}_{DString}_{BString}_{TString}.csv"
                 filename = os.path.join(spin_dirname,nameString)
                
+                filename_density = os.path.join(density_dirname,nameString_density)
                 if os.path.isfile(filename):
                     print(f"Found File {filename}")
                     paths.append(filename)
@@ -163,9 +213,15 @@ if __name__ == "__main__":
                     skyrmNums.append(int(skyrmion_numbers[i]))
                 else:
                     print(f"Failed to find file {filename}")
-
                 
+                if os.path.isfile(filename_density):
+                    print(f"Found File {filename_density}")
+                    paths_density.append(filename_density)
+
+    print(f"paths_density = {paths_density}") 
+
     with ProcessPoolExecutor(max_workers=15) as pp:
+        pp.map(render_single_density,paths_density,repeat(outputPath_density),windNums,skyrmNums)
         pp.map(render_single,paths,repeat(outputPath),windNums,skyrmNums)
 
 
