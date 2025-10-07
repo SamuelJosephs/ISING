@@ -736,6 +736,10 @@ module ChainMesh
                 chainMesh%c_vec = c_vec 
                 
 
+                print *, "a_vec = ", chainMesh%a_vec%coords
+                print *, "b_vec = ", chainMesh%b_vec%coords
+                print *, "c_vec = ", chainMesh%c_vec%coords
+                print *, "numCellsX = ", numCellsX, "numCellsY = ", numCellsY, "numCellsZ = ", numCellsZ
                 chainMesh%a_vec%coords = merge(chainMesh%a_vec%coords, 0.0_8,abs(chainMesh%a_vec%coords) > 1e-5_8 )
                 chainMesh%b_vec%coords = merge(chainMesh%b_vec%coords, 0.0_8,abs(chainMesh%b_vec%coords) > 1e-5_8 )
                 chainMesh%c_vec%coords = merge(chainMesh%c_vec%coords, 0.0_8,abs(chainMesh%c_vec%coords) > 1e-5_8 )
