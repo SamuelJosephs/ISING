@@ -340,20 +340,31 @@ module reciprocal_space_processes
                 real(kind=8), dimension(:,:), allocatable :: density_matrix 
                 integer :: i, unit, stat, j, k 
                 type(vecNd_t) :: pos
+                character(len=400) :: string_buff
+                character(len=:), allocatable :: outputString
+
+                string_buff(1:len(string_buff)) = ' '
+
                 open(newunit=unit, file=filepath, status="replace",action="write",iostat=stat)
                 if (stat/=0) error stop "Error opening file to write density information" 
-                write(unit,'(A)') "x,y,z,Winding_Density"
 
+                outputString = "x,y,z,Winding_Density" // NEW_LINE('a')
                 do i=1,chainMesh%numcellsZ 
                         call calculate_winding_number_density(chainMesh,i,density_matrix)
                         do j = 1,chainMesh%numCellsX 
                                 do k = 1,chainMesh%numCellsY 
-                                        pos = dble(j)*chainMesh%a_vec + dble(k)*chainMesh%b_vec + dble(i)*chainMesh%c_vec
-                                        write(unit,'(3(F8.4,","),F8.4)') pos%coords(1), pos%coords(2), pos%coords(3), density_matrix(j,k) 
+                                        pos = (dble(j)*chainMesh%a_vec) + (dble(k)*chainMesh%b_vec) + (dble(i)*chainMesh%c_vec)
+                                        string_buff(1:len(string_buff)) = ' '
+
+                                        write(string_buff,*) pos%coords(1), ",", pos%coords(2), ",", pos%coords(3), ",", &
+                                                density_matrix(j,k), NEW_LINE('a')
+                                        outputString = outputString // trim(adjustl(string_buff)) // NEW_LINE('a')
                                 end do 
                         end do 
                 end do 
+                write(unit,'(A)') outputString 
                 
+                close(unit)
         end subroutine write_winding_number_density
         subroutine add_neighbors_to_stack(chainMesh, i,j,stack_array, stack_ptr, visited_array, density_mask, in_stack_array, &
                                                 density_matrix)
