@@ -342,6 +342,9 @@ module reciprocal_space_processes
                 type(vecNd_t) :: pos
                 character(len=400) :: string_buff
                 character(len=:), allocatable :: outputString
+                character(len=1), parameter :: newline = NEW_LINE('a')
+
+                
 
                 string_buff(1:len(string_buff)) = ' '
 
@@ -356,8 +359,8 @@ module reciprocal_space_processes
                                         pos = (dble(j)*chainMesh%a_vec) + (dble(k)*chainMesh%b_vec) + (dble(i)*chainMesh%c_vec)
                                         string_buff(1:len(string_buff)) = ' '
 
-                                        write(string_buff,*) pos%coords(1), ",", pos%coords(2), ",", pos%coords(3), ",", &
-                                                density_matrix(j,k), NEW_LINE('a')
+                                        write(string_buff,'(F0.8, A, F0.8, A, F0.8, A, F0.8, A1)') &
+                pos%coords(1), ",", pos%coords(2), ",", pos%coords(3),",", density_matrix(j,k), newline ! Thank you gfortran parser
                                         outputString = outputString // trim(adjustl(string_buff)) // NEW_LINE('a')
                                 end do 
                         end do 
