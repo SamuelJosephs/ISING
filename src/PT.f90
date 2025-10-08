@@ -32,8 +32,8 @@ program PT
         ! Set up constants for the lattice, for now they will be hardcoded but eventually they should be taken as input.
         type(Atom_t), dimension(2) :: atomsInUnitCell
         real, dimension(3), parameter :: atomParams = (/1.0, 0.0, 0.0/)
-        integer, parameter :: numCellsX = 20 
-        integer, parameter :: numCellsY = 20
+        integer, parameter :: numCellsX = 30 
+        integer, parameter :: numCellsY = 30
         integer, parameter :: numCellsZ = 6
         real(kind=dp):: a_bravais = 2.8
         real(kind=dp) :: b_bravais = 2.8
@@ -279,7 +279,7 @@ program PT
         do i = 1,numParams 
                 do j = 1,numTemps 
                 
-                beta = 1.0_dp / TemperatureArray(j)
+                beta = 1.0_dp / (kb*TemperatureArray(j))
                 meshIndex = TemperatureMeshArray(i,j) ! The j'th temperature is being computed at this index
                 J_H = ParamArray(i,1)
                 D_H = ParamArray(i,2)
