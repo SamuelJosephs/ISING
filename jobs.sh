@@ -1,21 +1,24 @@
 #!/usr/bin/bash
 
-maxJ=1.2
-minJ=-1.2
-NJ=40
-
-maxD=3.5
-minD=-3.5
-ND=40
+maxJ=3.0
+minJ=-3.0
+NJ=10
+	
+maxD=3.0
+minD=-3.0
+ND=10
 
 maxB=1.5
-minB=0.2
-NB=2
+minB=1.5
+NB=1
 
 outputDir="./output-dir" # prefix for data directories
 outfilesDir="./outfiles" # Teh directory where stdout will be directed to
-maxTime="05:15:00"
-maxConcurrentJobs=800
+maxTime="05:40:00"
+#maxTime="00:15:00"
+
+maxConcurrentJobs=100
+partition=shared
 ###########################################################################################
 
 module load gcc python openmpi fftw
@@ -25,7 +28,7 @@ mkdir -p $outfilesDir
 
 script=$(cat <<EOF
 #!/usr/bin/bash
-#SBATCH -p shared
+#SBATCH -p $partition
 #SBATCH -n 1 
 #SBATCH -c 1 
 #SBATCH -J parameter-scan
