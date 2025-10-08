@@ -223,10 +223,6 @@ module reciprocal_space_processes
 
                 
                 num = 1 + s1*s2 + s2*s3 + s3*s1 + cmplx(0.0_8,s1*(s2 .x. s3))
-                if (abs(real(num)) < 1e-15 .and. abs(aimag(num)) < 1e-15) then 
-                        sigma_area = 0.0_8 
-                        return 
-                end if 
                 sigma_area = 2*atan2(aimag(num),real(num))
         end function arc_winding
 
