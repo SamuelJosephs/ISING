@@ -760,22 +760,12 @@ module reciprocal_space_processes
                                 winding = winding + j * winding_array(j)
                                 
                                 current_winding_number = current_winding_number + j*closest_skyrmion_number(j)
-                                print *, "Current Winding Number = ", current_winding_number
                         end do 
 
                         if (abs(nint(winding) - nint(total_charge)) < &
                                 abs(current_winding_number - nint(total_charge))) then
                                 closest_skyrmion_number = winding_array
                         end if 
-                        print *, "**************************************"
-                        print *, "Total Charge = ", total_charge
-                        print *, "winding = ", winding
-                        print *, "current winding number = ", current_winding_number
-
-                        print *, "difference1 = ", abs(nint(total_charge) - winding)
-                        print *, "difference2 = ", abs(nint(total_charge) - current_winding_number)
-                        print *, "**************************************"
-
                         if (abs(abs(winding) - abs(total_charge)) < 0.1) then 
                                 !print *, "Solution found at q_threshold = ", threshold, "threshold = ", threshold, "sigma = ", sigma
                                 return
