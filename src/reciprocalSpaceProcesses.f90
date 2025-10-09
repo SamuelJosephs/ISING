@@ -3,6 +3,7 @@ module reciprocal_space_processes
         use vecNd
         use constants
         use, intrinsic :: iso_c_binding 
+        use iso_fortran_env, only: dp=>real64
         !include 'fftw3.f03' !This is included in chainMesh, annoying I would like header files with #pragma once
         
         contains
@@ -216,14 +217,35 @@ module reciprocal_space_processes
 
 
         function arc_winding(s1,s2,s3) result(sigma_area)
+                use constants, only: pi
                 implicit none
                 type(vecNd_t), intent(in) :: s1, s2, s3
                 real(kind=8) :: sigma_area
                 complex(kind=8) :: num
-
+                real(kind=dp) :: a, b, c, interiorA, interiorB, interiorC, s
+                ! This is the numerically unstable approach, there are issues when s1*s2 + s2*s3 + s3*s1 \approx -1
+                ! num = 1 + s1*s2 + s2*s3 + s3*s1 + cmplx(0.0_8,s1*(s2 .x. s3))
+                ! sigma_area = 2*atan2(aimag(num),real(num))
+                ! The numerically stable approach computes the interior angles from the input vectors 
                 
-                num = 1 + s1*s2 + s2*s3 + s3*s1 + cmplx(0.0_8,s1*(s2 .x. s3))
-                sigma_area = 2*atan2(aimag(num),real(num))
+                ! We assume that s1, s2, and s3 are unit vectors 
+                
+                a = vec_angle(s2,s3)
+                b = vec_angle(s1,s3)
+                c = vec_angle(s1,s2)
+                s = 0.5_dp*(a + b + c) ! semi perimeter
+
+                ! vecSTP(A,B,C) = A\cdot (B\times C), it is the scalar triple product.
+                
+                
+               
+                ! Now using L'Hulliers theorem
+                sigma_area = (tan(s/2.0_dp)*tan((s-a)/2.0_dp)*tan((s-b)/2.0_dp)*tan((s-c)/2.0_dp))
+                sigma_area = max(sigma_area,0.0_dp) ! Don't want it to be negative due to the square root and floating point noise
+                                                    ! can apparently make it slightly negative.
+                sigma_area = sign(1.0_dp,vecSTP(s1,s2,s3))*4.0_dp*atan(sqrt(sigma_area))
+                ! vec(STP) gives the sign of the area
+
         end function arc_winding
 
         function calculate_winding_number2(chainMesh,Z_index) result(winding_number)
