@@ -148,7 +148,7 @@ program main
         num_frames = 0
         numMetropolisStepsTotal = 220000
         numMetropolisSteps = 2000
-        numBetaSteps = 40
+        numBetaSteps = 10
         
         lower_bound = 0.000001
         upper_bound = 0.95
@@ -161,9 +161,9 @@ program main
         end do 
         counter = 1 
         do i = 0,numBetaSteps
-                Tmax = 200.0_8 
+                Tmax = 20000.0_8 
                 !Tmin = 0.1*(0.76*8*J)/(3*Kb)
-                Tmin = 1.0_8
+                Tmin = 400.0_8
                 T = Tmax - (Tmax - Tmin)*(dble(i)/dble(numBetaSteps)) 
                 beta = 1.0_8 / (Kb*T)
                 call TotalHeisenbergEnergy(testMesh,J,J_prime,Dz,Dz_prime,B,lockArray,totalEnergy1,demag=demag)
