@@ -337,10 +337,13 @@ module io
                         open(file=filename,newunit=unit,action="read",status="old", iostat=stat)
                         if (stat /= 0) error stop "Error: Failed to open spin file"
                         
-                        read(unit,"(5(A,','),A)") xHeader,yHeader,zHeader,sxHeader,syHeader,szHeader
-
+                        read(unit,"(5(A,','),A)",iostat=stat) xHeader,yHeader,zHeader,sxHeader,syHeader,szHeader
+                        
                         print *, "Headers: ", xHeader, yHeader, zHeader, sxHeader, syHeader, szHeader
-
+                        
+                        do while (stat >= 0) 
+                               !TODO: Finish this function, we will need to allocate the atoms to mesh cells. 
+                        end do  
 
 
                 end subroutine io_read_spins
