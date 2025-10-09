@@ -1,5 +1,6 @@
 
 module vecNd  
+        use iso_fortran_env, only: dp=>real64
         implicit none 
         
         type vecNd_t  
@@ -67,6 +68,13 @@ module vecNd
         end interface view
 
         contains 
+
+        function vec_angle(A,B) result(res)
+                type(vecNd_t) ,intent(in) :: A,B
+                real(kind=dp) :: res
+
+                res = acos((A*B)/(abs(A)*abs(B)))
+        end function vec_angle
 
         function vecSTP(A,B,C) result(res)
                 type(vecNd_t), intent(in) :: A,B,C
