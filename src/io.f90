@@ -24,7 +24,7 @@ module io
         logical, parameter, dimension(3) :: IsBinaryOperator = (/.True., .True.,.False./)
 
         public :: io_NJ, io_ND, io_NB, io_JMIN, io_JMAX, io_DMIN, io_DMAX, io_outputPath
-        public :: io_parsefile
+        public :: io_parsefile, io_read_spins
         
         type stringWrapper
                 character(len=:), allocatable :: string
@@ -323,4 +323,25 @@ module io
                                 end if
                         end do
                 end subroutine to_upper
+
+
+                subroutine io_read_spins(filename,chainMesh_out)
+                        use chainMesh, only: chainMesh_t
+                        implicit none
+                        character(len=*), intent(in) :: filename
+                        type(chainMesh_t), intent(inout) :: chainMesh_out
+                
+                        integer :: unit, stat
+                        character(len=100) :: xHeader, yHeader, zHeader, sxHeader, syHeader, szHeader 
+
+                        open(file=filename,newunit=unit,action="read",status="old", iostat=stat)
+                        if (stat /= 0) error stop "Error: Failed to open spin file"
+                        
+                        read(unit,"(5(A,','),A)") xHeader,yHeader,zHeader,sxHeader,syHeader,szHeader
+
+                        print *, "Headers: ", xHeader, yHeader, zHeader, sxHeader, syHeader, szHeader
+
+
+
+                end subroutine io_read_spins
 end module io
