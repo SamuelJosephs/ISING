@@ -68,6 +68,14 @@ module vecNd
 
         contains 
 
+        function vecSTP(A,B,C) result(res)
+                type(vecNd_t), intent(in) :: A,B,C
+                real(kind=dp) :: res
+
+                res = A*(B.x.C)
+        
+        end function vecSTP
+
         function vecNdSize(input) result(res)
                 type(vecNd_t), intent(in) :: input
                 integer :: res 
