@@ -577,7 +577,7 @@ module reciprocal_space_processes
                                 acc = accs(ID1) 
 
                                 if (abs(abs(acc) - particle_number) < 0.2) then 
-                                        skyrmion_number = skyrmion_number + 1 
+                                        skyrmion_number = skyrmion_number + nint(sign(1.0_dp,acc)) 
                                         cycle 
                                 end if 
                                 do itemp = -1,1
@@ -590,7 +590,7 @@ module reciprocal_space_processes
                                                 if (ID2 == 0) cycle
 
                                                 if (abs(abs(accs(ID1) + accs(ID2)) - particle_number) < 0.2) then 
-                                                        skyrmion_number = skyrmion_number + 1 
+                                                        skyrmion_number = skyrmion_number + nint(sign(1.0_dp,accs(ID1) + accs(ID2)))
                                                         merged(ID1) = .True.
                                                         merged(ID2) = .True.
                                                 end if 
@@ -746,7 +746,7 @@ module reciprocal_space_processes
 
                 total_charge = calculate_winding_number2(chainMesh, Z_index)
                 winding_array = 0.0_8
-                closest_skyrmion_number = HUGE(closest_skyrmion_number(1))
+                closest_skyrmion_number = 0
                 do i = 1,num_thresholds
                         do sigma_index = 1,20
                         ! sigma = (dble(sigma_index)/20.0_8) * (1.0_8 - 0.001_8) + 0.001_8 
@@ -760,12 +760,21 @@ module reciprocal_space_processes
                                 winding = winding + j * winding_array(j)
                                 
                                 current_winding_number = current_winding_number + j*closest_skyrmion_number(j)
+                                print *, "Current Winding Number = ", current_winding_number
                         end do 
+
                         if (abs(nint(winding) - nint(total_charge)) < &
                                 abs(current_winding_number - nint(total_charge))) then
                                 closest_skyrmion_number = winding_array
                         end if 
-                        !print *, "Winding array = ", winding_array, "threshold = ", threshold, "sigma = ", sigma
+                        print *, "**************************************"
+                        print *, "Total Charge = ", total_charge
+                        print *, "winding = ", winding
+                        print *, "current winding number = ", current_winding_number
+
+                        print *, "difference1 = ", abs(nint(total_charge) - winding)
+                        print *, "difference2 = ", abs(nint(total_charge) - current_winding_number)
+                        print *, "**************************************"
 
                         if (abs(abs(winding) - abs(total_charge)) < 0.1) then 
                                 !print *, "Solution found at q_threshold = ", threshold, "threshold = ", threshold, "sigma = ", sigma
