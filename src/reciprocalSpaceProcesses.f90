@@ -766,7 +766,7 @@ module reciprocal_space_processes
                                 abs(current_winding_number - nint(total_charge))) then
                                 closest_skyrmion_number = winding_array
                         end if 
-                        if (abs(abs(winding) - abs(total_charge)) < 0.1) then 
+                        if (abs(winding - total_charge) < 0.1) then 
                                 !print *, "Solution found at q_threshold = ", threshold, "threshold = ", threshold, "sigma = ", sigma
                                 return
                         end if 
