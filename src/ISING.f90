@@ -8,11 +8,14 @@ program main
         use EnergyMin
         use reciprocal_space_processes
         use constants, only: Kb, gyromagnetic_ratio, bohr_magneton
+        use unit_cells, only: bcc_unit_cell, hyper_kagome_unit_cell
         use iso_fortran_env, only : output_unit
         implicit none
         integer :: numCellsX, numCellsY, numCellsZ, i, skyrmion_type, frame, num_frames, numMetropolisStepsTotal, numMetropolisSteps
         type(ChainMesh_t) :: testMesh
-        type(Atom_t) :: AtomsInUnitCell(2)
+        type(Atom_t), allocatable, dimension(:) :: AtomsInUnitCell
+
+        !type(Atom_t), dimension(2) :: AtomsInUnitCell
         type(vecNd_t) :: skyrmion_center
         real(kind=8), allocatable :: center_coords(:), skyrmion_radius
         real :: AtomParam1(3), AtomParam2(3), latticeParam
@@ -83,23 +86,41 @@ program main
         !AtomsInUnitCell(6) = makeAtom(0.000000,   0.000000,   0.276663, -1)
 
         !AtomsInUnitCell(7) = makeAtom(0.333330,   0.666660,   0.733149, -1)
-        AtomsInUnitCell(1) = makeAtom(0.0,0.0,0.0,-1) 
-        AtomsInUnitCell(2) = makeAtom(0.5,0.5,0.5,-1)
+        !AtomsInUnitCell(1) = makeAtom(0.0,0.0,0.0,-1) 
+        !AtomsInUnitCell(2) = makeAtom(0.5,0.5,0.5,-1)
         numCellsX = 30
         numCellsY = 30
         numCellsZ = 6
-        a_bravais = 6.14
-        b_bravais = 6.14
+        !a_bravais = 6.14
+        !b_bravais = 6.14
         !c_bravais = 11.44
-        c_bravais = 6.14
-        ab = 90.0 
-        bc = 90.0 
+        !c_bravais = 6.14
+        !ab = 90.0 
+        !bc = 90.0 
         !ca = 120.0
-        ca = 90.0
+        !ca = 90.0
+        print *, "*************** Initialising Unit Cell ************************"
+
+        call flush(output_unit)
+        call hyper_kagome_unit_cell(a_bravais,b_bravais,c_bravais,ab,bc,ca,atomsInUnitCell)
+        
+        !call bcc_unit_cell(a_bravais,b_bravais,c_bravais,ab,bc,ca,atomsInUnitCell)
+        print *, "*************** Printing Debug Unit Cell Information *******************"
+
+        call flush(output_unit)
+        do i = 1,size(atomsInUnitCell)
+                print *, "AtomInUnitCell", i, " = ", atomsInUnitCell(i)%x, atomsInUnitCell(i)%y, &
+                        atomsInUnitCell(i)%z
+        end do 
+
+        call flush(output_unit)
         ! Create the chain mesh
+        print *, "****************** Initialising Chain Mesh **********************"
         testMesh = makeChainMesh(numCellsX, numCellsY, numCellsZ, AtomsInUnitCell,&
                                 a_bravais,b_bravais,c_bravais,ab,bc,ca)
         print *, "Attempting to allocate ", testMesh%numAtoms, "atoms"
+
+        call flush(output_unit)
         ! Assign nearest neighbors
         do i = 1,size(testMesh%atoms) 
                 print *, "Num nearest Neighbours = ", size(testMesh%atomShells(i,1)%NNList)
@@ -147,7 +168,9 @@ program main
         total_time = 30.0d0
         num_frames = 0
         numMetropolisStepsTotal = 220000
-        numMetropolisSteps = 2000
+        !numMetropolisSteps = 2000
+
+        numMetropolisSteps = 200o
         numBetaSteps = 10
         
         lower_bound = 0.000001
@@ -183,7 +206,7 @@ program main
                 !                num_thresholds,testmesh%numCellsZ / 2)
                 ! skyrmion_number = calculate_skyrmion_number(testMesh,testMesh%numCellsZ/2,0.3_8,1,0.0_8)      
                 ! print *, "Skyrmion number = ", skyrmion_number
-                if (mod(i,10) == 0) then 
+                if (mod(i,1) == 0) then 
                         if (i /= 0) then
                                 call compute_skyrmion_distribution(testMesh,3,winding_array,lower_bound,upper_bound,&
                                        num_thresholds,testmesh%numCellsZ / 2)                 
