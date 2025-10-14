@@ -906,7 +906,10 @@ module ChainMesh
                 do i = 1,size(neighborCellList)
                         cellIndexTemp = neighborCellList(i)
                         atomIndexTemp = chainMesh%chainMeshCells(cellIndexTemp)%firstAtomInMeshCell
-                         
+
+                        if (cellIndexTemp == cellIndex) cycle ! Make sure that we only compute adjacent atoms outside of our current
+                                                              ! cell. 
+
                         do while (atomIndexTemp /= -1)
                                 if (atomIndexTemp == atomIndex) then 
                                         atomIndexTemp = chainMesh%atoms(atomIndexTemp)%nextAtom
