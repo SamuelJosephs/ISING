@@ -91,7 +91,7 @@ program PT
         
         if (numArgs /= 10) then 
                 write(error_unit,'(A)') "Incorrect number of command line arguments, &
-                        input: Jmin Jmax NJ Dmin Dmax ND Bmin Bmax NB outputFilePath"
+                        & input: Jmin Jmax NJ Dmin Dmax ND Bmin Bmax NB outputFilePath"
                 call MPI_abort(MPI_COMM_WORLD,1)
         end if 
 
@@ -147,8 +147,8 @@ program PT
         if (NumSlots < MPI_num_procs .or. MPI_num_procs < 1) then 
                 if (MPI_rank == 0) then 
                         write(error_unit,'(A)') "ERROR: Number of Parameter Slots must be greater than the number &
-                                                of MPI Ranks, either increase the number of slots or decrease the number &
-                                                        of MPI Ranks for the given input."  
+                                                & of MPI Ranks, either increase the number of slots or decrease the number &
+                                                &        of MPI Ranks for the given input."  
                 end if 
                 call MPI_Abort(MPI_COMM_WORLD,1,MPI_ierr)
         end if 
@@ -312,9 +312,9 @@ program PT
                         temp = TemperatureArray(j)
                         ! write model parameters J, D, B, T
                         output_string = "J,D,B,T,winding_number_middle, &
-                                skyrmion_number_middle,winding_number_spread,sx,&
-                                sy, sz" // new_line('a')
-                        write(string_buff,'((F0.4,",",F0.4,","F0.4,",",F0.10,","))') ParamArray(i,1), &
+                                & skyrmion_number_middle,winding_number_spread,sx,&
+                                & sy, sz" // new_line('a')
+                        write(string_buff,'((F0.4,",",F0.4,",",F0.4,",",F0.10,","))') ParamArray(i,1), &
                                         ParamArray(i,2), ParamArray(i,3),temp
                         output_string = output_string // trim(adjustl(string_buff))
                         string_buff = " "

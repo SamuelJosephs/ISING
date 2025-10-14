@@ -431,7 +431,7 @@ module ChainMesh
                                                         
                                                         distanceLoc = findloc(abs(distanceArray - distance_val) < 1e-5,.True.)
                                                         if (size(distanceLoc) < 1) error stop "Error: Cannot find distance entry &
-                                                                in array"
+                                                                & in array"
                                                         NNNArray(atomIndex,distanceLoc(1))%NNList = &
                                                                 [NNNArray(atomIndex,distanceLoc(1))%NNList,atomIndexTemp]
                                                         atomIndexTemp = chainMesh%atoms(atomIndexTemp)%nextAtom

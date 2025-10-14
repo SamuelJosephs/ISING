@@ -117,7 +117,7 @@ contains
 
                 if (present(integer_companion)) then 
                         if (size(integer_companion) /= size(array)) error stop "Error: &
-                                Integer Companion must have the same size as the array to be sorted"
+                                & Integer Companion must have the same size as the array to be sorted"
 
                         allocate(integer_scratch_space(size(array)),stat=stat)
                         if (stat /= 0) error stop "Failed to allocate integer scratch space "
@@ -208,7 +208,7 @@ contains
 
                 if (present(integer_companion)) then 
                         if (size(integer_companion) /= size(array)) error stop "Error: &
-                                Integer Companion must have the same size as the array to be sorted"
+                                & Integer Companion must have the same size as the array to be sorted"
 
                         allocate(integer_scratch_space(size(array)),stat=stat)
                         if (stat /= 0) error stop "Failed to allocate integer scratch space "
@@ -293,7 +293,7 @@ contains
 
                 if (present(Acomp)) then 
                         if (size(Acomp) /= size(A)) error stop "A and it's integer companion &
-                                must be the same size"
+                                & must be the same size"
                 end if 
 
                 if (present(Bcomp)) then 
@@ -302,7 +302,7 @@ contains
 
                 if (present(integer_scratch_space)) then 
                         if (size(integer_scratch_space) /= size(scratchSpace)) error stop "Error: &
-                                integer scratch space must have the same size as scratch space"
+                                & integer scratch space must have the same size as scratch space"
                 end if 
                 
                 if (present(scratchIndex)) then 
@@ -364,7 +364,7 @@ contains
 
                 if (present(Acomp)) then 
                         if (size(Acomp) /= size(A)) error stop "A and it's integer companion &
-                                must be the same size"
+                                & must be the same size"
                 end if 
 
                 if (present(Bcomp)) then 
@@ -373,7 +373,7 @@ contains
 
                 if (present(integer_scratch_space)) then 
                         if (size(integer_scratch_space) /= size(scratchSpace)) error stop "Error: &
-                                integer scratch space must have the same size as scratch space"
+                                & integer scratch space must have the same size as scratch space"
                 end if 
                 
                 if (present(scratchIndex)) then 

@@ -575,7 +575,8 @@ subroutine write_demagnetisation_field_to_file(chainMesh,demag_field,filepath)
                 x_component = demag_field(i,1)
                 y_component = demag_field(i,2)
                 z_component = demag_field(i,3)
-                write(100, '(F8.4,"," F8.4,",", F8.4,",", F8.4, ",", F8.4, ",", F8.4)') x,y,z, x_component, y_component, z_component
+                write(100, '(F8.4,",", F8.4,",", F8.4,",", F8.4, ",", F8.4, ",", F8.4)') x,y,z, &
+                        x_component, y_component, z_component
 
         end do 
         close(100)
