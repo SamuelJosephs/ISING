@@ -14,6 +14,7 @@ program PT
         use io
         use iso_fortran_env, only: error_unit, dp=>real64
         use omp_lib
+        use unit_cells, only: hyper_kagome_unit_cell
         implicit none 
         integer :: MPI_ierr, MPI_rank, MPI_num_procs 
         integer :: NJ = 10 ! The number of J, D, and B values to perform the parallel tempering at.  
@@ -30,7 +31,7 @@ program PT
         real(kind=dp), parameter :: TMin = 400_dp 
         integer, parameter :: numTemps = 10
         ! Set up constants for the lattice, for now they will be hardcoded but eventually they should be taken as input.
-        type(Atom_t), dimension(2) :: atomsInUnitCell
+        type(Atom_t), allocatable, dimension(:) :: atomsInUnitCell
         real, dimension(3), parameter :: atomParams = (/1.0, 0.0, 0.0/)
         integer, parameter :: numCellsX = 30 
         integer, parameter :: numCellsY = 30
@@ -136,16 +137,10 @@ program PT
         call GET_COMMAND_ARGUMENT(10,outputPath)
         
         
-        AtomsInUnitCell(1) = makeAtom(0.0,  0.0,  0.0, -1)
-        AtomsInUnitCell(2) = makeAtom(0.5,  0.5,  0.5, -1)
         
-        a_bravais = 1.0_dp
-        b_bravais = 1.0_dp
-        c_bravais = 1.0_dp
         
-        ab = 90.0_dp
-        bc = 90.0_dp
-        ca = 90.0_dp 
+
+        call hyper_kagome_unit_cell(a_bravais,b_bravais,c_bravais,ab,bc,ca,atomsInUnitCell)
 
         NumSlots = NJ*ND*NB
         NumParams = NumSlots / MPI_num_procs
