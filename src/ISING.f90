@@ -170,7 +170,7 @@ program main
         numMetropolisStepsTotal = 220000
         !numMetropolisSteps = 2000
 
-        numMetropolisSteps = 200o
+        numMetropolisSteps = 2000
         numBetaSteps = 10
         
         lower_bound = 0.000001
