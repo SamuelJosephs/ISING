@@ -586,6 +586,8 @@ module reciprocal_space_processes
                                                 yIndex = modulo(j + jtemp - 1,Ny) + 1
                                                 if (itemp == 0 .and. jtemp == 0) cycle
                                                 ID2 = regionID(xIndex,yIndex)
+
+                                                if (ID2 == 0) cycle
                                                 if (merged(ID2)) cycle 
                                                 if (ID2 == 0) cycle
 
