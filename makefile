@@ -3,7 +3,7 @@
 # ========================
 FC = mpif90
 #FCFLAGS = -I/usr/include -Wno-line-truncation -fopenmp -O0 -fcheck=all -fbacktrace -Wpedantic -march=native
-FCFLAGS = -I/usr/include -Wno-line-truncation -fopenmp -O3 -Wpedantic -march=native
+FCFLAGS = -I/usr/include -Wno-line-truncation -fopenmp -O3 -Wpedantic -Wall -march=native
 
 MODDIR = -J./obj
 INCDIR = -I./obj
