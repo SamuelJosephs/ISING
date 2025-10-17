@@ -2,9 +2,9 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
+from functools import partial
 
-
-def render_single_density(path,outputPath,winding_number,skyrmion_number):
+def render_single_density(path,outputPath,winding_number,skyrmion_number,outputPath1d,stripe: bool =False):
 
     print(f"Plotting {path}, outputPath = {outputPath}")
 
@@ -25,32 +25,91 @@ def render_single_density(path,outputPath,winding_number,skyrmion_number):
     y = df_slice['y'].to_numpy(dtype=np.float64)
     z = df_slice['z'].to_numpy(dtype=np.float64)
 
-    print(f"x = {x}")
-    print(f"y = {y}")
 
     Winding_Density = df_slice['Winding_Density'].to_numpy(dtype=np.float64)
 
+    #######################################################################
+
+
+    # Find Location of maximum Skyrmion Number, Take Path through that coordinate and refine as needed
+    # We can restric ourselves to plotting a domain where x,y are within a certain radius of the maximum density
+    # First: Find Coordinate
+    # Second: Create new df_slice filtering by suitable x and y values that are within a specified distance
+    maxWinding = np.max(Winding_Density)
+    maxWindingIndex = np.nonzero(np.abs(Winding_Density) == np.max(np.abs(Winding_Density)))[0][0]
+    
+    xVal = x[maxWindingIndex]
+    yVal = y[maxWindingIndex]
+
+    df_slice_1d = df_slice[df_slice["y"] == yVal]
+
+    xVals = df_slice_1d["x"].to_numpy(dtype=np.float64)
+
+    windingArray1d = df_slice_1d["Winding_Density"].to_numpy(dtype=np.float64)
+
+
+
+    #######################################################################
 
     fig, ax = plt.subplots()
+    
 
-    print(f"About to make image, len(x), len(y), len(winding) = {len(x)}, {len(y)}, {len(Winding_Density)}")
     im = ax.tricontourf(x,y,Winding_Density,levels=100,cmap='jet')
     fig.colorbar(im,label='Winding Density',ax=ax)
     ax.set_xlabel(r'x $(\AA)$')
     ax.set_ylabel(r'y $(\AA)$')
+    # Put a red line through where we are taking the 1d paths 
+    if stripe:
+        yVals = np.zeros(len(xVals))
+        yVals[0:] = yVal
+        ax.plot(xVals,yVals,color="red")
 
-    print("Made Image")
     head,tail = os.path.split(path)
     tail = tail.replace(".csv","")
     tail = tail + f"_{int(winding_number)}_{int(skyrmion_number)}" + ".pdf"
     #tail = tail.replace(".csv",".pdf")
     savePath = os.path.join(outputPath,tail)
 
-    print(f"savePath = {savePath}")
     fig.savefig(savePath,bbox_inches="tight")
-
+    
+    
     fig.clf()
     plt.close(fig)
+    ax.clear()
+
+    # Now plot 1d cross section for every y along x for the middle z 
+    # Use df_slice
+ 
+    
+    x_unique = np.unique(x)
+    y_unique = np.unique(y)
+    z_unique = np.unique(z)
+
+    halfWayX = x_unique[int(len(x_unique)/2)]
+    halfWayY = y_unique[int(len(y_unique)/2)]
+    halfWayZ = z_unique[int(len(z_unique)/2)]
+
+    # Now we have need to plot windingArray1d against xVals
+    # First Figure out where we are going to store it
+
+    head,tail = os.path.split(path)
+    tail = tail.replace(".csv","")
+    tail = tail + f"_{int(winding_number)}_{int(skyrmion_number)}" + ".pdf"   
+    
+    savePath = os.path.join(outputPath1d,tail)
+
+
+    fig, ax = plt.subplots()
+    
+    ax.plot(xVals,windingArray1d,label = r"Winding Density $q(\vec{r})$")
+    fig.savefig(savePath,bbox_inches = "tight")
+    fig.clf()
+    ax.clear()
+    plt.close(fig)
+
+
+
+       
 
 
 def render_single(path,outputPath,winding_number,skyrmion_number):
@@ -90,7 +149,6 @@ def render_single(path,outputPath,winding_number,skyrmion_number):
     #tail = tail.replace(".csv",".pdf")
     savePath = os.path.join(outputPath,tail)
 
-    print(f"savePath = {savePath}")
     fig.savefig(savePath,bbox_inches="tight")
 
     fig.clf()
@@ -163,12 +221,14 @@ if __name__ == "__main__":
     wd = os.getcwd()
     outputPath = os.path.join(wd,"Test-Paper-Visualisations")   
     outputPath_density = os.path.join(wd,"Test-Paper-Visualisations-Density")
+    outputPath_density1d = os.path.join(wd,"Test-Paper-Visualisations-1d-Density")
 
     spin_dirname = os.path.join(wd,"output-dir_spins")
     density_dirname = os.path.join(wd,"output-dir_density")
 
     os.makedirs(outputPath,exist_ok=True)
     os.makedirs(outputPath_density,exist_ok=True)
+    os.makedirs(outputPath_density1d,exist_ok=True)
 
     paths = []
     paths_density = []
@@ -178,11 +238,14 @@ if __name__ == "__main__":
             if np.isnan(skyrmion_numbers[i]) or np.isnan(winding_numbers[i]):
                 print(f"NaN Found: Skyrmion Number: {skyrmion_numbers[i]}, winding_number: {winding_numbers[i]}")
                 continue 
-            elif (abs(int(skyrmion_numbers[i])) == abs(int(winding_numbers[i]))):
-                print(f"Matching SK and WND numbers: {skyrmion_numbers[i]} , {winding_numbers[i]}")
+           # elif (abs(int(skyrmion_numbers[i])) == abs(int(winding_numbers[i]))):
+           #     print(f"Matching SK and WND numbers: {skyrmion_numbers[i]} , {winding_numbers[i]}")
 
-            elif abs(int(winding_numbers[i])) != abs(int(skyrmion_numbers[i])):
-                
+           # elif abs(int(winding_numbers[i])) != abs(int(skyrmion_numbers[i])):
+           #     print(f"Matching SK and WND numbers: {skyrmion_numbers[i]} , {winding_numbers[i]}")    
+
+           # elif skyrmion_numbers[i] != winding_numbers[i]:
+            elif abs(skyrmion_numbers[i]) > 0.9*np.max(np.abs(skyrmion_numbers)):  
                 print(f"Non Matching SK and WND numbers: {int(skyrmion_numbers[i])} , {int(winding_numbers[i])}")
                 # Need to construct the file name 
                 d = 4
@@ -225,13 +288,22 @@ if __name__ == "__main__":
 
     print(f"paths_density = {paths_density}") 
 
-    with ProcessPoolExecutor(max_workers=1) as pp:
-        it1 = pp.map(render_single_density,paths_density,repeat(outputPath_density),windNums,skyrmNums)
+
+
+        
+        
+
+    
+    render_single_density_stripe = partial(render_single_density,stripe=True)
+    with ProcessPoolExecutor(max_workers=10) as pp:
+        it1 = pp.map(render_single_density_stripe,paths_density,repeat(outputPath_density),windNums,skyrmNums,repeat(outputPath_density1d))
         it2 = pp.map(render_single,paths,repeat(outputPath),windNums,skyrmNums)
 
         for process in it1:
-            print("Got: ", process)
+            if process != None:
+                print("Got: ", process)
 
         for process in it2:
-            print("Got: ", process)
+            if process != None:
+                print("Got: ", process)
 
