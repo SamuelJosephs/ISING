@@ -324,7 +324,7 @@ program PT
                                 magnetisation%coords(2), magnetisation%coords(3)
                         output_string = output_string // string_buff // new_line('a')
 
-                        print *, "J,D,B,T, skyrmion_number_middle, winding_number_middle, winding_number_spread = ", &
+                        print *, "J,D,B,T,skyrmion_number_middle,winding_number_middle,winding_number_spread = ", &
                         ParamArray(i,1), ParamArray(i,2), ParamArray(i,3),temp, skyrmion_number_middle, winding_number_middle,&
                                                                  winding_number_spread
                         string_buff = " "
