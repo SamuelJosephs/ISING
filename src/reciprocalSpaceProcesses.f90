@@ -433,6 +433,7 @@ module reciprocal_space_processes
 
 
         function calculate_skyrmion_number(chainMesh,Z_index,q_threshold,particle_number, sigma) result(skyrmion_number)
+                use iso_fortran_env, only: dp=>real64
                 implicit none
                 type(chainMesh_t), intent(inout) :: chainmesh
                 integer, intent(in) :: Z_index, particle_number
@@ -448,16 +449,17 @@ module reciprocal_space_processes
 
                 integer :: i, j, i_neighbor, j_neighbor, itemp, jtemp, candidate_counter, Nx, Ny, &
                                         xIndex, yIndex
-                real(kind=8) :: acc
+                real(kind=dp) :: acc
                 logical :: is_candidate, is_local_maxima
-                real(kind=8) :: upper_threshold
+                real(kind=dp) :: upper_threshold
 
-                real(kind=8), allocatable, dimension(:) :: accs
+                real(kind=dp), allocatable, dimension(:) :: accs
                 integer, allocatable, dimension(:) :: coordsi 
                 integer, allocatable, dimension(:) :: coordsj
                 logical, allocatable, dimension(:) :: merged
                 integer, allocatable, dimension(:,:) :: regionID
                 integer :: regionCounter, ID1, ID2
+                real(kind=dp), parameter :: skThreshold = 0.05_dp ! 95% of a skyrmion must be accounted for 
                 N = chainMesh%numCellsX 
                 L = chainMesh%numCellsY 
 
@@ -576,7 +578,7 @@ module reciprocal_space_processes
 
                                 acc = accs(ID1) 
 
-                                if (abs(abs(acc) - particle_number) < 0.2) then 
+                                if (abs(abs(acc) - particle_number) < skThreshold) then 
                                         skyrmion_number = skyrmion_number + nint(sign(1.0_dp,acc)) 
                                         cycle 
                                 end if 
@@ -591,8 +593,9 @@ module reciprocal_space_processes
                                                 if (merged(ID2)) cycle 
                                                 if (ID2 == 0) cycle
 
-                                                if (abs(abs(accs(ID1) + accs(ID2)) - particle_number) < 0.2) then 
-                                                        skyrmion_number = skyrmion_number + nint(sign(1.0_dp,accs(ID1) + accs(ID2)))
+                                                if (abs(abs(accs(ID1) + accs(ID2)) - particle_number) < skThreshold) then 
+                                                        !skyrmion_number = skyrmion_number + nint(sign(1.0_dp,accs(ID1) + accs(ID2)))
+                                                        ! For now remove mergin logic it is probably far too lenient.
                                                         merged(ID1) = .True.
                                                         merged(ID2) = .True.
                                                 end if 
