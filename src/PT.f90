@@ -311,9 +311,9 @@ program PT
                                 winding_number_spread, magnetisation)
                         temp = TemperatureArray(j)
                         ! write model parameters J, D, B, T
-                        output_string = "J,D,B,T,winding_number_middle, &
-                                & skyrmion_number_middle,winding_number_spread,sx,&
-                                & sy, sz" // new_line('a')
+                        output_string = "J,D,B,T,winding_number_middle,&
+                                &skyrmion_number_middle,winding_number_spread,sx,&
+                                &sy, sz" // new_line('a')
                         write(string_buff,'((F0.4,",",F0.4,",",F0.4,",",F0.10,","))') ParamArray(i,1), &
                                         ParamArray(i,2), ParamArray(i,3),temp
                         output_string = output_string // trim(adjustl(string_buff))
