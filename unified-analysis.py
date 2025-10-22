@@ -17,7 +17,7 @@ def render_single_density(path,outputPath,winding_number,skyrmion_number,outputP
     maxZ = z_unique[-1]
     minZ = z_unique[0]
 
-    halfwayZ = int((maxZ - minZ) / 2)
+    halfwayZ = int(len(z_unique)/2)
 
     df_slice = df[df['z'] == z_unique[halfwayZ]]
 
@@ -210,7 +210,7 @@ if __name__ == "__main__":
     BVals = df['B'].to_numpy(dtype=np.float64) 
     TVals = df['T'].to_numpy(dtype=np.float64)
     winding_numbers = df['winding_number_middle'].to_numpy(dtype=np.float64)
-    skyrmion_numbers = df[' skyrmion_number_middle'].to_numpy(dtype=np.float64)
+    skyrmion_numbers = df['skyrmion_number_middle'].to_numpy(dtype=np.float64)
     winding_number_spread = df['winding_number_spread'].to_numpy(dtype=np.float64)
 
     JVals_unique = np.unique(JVals)
@@ -244,8 +244,8 @@ if __name__ == "__main__":
            # elif abs(int(winding_numbers[i])) != abs(int(skyrmion_numbers[i])):
            #     print(f"Matching SK and WND numbers: {skyrmion_numbers[i]} , {winding_numbers[i]}")    
 
-           # elif skyrmion_numbers[i] != winding_numbers[i]:
-            elif abs(skyrmion_numbers[i]) > 0.9*np.max(np.abs(skyrmion_numbers)):  
+            elif skyrmion_numbers[i] != winding_numbers[i]:
+           # elif abs(skyrmion_numbers[i]) > 0.9*np.max(np.abs(skyrmion_numbers)):  
                 print(f"Non Matching SK and WND numbers: {int(skyrmion_numbers[i])} , {int(winding_numbers[i])}")
                 # Need to construct the file name 
                 d = 4
