@@ -9,7 +9,7 @@ df = pd.read_csv(dataPath,na_values="********")
 df = df.fillna(-1)
 print(df)
 winding_number_middle_array = df["winding_number_middle"].to_numpy()
-skyrmion_number_middle_array = df[" skyrmion_number_middle"].to_numpy()
+skyrmion_number_middle_array = df["skyrmion_number_middle"].to_numpy()
 winding_number_spread_array = df["winding_number_spread"].to_numpy()
 
 JVals = df["J"].to_numpy()
