@@ -14,7 +14,7 @@ program PT
         use io
         use iso_fortran_env, only: error_unit, dp=>real64
         use omp_lib
-        use unit_cells, only: hyper_kagome_unit_cell
+        use unit_cells, only: hyper_kagome_unit_cell, bcc_unit_cell
         implicit none 
         integer :: MPI_ierr, MPI_rank, MPI_num_procs 
         integer :: NJ = 10 ! The number of J, D, and B values to perform the parallel tempering at.  
@@ -140,7 +140,8 @@ program PT
         
         
 
-        call hyper_kagome_unit_cell(a_bravais,b_bravais,c_bravais,ab,bc,ca,atomsInUnitCell)
+        !call hyper_kagome_unit_cell(a_bravais,b_bravais,c_bravais,ab,bc,ca,atomsInUnitCell)
+        call bcc_unit_cell(a_bravais,b_bravais,c_bravais,ab,bc,ca,atomsInUnitCell)
 
         NumSlots = NJ*ND*NB
         NumParams = NumSlots / MPI_num_procs
@@ -313,7 +314,7 @@ program PT
                         ! write model parameters J, D, B, T
                         output_string = "J,D,B,T,winding_number_middle,&
                                 &skyrmion_number_middle,winding_number_spread,sx,&
-                                &sy, sz" // new_line('a')
+                                &sy,sz" // new_line('a')
                         write(string_buff,'((F0.4,",",F0.4,",",F0.4,",",F0.10,","))') ParamArray(i,1), &
                                         ParamArray(i,2), ParamArray(i,3),temp
                         output_string = output_string // trim(adjustl(string_buff))
