@@ -37,7 +37,8 @@ dataBuffer = np.array([BVals, # Each of these arrays has the same length, just v
                        JVals,
                        DVals,
                        sk_num,
-                       wnd_num])
+                       wnd_num,
+                       sprd_num])
 print(f"Shape of dataBuffer = {np.shape(dataBuffer)}")
 
 JVals_unique = np.unique(JVals)
@@ -59,7 +60,7 @@ heatMapBuffers = np.zeros(buffShape)
 # TODO: Set x and y ticks from the J and D arrays
 def plot_image(imageBuff, filename, origin: str = "lower", titleString: str = None, logCmap = False):
     import matplotlib.pyplot as plt 
-    from matplotlib.colors import SymLogNorm
+    from matplotlib.colors import SymLogNorm, Normalize
     fig, ax = plt.subplots()
      
     if logCmap:
@@ -72,19 +73,25 @@ def plot_image(imageBuff, filename, origin: str = "lower", titleString: str = No
         norm = SymLogNorm(linthresh = 0.1*vmax, vmin = minVal, vmax = maxVal)
 
         mappable = ax.imshow(imageBuff, origin = origin, norm = norm)
+    else:
+        minVal = np.min(sprd_num)
+        maxVal = np.max(sprd_num)
+        norm = Normalize(vmin = minVal, vmax = maxVal)
+        mappable = ax.imshow(imageBuff,origin=origin, norm = norm)
+
     cbar = plt.colorbar(mappable, ax = ax)
     
     ax.set_xlabel("J (ev)")
     ax.set_ylabel("D (ev)")
-    fig.savefig(filename,bbox_inches = "tight")
     
-    titleString = ""
     if titleString != None:
         ax.set_title(titleString)
 
+    fig.savefig(filename,bbox_inches = "tight")
     
     ax.clear()
     fig.clf()
+    plt.close(fig)
 
 
 for t,TVal in enumerate(TVals_unique):
@@ -94,7 +101,7 @@ for t,TVal in enumerate(TVals_unique):
         dataBufferSlice = dataBuffer[:,mask]
         print(f"shape of slice = {np.shape(dataBufferSlice)}")
         
-        # dataArray has shape (Jvals, DVals, sk_num, wnd_num)
+        # dataArray has shape (Jvals, DVals, sk_num, wnd_num, sprd_num)
         dataArray = np.array([dataBufferSlice[i] for i in range(2,np.shape(dataBufferSlice)[0])])
 
         # Need to extract the arrays to plot 
@@ -102,10 +109,12 @@ for t,TVal in enumerate(TVals_unique):
         DVals_plot = dataArray[1]
         sk_num_plot = dataArray[2]
         wnd_num_plot = dataArray[3]
+        wnd_spread_plot = dataArray[4]
 
         sk_num_image = np.zeros((len(JVals_unique),len(DVals_unique)))
         wnd_num_image = np.zeros((len(JVals_unique),len(DVals_unique)))
-        
+        wnd_sprd_image = np.zeros((len(JVals_unique),len(DVals_unique)))
+
         for j, JVal in enumerate(JVals_unique):
             Jindices, = np.nonzero(JVals_plot == JVal) # Now that we know the indices of all values with a specific Jval we need to figure out where these are for each D value.
             DVals_Jindices = DVals_plot[Jindices] # Now we have all of the values along one J column we need to sort by D so that the elements are in the right order
@@ -118,16 +127,21 @@ for t,TVal in enumerate(TVals_unique):
 
             wnd_num_Js = wnd_num_plot[sorted_Jindices]
             wnd_num_image[j,:] = wnd_num_Js
+
+            wnd_sprd_Js = wnd_spread_plot[sorted_Jindices]
+            wnd_sprd_image[j,:] = wnd_sprd_Js
                  
          
         # Replace JVals_plot, a length NJxND one dimensional array with a list of indices each element maps to.
         filename_sk_num = os.path.join(wd,f"PT-analysis-concat-plots/sk_num_{t}_{b}.pdf")
         filename_wnd_num = os.path.join(wd,f"PT-analysis-concat-plots/wnd_num_{t}_{b}.pdf")
-
-        skNum_titleString = "Skyrmion Number for $\\mu_b B$ = {Bval:.3f}ev, T = {TVal}K"
-        wndNum_titleString = "Winding Number for $\\mu_b B$ = {Bval:.3f}ev, T = {TVal}K"
+        filename_wnd_sprd = os.path.join(wd,f"PT-analysis-concat-plots/wnd_sprd_{t}_{b}.pdf")
+        skNum_titleString = f"Skyrmion Number for $\\mu_b B$ = {BVal:.3f}ev, T = {TVal:.3f}K"
+        wndNum_titleString = f"Winding Number for $\\mu_b B$ = {BVal:.3f}ev, T = {TVal:.3f}K"
+        wndSprd_titleString = f"Winding Number Range for $\\mu_b B$ = {BVal:.3f}ev, T = {TVal:.3f}K"
         plot_image(sk_num_image,filename_sk_num, titleString = skNum_titleString, logCmap = True)
         plot_image(wnd_num_image,filename_wnd_num, titleString = wndNum_titleString, logCmap = True)
+        plot_image(wnd_sprd_image,filename_wnd_sprd,titleString = wndSprd_titleString,logCmap = False)
         # Use np.where with broadcasting.
         print(f"Shape of dataArray = {np.shape(dataArray)}")
 
