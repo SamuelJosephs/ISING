@@ -19,6 +19,10 @@ winding_number_middle_array = df["winding_number_middle"].to_numpy()
 skyrmion_number_middle_array = df["skyrmion_number_middle"].to_numpy()
 winding_number_spread_array = df["winding_number_spread"].to_numpy()
 
+
+
+
+
 JVals = df["J"].to_numpy()
 DVals = df["D"].to_numpy()
 BVals = df["B"].to_numpy()
@@ -52,15 +56,20 @@ buffShape = (len(BVals_unique),
 heatMapBuffers = np.zeros(buffShape)
 
 
-
+# TODO: Set x and y ticks from the J and D arrays
 def plot_image(imageBuff, filename, origin: str = "lower", titleString: str = None, logCmap = False):
     import matplotlib.pyplot as plt 
     from matplotlib.colors import SymLogNorm
     fig, ax = plt.subplots()
-    
+     
     if logCmap:
-        vmax = np.abs(imageBuff).max()
-        norm = SymLogNorm(linthresh = 0.1*vmax)
+        # We want to fix the colormap for all plots 
+        maxVal = np.max(wnd_num)
+        minVal = np.min(wnd_num)
+        
+
+        vmax = np.max(np.abs([maxVal,minVal]))
+        norm = SymLogNorm(linthresh = 0.1*vmax, vmin = minVal, vmax = maxVal)
 
         mappable = ax.imshow(imageBuff, origin = origin, norm = norm)
     cbar = plt.colorbar(mappable, ax = ax)
