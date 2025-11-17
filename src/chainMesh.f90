@@ -5,7 +5,7 @@ module ChainMesh
         use omp_lib
         use constants
         use, intrinsic :: iso_c_binding
-        include 'fftw3.f03'
+        include 'fftw3.f03' ! Mistakes were made, for now the technical debt will have to grow.
 
         type NNContainer_t
                 integer, allocatable, dimension(:) :: NNList ! List of nearest Neighbors 

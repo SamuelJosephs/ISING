@@ -8,6 +8,38 @@ module reciprocal_space_processes
         
         contains
         
+
+        subroutine spectral_interpolation_2d(inputArray,scaleFactor, outputArray)
+                use iso_fortran_env, only: dp=>real64
+                implicit none
+
+                real(kind=dp), dimension(:,:), intent(in) :: inputArray
+                integer, intent(in) :: scaleFactor
+                real(kind=dp), dimension(:,:), allocatable, intent(out) :: outputArray
+
+                real(kind=dp), dimension(:,:), allocatable :: inputArrayBuffer
+                integer, dimension(2) :: inputArrayShape
+                integer :: stat
+                
+                inputArrayShape = shape(inputArray)
+
+                allocate(outputArray(2*inputArrayShape(1),&
+                                     2*inputArrayShape(2)),&
+                                     stat=stat)
+                if (stat /= 0) error stop "Error: Failed to allocate outputArray"
+
+                allocate(inputArrayBuffer(inputArrayShape(1),&
+                                          inputArrayShape(2)),&
+                                          stat=stat)
+                if (stat /= 0) error stop "Error: Failed to allocate inputArrayBuffer"
+
+                inputArrayBuffer(:,:) = inputArray(:,:)
+
+                
+
+
+        end subroutine spectral_interpolation_2d
+
         subroutine interpolate_to_fft_array(chainMesh) 
                 implicit none 
                 type(chainMesh_t), intent(inout) :: chainMesh 
