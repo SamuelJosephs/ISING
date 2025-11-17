@@ -11,7 +11,6 @@ end interface fft_2d_inplace
 
 type fft_object
         type(C_ptr) :: plan_forward, plan_backward
-        real(kind=c_double), pointer :: fft_array 
         type(C_ptr) :: fft_array_real_base_ptr ! Points to the first element of the real space array 
         type(C_ptr) :: fft_array_recip_base_ptr ! Points to the first element of the reciprocal space array 
         integer :: real_buffer_len ! Length of the array buffer, proper C programming in Fortran I'm sure there is no risk of stack
@@ -23,7 +22,7 @@ type fft_object
 
 end type fft_object
 
-public :: fft_2d_inplace
+public :: fft_2d_inplace, fft_object, create_plan_2d_inplace, c2f_indexing_3d, c2f_indexing_2d 
 
 contains 
 
@@ -90,7 +89,6 @@ contains
                 complex(kind=c_double_complex),  pointer, dimension(:,:) :: BufferComplex
                 type(C_ptr) :: ptr
                 integer, dimension(2) :: bufferShape
-                integer :: p
 
 
                 bufferShape = shape(BufferReal)
@@ -136,6 +134,26 @@ contains
         end subroutine fft_2d_inplace_cBuff
 
 
+        ! Subroutines for converting between Fortran and C array indexes
+        subroutine c2f_indexing_2d(i_c,j_c,i_f,j_f)
+                implicit none
+                integer, intent(in) :: i_c,j_c
+                integer, intent(out) :: i_f, j_f
 
+                i_f = j_c
+                j_f = i_f ! Transpose 
+        end subroutine c2f_indexing_2d
+
+         subroutine c2f_indexing_3d(i_c,j_c,k_c,i_f,j_f,k_f)
+                implicit none 
+                integer, intent(in) :: i_c,j_c,k_c
+                integer, intent(out) :: i_f, j_f, k_f
+
+                i_f = k_c
+                j_f = j_f ! Transpose 
+                k_f = i_c
+         end subroutine c2f_indexing_3d
+        
+        
 
 end module fft
