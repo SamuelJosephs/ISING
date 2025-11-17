@@ -3,12 +3,6 @@ module fft
 use iso_c_binding
 include 'fftw3.f03' 
 
-interface fft_2d_inplace 
-       module procedure fft_2d_inplace_rBuff
-       module procedure fft_2d_inplace_cBuff
-end interface fft_2d_inplace 
-
-
 type fft_object
         type(C_ptr) :: plan_forward, plan_backward
         type(C_ptr) :: fft_array_real_base_ptr ! Points to the first element of the real space array 
@@ -22,7 +16,7 @@ type fft_object
 
 end type fft_object
 
-public :: fft_2d_inplace, fft_object, create_plan_2d_inplace, c2f_indexing_3d, c2f_indexing_2d 
+public :: fft_2d_r2c, fft_object, create_plan_2d_inplace, c2f_indexing_3d, c2f_indexing_2d 
 
 contains 
 
@@ -80,58 +74,32 @@ contains
         end subroutine create_plan_2d_inplace
 
 
-        subroutine fft_2d_inplace_rBuff(fft_obj,BufferReal,direction)
+        subroutine fft_2d_r2c(fft_obj,direction)
                 ! This function assumes that the real and complex buffers have been initialised with create_plan_2d_inplace, not
                 ! doing this could very easily cause a book keeping error!!!!!!
+                use utils, only: utils_to_upper
+                implicit none 
                 type(fft_object), intent(in) :: fft_obj
-                real(kind=c_double), intent(inout), target, dimension(:,:) :: BufferReal
-                character(len=1), intent(in) :: direction ! F = Forward, B = Backwards
-                complex(kind=c_double_complex),  pointer, dimension(:,:) :: BufferComplex
-                type(C_ptr) :: ptr
-                integer, dimension(2) :: bufferShape
+                character(len=1) :: direction
 
+                real(kind=c_double), dimension(:,:), pointer :: RealBuffer
+                complex(kind=c_double_complex), dimension(:,:), pointer :: ComplexBuffer
+                character(len=1) :: tempChar
+               
+                tempChar = direction 
+                call utils_to_upper(tempChar)
 
-                bufferShape = shape(BufferReal)
-                ptr = C_loc(BufferReal)
-                call C_F_POINTER(ptr,BufferComplex,[bufferShape(1)/2 + 1,bufferShape(2)]) 
-                if (direction == 'F') then 
-                        call fftw_execute_dft_r2c(fft_obj%plan_forward,BufferReal,BufferComplex)
-                else if (direction == 'B') then 
-                        call fftw_execute_dft_c2r(fft_obj%plan_backward,BufferComplex,BufferReal)
+                call c_f_pointer(fft_obj%fft_array_real_base_ptr,RealBuffer,fft_obj%RealBufferShape)
+                call c_f_pointer(fft_obj%fft_array_recip_base_ptr,ComplexBuffer,fft_obj%RecipBufferShape)
+                if (tempChar == 'F') then 
+                        call fftw_execute_dft_r2c(fft_obj%plan_forward,RealBuffer,ComplexBuffer)
+                else if (tempChar == 'B') then 
+                        call fftw_execute_dft_c2r(fft_obj%plan_backward,ComplexBuffer,RealBuffer)
                 else 
                         error stop "Error: Invalid option passed to fft_2d_realBuff"
                 end if 
                 
-        end subroutine fft_2d_inplace_rBuff
-
-
-        subroutine fft_2d_inplace_cBuff(fft_obj,BufferComplex,direction)
-                ! This function assumes that the real and complex buffers have been initialised with create_plan_2d_inplace, not
-                ! doing this could very easily cause a book keeping error!!!!!!
-                type(fft_object), intent(in) :: fft_obj
-                complex(kind=c_double_complex), intent(inout), target, dimension(:,:) :: BufferComplex
-                character(len=1), intent(in) :: direction ! F = Forward, B = Backwards
-                real(kind=c_double), pointer, dimension(:,:) :: BufferReal
-                type(C_ptr) :: ptr
-                integer, dimension(2) :: bufferShape
-                
-
-                bufferShape = shape(BufferComplex)
-
-
-
-                ptr = C_loc(BufferComplex)
-                ! N_complex = N_real / 2 + 1 -> N_real =2* N_complex - 2
-                call C_F_POINTER(ptr,BufferReal,[bufferShape(1)*2 - 2,bufferShape(2)]) 
-                if (direction == 'F') then 
-                        call fftw_execute_dft_r2c(fft_obj%plan_forward,BufferReal,BufferComplex)
-                else if (direction == 'B') then 
-                        call fftw_execute_dft_c2r(fft_obj%plan_backward,BufferComplex,BufferReal)
-                else 
-                        error stop "Error: Invalid option passed to fft_2d_realBuff"
-                end if 
-                
-        end subroutine fft_2d_inplace_cBuff
+        end subroutine fft_2d_r2c
 
 
         ! Subroutines for converting between Fortran and C array indexes

@@ -144,6 +144,7 @@ module io
                 end subroutine ParseFlag
 
                 subroutine ParseBinaryOperator(TokenArray,OperatorIndex)
+                        use utils, only: utils_to_upper
                         type(stringWrapper), dimension(:), intent(in) :: TokenArray
                         integer, intent(in) :: OperatorIndex
 
@@ -157,7 +158,7 @@ module io
                                 varArray = TokenArray(OperatorIndex - 1)%string
                                 valArray = TokenArray(OperatorIndex + 1)%string 
 
-                                call to_upper(varArray)
+                                call utils_to_upper(varArray)
                                 if (varArray == "NJ") then 
                                         read(valArray,*,iostat=stat) io_NJ
                                 else if (varArray == "ND") then 
@@ -311,19 +312,6 @@ module io
 
                         return
                 end function isChar
-
-                subroutine to_upper(s)
-                        character(len=*), intent(inout) :: s
-                        integer :: i, ich
-
-                        do i = 1, len_trim(s)
-                                ich = iachar(s(i:i))
-                                if (ich >= iachar('a') .and. ich <= iachar('z')) then
-                                        s(i:i) = achar(ich - 32)   ! shift lowercase to uppercase
-                                end if
-                        end do
-                end subroutine to_upper
-
 
                 subroutine io_read_spins(filename,chainMesh_out)
                         use chainMesh, only: chainMesh_t

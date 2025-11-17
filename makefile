@@ -38,7 +38,8 @@ SOURCES = $(SRCDIR)/rand.f90 \
           $(SRCDIR)/io.f90 \
           $(SRCDIR)/testWinding.f90 \
 	  $(SRCDIR)/unit_cells.f90 \
-	  $(SRCDIR)/fft.f90
+	  $(SRCDIR)/fft.f90 \
+	  $(SRCDIR)/utils.f90
 
 OBJECTS = $(patsubst $(SRCDIR)/%.f90,$(OBJDIR)/%.o,$(SOURCES))
 
@@ -91,7 +92,7 @@ $(OBJDIR)/tests.o: $(OBJDIR)/rand.o $(OBJDIR)/CubePartition.o $(OBJDIR)/atom.o $
                   $(OBJDIR)/algo.o $(OBJDIR)/unit_cells.o
 
 $(OBJDIR)/energyMin.o: $(OBJDIR)/chainMesh.o $(OBJDIR)/constants.o $(OBJDIR)/reciprocalSpaceProcesses.o
-$(OBJDIR)/chainMesh.o: $(OBJDIR)/atom.o $(OBJDIR)/chainMeshCell.o $(OBJDIR)/vecNd.o $(OBJDIR)/constants.o $(OBJDIR)/algo.o $(OBJDIR)/fft.o
+$(OBJDIR)/chainMesh.o: $(OBJDIR)/atom.o $(OBJDIR)/chainMeshCell.o $(OBJDIR)/vecNd.o $(OBJDIR)/constants.o $(OBJDIR)/algo.o $(OBJDIR)/fft.o 
 $(OBJDIR)/chainMeshCell.o: $(OBJDIR)/atom.o
 $(OBJDIR)/rand.o: $(OBJDIR)/chainMesh.o
 $(OBJDIR)/CubePartition.o: $(OBJDIR)/chainMesh.o
@@ -103,9 +104,10 @@ $(OBJDIR)/LLG.o: $(OBJDIR)/chainMesh.o $(OBJDIR)/vecNd.o $(OBJDIR)/Stereographic
 $(OBJDIR)/StereographicProjection.o: $(OBJDIR)/vecNd.o
 $(OBJDIR)/reciprocalSpaceProcesses.o: $(OBJDIR)/chainMesh.o $(OBJDIR)/vecNd.o $(OBJDIR)/constants.o $(OBJDIR)/fft.o
 $(OBJDIR)/algo.o:
-$(OBJDIR)/io.o: $(OBJDIR)/chainMesh.o
+$(OBJDIR)/io.o: $(OBJDIR)/chainMesh.o $(OBJDIR)/utils.o
 $(OBJDIR)/unit_cells.o: $(OBJDIR)/atom.o
-$(OBJDIR)/fft.o: 
+$(OBJDIR)/fft.o:  $(OBJDIR)/utils.o
+$(OBJDIR)/utils.o: 
 # ========================
 # Clean
 # ========================
