@@ -32,7 +32,7 @@ type fft_object
 
 end type fft_object
 
-public :: fft_2d_r2c, fft_object, create_plan_2d_inplace, c2f_indexing_3d, c2f_indexing_2d 
+public :: fft_2d_r2c, fft_2d, fft_object, create_plan_2d_inplace, create_plan_2d, c2f_indexing_3d, c2f_indexing_2d 
 
 contains 
 
@@ -96,7 +96,7 @@ contains
                 integer, intent(in) :: Nx, Ny
                 
                 integer :: stat
-                complex(c_double_complex), allocatable, dimension(:,:), pointer :: inBuff, outBuff
+                complex(c_double_complex), dimension(:,:), pointer :: inBuff, outBuff
                 
                 fft_obj%fft_array_real_base_ptr = fftw_alloc_complex(int(Nx*Ny,C_SIZE_T))
                 fft_obj%fft_array_recip_base_ptr = fftw_alloc_complex(int(Nx*Ny,C_SIZE_T))
@@ -137,6 +137,7 @@ contains
                 complex(kind=c_double_complex), dimension(:,:), pointer :: ComplexBuffer
                 character(len=1) :: tempChar
                
+                if (.not. fft_obj%in_place) error stop "Error: fft_2d_r2c can only be used for in place transformations"
                 tempChar = direction 
                 call utils_to_upper(tempChar)
 
@@ -152,6 +153,34 @@ contains
                 
         end subroutine fft_2d_r2c
 
+        subroutine fft_2d(fft_obj,direction)
+                ! This function assumes that the real and complex buffers have been initialised with create_plan_2d_inplace, not
+                ! doing this could very easily cause a book keeping error!!!!!!
+                use utils, only: utils_to_upper
+                implicit none 
+                type(fft_object), intent(in) :: fft_obj
+                character(len=1) :: direction
+
+               
+                complex(kind=c_double_complex), dimension(:,:), pointer :: realBuffer, recipBuffer
+                character(len=1) :: tempChar
+               
+                if (fft_obj%in_place) error stop "Error: fft_2d cannot be used for in place transformations"
+
+                tempChar = direction 
+                call utils_to_upper(tempChar)
+
+                call c_f_pointer(fft_obj%fft_array_real_base_ptr,realBuffer,fft_obj%RealBufferShape)
+                call c_f_pointer(fft_obj%fft_array_recip_base_ptr,recipBuffer,fft_obj%RecipBufferShape)
+                if (tempChar == 'F') then 
+                        call fftw_execute_dft(fft_obj%plan_forward,realBuffer,recipBuffer)
+                else if (tempChar == 'B') then 
+                        call fftw_execute_dft(fft_obj%plan_backward,recipBuffer,realBuffer)
+                else 
+                        error stop "Error: Invalid option passed to fft_2d_realBuff"
+                end if 
+                
+        end subroutine fft_2d
 
         ! Subroutines for converting between Fortran and C array indexes
         subroutine c2f_indexing_2d(i_c,j_c,i_f,j_f)
