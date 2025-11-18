@@ -9,37 +9,73 @@ module reciprocal_space_processes
         contains
         
 
-        subroutine spectral_interpolation_2d(inputArray,scaleFactor, outputArray,fft_obj)
+        subroutine spectral_interpolation_2d(fft_obj_input, fft_obj_output, interpolated_field)
                 use iso_fortran_env, only: dp=>real64
-                use fft, only: fft_object, fft_2d_r2c, create_plan_2d_inplace
+                use iso_c_binding
+                use fft, only: fft_object, fft_2d, fft_2d_r2c, create_plan_2d_inplace
+                ! TODO: Finish this function
 
                 implicit none
+                type(fft_object), intent(inout) :: fft_obj_input, fft_obj_output
+                complex(kind=c_double_complex), dimension(:,:), optional, pointer :: interpolated_field
+                complex(kind=c_double_complex), dimension(:,:), pointer ::  inputObject_recip, &
+                        outputObject_real, outputObject_recip 
 
-                real(kind=dp), dimension(:,:), intent(inout) :: inputArray
-                integer, intent(in) :: scaleFactor
-                real(kind=dp), dimension(:,:), allocatable, intent(out) :: outputArray
-                type(fft_object), intent(inout) :: fft_obj
+                integer :: scale_factor_x, scale_factor_y
+                integer :: i,j,k, iIndex, jIndex, kIndex
 
-                real(kind=dp), dimension(:,:), allocatable :: inputArrayBuffer
-                integer, dimension(2) :: inputArrayShape
-                integer :: stat
+                if (mod(fft_obj_output%RealBufferShape(1),fft_obj_input%RealBufferShape(1)) /= 0) then
+                        error stop "Error: scale factor is not an integer multiple along the x axis"
+                else 
+                        scale_factor_x = fft_obj_output%RealBufferShape(1) / fft_obj_input%RealBufferShape(1)
+                end if 
                 
-                inputArrayShape = shape(inputArray)
+                if (mod(fft_obj_output%RealBufferShape(2),fft_obj_input%RealBufferShape(2)) /= 0) then 
+                        error stop "Error: scale factor is not an integer multiple along the y axis"
+                else 
+                        scale_factor_y = fft_obj_output%RealBufferShape(2) / fft_obj_output%RealBufferShape(2)
+                end if 
 
+                call C_F_POINTER(fft_obj_input%fft_array_recip_base_ptr,inputObject_recip,fft_obj_input%RecipBufferShape)
+                
+                call C_F_POINTER(fft_obj_output%fft_array_real_base_ptr,outputObject_real,fft_obj_output%RealBufferShape)
+                call C_F_POINTER(fft_obj_output%fft_array_recip_base_ptr,outputObject_recip,fft_obj_output%RecipBufferShape)
 
-                allocate(outputArray(scaleFactor*inputArrayShape(1),&
-                                     scaleFactor*inputArrayShape(2)),&
-                                     stat=stat)
-                if (stat /= 0) error stop "Error: Failed to allocate outputArray"
-
-                allocate(inputArrayBuffer(inputArrayShape(1),&
-                                          inputArrayShape(2)),&
-                                          stat=stat)
-                if (stat /= 0) error stop "Error: Failed to allocate inputArrayBuffer"
-
-                inputArrayBuffer(:,:) = inputArray(:,:)
+                ! Need to zero the scaled output Buffers 
+                outputObject_real(:,:) = 0.0_c_double_complex 
+                outputObject_recip(:,:) = 0.0_c_double_complex 
 
                 
+                ! Check whether we need to perform a real to complex or complex to complex transformation on the input. 
+                if (.not. any(fft_obj_input%RealBufferShape /= fft_obj_input%RecipBufferShape)) then 
+                        ! Perform the real to complex transformation 
+                        call fft_2d_r2c(fft_obj_input,'F') ! Forward Transformation
+               else 
+                        ! Perform the complex to complex transformation
+                        call fft_2d(fft_obj_input,'F')
+                end if 
+                ! Next we need to deposit the frequencies in the output Buffer, for the real to complex transform we only
+                ! have up to the Nyquist Frequency in the x direction. The fft_objects encapusalte this in their BufferShape
+                ! member variables so we don't need to treat the real to complex and complex to complex cases seperately. E.g. for a
+                ! real to complex transformation fft_object%RecipBufferShape(1) = N/2 + 1 if fft_object%RealBufferShape(1) = N.
+
+                ! The scale_factor tells us the stride of how we need to pad our arrays with zeros. E.g. scale_factor = 3
+                ! means that we deposit a frequency, then pad the next scale_factor - 1 entries with zeros before continuing 
+                do i = 1,fft_obj_input%RecipBufferShape(1)
+                        iIndex = (i-1)*scale_factor_x + 1
+                        do j = 1,fft_obj_input%RecipBufferShape(2)
+                                jIndex = (j-1)*scale_factor_y + 1
+
+                                outputObject_recip(iIndex,jIndex) = inputObject_recip(i,j)
+                                outputObject_recip(iIndex + 1 : iIndex + scale_factor_x - 1,&
+                                        jIndex + 1 : jIndex + scale_factor_y - 1) = cmplx(0.0,0.0,c_double_complex)
+                        end do 
+                end do 
+
+                ! Now fft_object_output will contain the interpolated function 
+                call fft_2d(fft_obj_output,"B")
+                
+                if (present(interpolated_field)) interpolated_field = outputObject_real
 
 
         end subroutine spectral_interpolation_2d
