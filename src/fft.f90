@@ -166,7 +166,7 @@ contains
                 else if (tempChar == 'B') then 
                         call fftw_execute_dft_c2r(fft_obj%plan_backward,ComplexBuffer,RealBuffer)
                 else 
-                        error stop "Error: Invalid option passed to fft_2d_realBuff"
+                        error stop "Error: Invalid option passed to fft_2d_r2c"
                 end if 
                 
         end subroutine fft_2d_r2c
@@ -195,7 +195,7 @@ contains
                 else if (tempChar == 'B') then 
                         call fftw_execute_dft(fft_obj%plan_backward,recipBuffer,realBuffer)
                 else 
-                        error stop "Error: Invalid option passed to fft_2d_realBuff"
+                        error stop "Error: Invalid option passed to fft_2d"
                 end if 
                 
         end subroutine fft_2d
