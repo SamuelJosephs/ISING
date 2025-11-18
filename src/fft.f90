@@ -1,18 +1,34 @@
 
+!!!!!!!!!!! Module Instructions !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+! FFT planning and array book keeping should be kept seperate from actual FFT's. All the book keeping is encapsulated by the type
+! fft_object, on which all FFT routines should act.
+
+
+
+
+
 module fft
 use iso_c_binding
 include 'fftw3.f03' 
 
 type fft_object
+        ! At the moment these objects can be initialised with create_plan_nd routines, only inplace are currently supported due to
+        ! time constraints.
+         
         type(C_ptr) :: plan_forward, plan_backward
         type(C_ptr) :: fft_array_real_base_ptr ! Points to the first element of the real space array 
         type(C_ptr) :: fft_array_recip_base_ptr ! Points to the first element of the reciprocal space array 
         integer :: real_buffer_len ! Length of the array buffer, proper C programming in Fortran I'm sure there is no risk of stack
                                    ! smashing myself again.
-        integer :: recip_buffer_len
-        integer, dimension(:), allocatable :: RealBufferShape  ! (shape of the real space array)
+        integer :: recip_buffer_len                            ! These are type agnositc, stores either the number of real or
+                                                               ! complex entries in the respective buffer the C pointers address.
+        integer, dimension(:), allocatable :: RealBufferShape  
         integer, dimension(:), allocatable :: RecipBufferShape ! (shape of the reciprocal space array, can differ from that of the
-                                                               ! real space shape for an in place transform)
+                                                               ! real space shape for an in place transform), size(BufferShape) is
+                                                               ! the dimension of the FFT for the object, the entries give the
+                                                               ! shape.
+        logical :: in_place ! Needed for cleanup
 
 end type fft_object
 
@@ -69,10 +85,45 @@ contains
                 fft_obj%plan_forward = fftw_plan_dft_r2c_2d(Ny,Nx,outputBufferReal,outputBufferComplex,FFTW_ESTIMATE)
                 fft_obj%plan_backward = fftw_plan_dft_c2r_2d(Ny,Nx,outputBufferComplex,outputBufferReal,FFTW_ESTIMATE)
                 
-
+                fft_obj%in_place = .True.
 
         end subroutine create_plan_2d_inplace
 
+        subroutine create_plan_2d(fft_obj, Nx, Ny)
+                use iso_c_binding
+                implicit none 
+                type(fft_object), intent(out) :: fft_obj 
+                integer, intent(in) :: Nx, Ny
+                
+                integer :: stat
+                complex(c_double_complex), allocatable, dimension(:,:), pointer :: inBuff, outBuff
+                
+                fft_obj%fft_array_real_base_ptr = fftw_alloc_complex(int(Nx*Ny,C_SIZE_T))
+                fft_obj%fft_array_recip_base_ptr = fftw_alloc_complex(int(Nx*Ny,C_SIZE_T))
+
+                fft_obj%real_buffer_len = Nx*Ny
+                fft_obj%recip_buffer_len = Nx*Ny
+
+                allocate(fft_obj%RealBufferShape(2),stat=stat)
+                if (stat /= 0) error stop "Error: Failed to allocate fft_obj%RealBufferShape"
+ 
+                allocate(fft_obj%RecipBufferShape(2),stat=stat)
+                if (stat /= 0) error stop "Error: Failed to allocate fft_obj%RealBufferShape"               
+
+
+               
+                fft_obj%RealBufferShape = (/Nx, Ny/)
+                fft_obj%RecipBufferShape = (/Nx, Ny/)
+
+                call C_F_POINTER(fft_obj%fft_array_real_base_ptr,inBuff,fft_obj%RealBufferShape)
+                call C_F_POINTER(fft_obj%fft_array_recip_base_ptr,outBuff,fft_obj%RecipBufferShape)
+                 
+                fft_obj%plan_forward = fftw_plan_dft_2d(Ny,Nx,inBuff,outBuff,FFTW_FORWARD,FFTW_ESTIMATE)
+                fft_obj%plan_backward = fftw_plan_dft_2d(Ny,Nx,outBuff,inBuff,FFTW_BACKWARD,FFTW_ESTIMATE)
+                
+                fft_obj%in_place = .False.
+
+        end subroutine create_plan_2d
 
         subroutine fft_2d_r2c(fft_obj,direction)
                 ! This function assumes that the real and complex buffers have been initialised with create_plan_2d_inplace, not
