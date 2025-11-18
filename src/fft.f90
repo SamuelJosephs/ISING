@@ -36,7 +36,7 @@ public :: fft_2d_r2c, fft_2d, fft_object, create_plan_2d_inplace, create_plan_2d
 
 contains 
 
-        subroutine create_plan_2d_inplace(fft_obj,Nx,Ny,outputBufferReal,outputBufferComplex)
+        subroutine create_plan_2d_r2c(fft_obj,Nx,Ny,outputBufferReal,outputBufferComplex, inplace)
                 ! This routine is used to initialise an fft_object such that an in place transformation can be done in outputBuffer
                 implicit none
 
@@ -44,9 +44,16 @@ contains
                 integer, intent(in) :: Nx, Ny
                 real(kind=c_double), intent(out), pointer, dimension(:,:) :: outputBufferReal ! This is just a reference to the memory
                 complex(kind=c_double_complex), intent(out), pointer, dimension(:,:) :: outputBufferComplex
+                logical, intent(in), optional :: inplace
 
+                logical :: myInPlace
                 integer(kind=c_size_t) :: Nx_c, Ny_c
                 integer :: stat 
+                
+
+                myInPlace = .False.
+                if (present(inplace)) myInPlace = inplace
+                fft_obj%in_place = myInPlace
                 Nx_c = int(Nx,c_size_t)
                 Ny_c = int(Ny,c_size_t)
 
@@ -59,7 +66,11 @@ contains
                 ! For frequencies abovet the Nyquist frequency this maps to  
                 ! Note: This is only true for real valued funcitons, where f = f^*
                 fft_obj%fft_array_real_base_ptr = fftw_alloc_real((2*(Nx_c/2 + 1))*Ny_c) 
-                fft_obj%fft_array_recip_base_ptr = fft_obj%fft_array_real_base_ptr
+                if (myInPlace) then 
+                        fft_obj%fft_array_recip_base_ptr = fft_obj%fft_array_real_base_ptr
+                else 
+                        fft_obj%fft_array_recip_base_ptr = fftw_alloc_real((2*(Nx_c/2 + 1))*Ny_c)  
+                end if 
                                                                                                
                 call C_F_POINTER(fft_obj%fft_array_real_base_ptr,outputBufferReal,[Nx,Ny])
 
@@ -85,22 +96,32 @@ contains
                 fft_obj%plan_forward = fftw_plan_dft_r2c_2d(Ny,Nx,outputBufferReal,outputBufferComplex,FFTW_ESTIMATE)
                 fft_obj%plan_backward = fftw_plan_dft_c2r_2d(Ny,Nx,outputBufferComplex,outputBufferReal,FFTW_ESTIMATE)
                 
-                fft_obj%in_place = .True.
 
-        end subroutine create_plan_2d_inplace
+        end subroutine create_plan_2d_r2c
 
-        subroutine create_plan_2d(fft_obj, Nx, Ny)
+        subroutine create_plan_2d(fft_obj, Nx, Ny,inplace)
                 use iso_c_binding
                 implicit none 
                 type(fft_object), intent(out) :: fft_obj 
                 integer, intent(in) :: Nx, Ny
-                
+                logical, intent(in), optional :: inPlace
+
+                logical :: myInPlace
                 integer :: stat
                 complex(c_double_complex), dimension(:,:), pointer :: inBuff, outBuff
                 
-                fft_obj%fft_array_real_base_ptr = fftw_alloc_complex(int(Nx*Ny,C_SIZE_T))
-                fft_obj%fft_array_recip_base_ptr = fftw_alloc_complex(int(Nx*Ny,C_SIZE_T))
 
+                myInPlace = .False.
+                if (present(inplace)) myInPlace = inplace 
+
+                fft_obj%in_place = myInPlace
+
+                fft_obj%fft_array_real_base_ptr = fftw_alloc_complex(int(Nx*Ny,C_SIZE_T))
+                if (myInPlace) then 
+                        fft_obj%fft_array_recip_base_ptr = fft_obj%fft_array_real_base_ptr        
+                else 
+                        fft_obj%fft_array_recip_base_ptr = fftw_alloc_complex(int(Nx*Ny,C_SIZE_T))
+                end if 
                 fft_obj%real_buffer_len = Nx*Ny
                 fft_obj%recip_buffer_len = Nx*Ny
 
@@ -120,9 +141,6 @@ contains
                  
                 fft_obj%plan_forward = fftw_plan_dft_2d(Ny,Nx,inBuff,outBuff,FFTW_FORWARD,FFTW_ESTIMATE)
                 fft_obj%plan_backward = fftw_plan_dft_2d(Ny,Nx,outBuff,inBuff,FFTW_BACKWARD,FFTW_ESTIMATE)
-                
-                fft_obj%in_place = .False.
-
         end subroutine create_plan_2d
 
         subroutine fft_2d_r2c(fft_obj,direction)
