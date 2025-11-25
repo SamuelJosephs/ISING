@@ -32,7 +32,7 @@ type fft_object
 
 end type fft_object
 
-public :: fft_2d_r2c, fft_2d, fft_object, create_plan_2d_inplace, create_plan_2d, c2f_indexing_3d, c2f_indexing_2d, fft_alloc_real 
+public :: fft_2d_r2c, fft_2d, fft_object, create_plan_2d_r2c, create_plan_2d, c2f_indexing_3d, c2f_indexing_2d, fft_alloc_real 
 
 contains 
 
