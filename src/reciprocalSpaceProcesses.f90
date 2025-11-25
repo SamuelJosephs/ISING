@@ -10,6 +10,8 @@ module reciprocal_space_processes
         
 
         subroutine spectral_interpolation_2d(fft_obj_input, fft_obj_output, interpolated_field)
+                ! This routine assumes that fft_obj_input and fft_obj_output have been initialised with plans by the relevant
+                ! subroutines in the fft module.
                 use iso_fortran_env, only: dp=>real64
                 use iso_c_binding
                 use fft, only: fft_object, fft_2d, fft_2d_r2c, create_plan_2d_inplace
@@ -36,6 +38,7 @@ module reciprocal_space_processes
                         scale_factor_y = fft_obj_output%RealBufferShape(2) / fft_obj_output%RealBufferShape(2)
                 end if 
 
+                ! Initialise fortran array pointers, these are only used for convinience in this routine  
                 call C_F_POINTER(fft_obj_input%fft_array_recip_base_ptr,inputObject_recip,fft_obj_input%RecipBufferShape)
                 
                 call C_F_POINTER(fft_obj_output%fft_array_real_base_ptr,outputObject_real,fft_obj_output%RealBufferShape)
@@ -47,7 +50,9 @@ module reciprocal_space_processes
 
                 
                 ! Check whether we need to perform a real to complex or complex to complex transformation on the input. 
-                if (.not. any(fft_obj_input%RealBufferShape /= fft_obj_input%RecipBufferShape)) then 
+                ! In a real to complex transform the input and output buffers will have different shapes, with the first dimension
+                ! in the output buffer being half the length of the input buffer.
+                if (any(fft_obj_input%RealBufferShape /= fft_obj_input%RecipBufferShape)) then 
                         ! Perform the real to complex transformation 
                         call fft_2d_r2c(fft_obj_input,'F') ! Forward Transformation
                else 
@@ -72,9 +77,10 @@ module reciprocal_space_processes
                         end do 
                 end do 
 
-                ! Now fft_object_output will contain the interpolated function 
+                ! Now fft_object_output will contain the interpolated function in it's output buffer 
                 call fft_2d(fft_obj_output,"B")
-                
+                ! Next for convinience if the argument is given we will set the interpolated output buffer pointer, this is just an
+                ! alias for fft_obj_output%fft_array_real_base_ptr
                 if (present(interpolated_field)) interpolated_field = outputObject_real
 
 
