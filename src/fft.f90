@@ -32,7 +32,7 @@ type fft_object
 
 end type fft_object
 
-public :: fft_2d_r2c, fft_2d, fft_object, create_plan_2d_inplace, create_plan_2d, c2f_indexing_3d, c2f_indexing_2d 
+public :: fft_2d_r2c, fft_2d, fft_object, create_plan_2d_inplace, create_plan_2d, c2f_indexing_3d, c2f_indexing_2d, fft_alloc_real 
 
 contains 
 
@@ -200,7 +200,34 @@ contains
                 
         end subroutine fft_2d
 
+        subroutine fft_alloc_real(ptr,numElems)
+                ! allocate with alignment for SIMD correctness, ptr should be a pointer to the first element of the array
+                use iso_fortran_env, only: dp => real64
+                use iso_c_binding
+                implicit none 
+                real(kind=c_double), pointer, intent(inout) :: ptr 
+                integer, intent(in) :: numElems
+                type(C_ptr) :: tmp
+
+                tmp = fftw_alloc_real(int(numElems,c_size_t)) ! fftw_alloc_real takes integers of type c_size_t
+                call c_f_pointer(tmp,ptr)
+        end subroutine fft_alloc_real
+
+
+        subroutine fft_alloc_cmplx(ptr,numElems)
+                ! allocate with alignment for SIMD correctness, ptr should be a pointer to the first element of the array 
+                use iso_fortran_env, only: dp => real64
+                use iso_c_binding
+                implicit none 
+                complex(kind=c_double_complex), pointer, intent(inout) :: ptr 
+                integer, intent(in) :: numElems
+                type(C_ptr) :: tmp
+
+                tmp = fftw_alloc_complex(int(numElems,c_size_t)) ! fftw_alloc_complex takes integers of type c_size_t
+                call c_f_pointer(tmp,fft_alloc_ptr)
+        end subroutine fft_alloc_cmplx
         ! Subroutines for converting between Fortran and C array indexes
+
         subroutine c2f_indexing_2d(i_c,j_c,i_f,j_f)
                 implicit none
                 integer, intent(in) :: i_c,j_c
@@ -220,6 +247,6 @@ contains
                 k_f = i_c
          end subroutine c2f_indexing_3d
         
-        
+         
 
 end module fft
