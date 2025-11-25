@@ -6,26 +6,35 @@ module reciprocal_space_processes
         use iso_fortran_env, only: dp=>real64
         !include 'fftw3.f03' !This is included in chainMesh, annoying I would like header files with #pragma once
         
-        contains
-        
 
-        subroutine spectral_interpolation_2d(fft_obj_input, fft_obj_output, interpolated_field)
+        interface spectral_interpolation_2d
+                module procedure spectral_interpolation_2d_real_output
+                module procedure spectral_interpolation_2d_cmplx_output
+        end interface spectral_interpolation_2d
+        contains
+       
+        subroutine spectral_interpolation_2d_real_output(fft_obj_input, fft_obj_output, interpolated_field)
                 ! This routine assumes that fft_obj_input and fft_obj_output have been initialised with plans by the relevant
                 ! subroutines in the fft module.
                 use iso_fortran_env, only: dp=>real64
                 use iso_c_binding
-                use fft, only: fft_object, fft_2d, fft_2d_r2c, create_plan_2d_inplace
+                use fft, only: fft_object, fft_2d, fft_2d_r2c, create_plan_2d_r2c
                 ! TODO: Finish this function
 
                 implicit none
                 type(fft_object), intent(inout) :: fft_obj_input, fft_obj_output
-                complex(kind=c_double_complex), dimension(:,:), optional, pointer :: interpolated_field
+                real(kind=c_double), dimension(:,:), pointer :: interpolated_field 
+                real(kind=c_double), dimension(:,:), pointer :: outputObject_real
                 complex(kind=c_double_complex), dimension(:,:), pointer ::  inputObject_recip, &
-                        outputObject_real, outputObject_recip 
+                        outputObject_recip 
 
                 integer :: scale_factor_x, scale_factor_y
                 integer :: i,j,k, iIndex, jIndex, kIndex
 
+                if (size(fft_obj_input%RealBufferShape) /= 2) error stop "Error: spectral_interpolation_2d only supports &
+                & interpolation on 2d data, fft_obj_input has the wrong dimension"
+                if (size(fft_obj_output%RealBufferShape) /= 2) error stop "Error: spectral_interpolation_2d only supports &
+                & interpolation on 2d data, fft_obj_output has the wrong dimension"
                 if (mod(fft_obj_output%RealBufferShape(1),fft_obj_input%RealBufferShape(1)) /= 0) then
                         error stop "Error: scale factor is not an integer multiple along the x axis"
                 else 
@@ -52,7 +61,7 @@ module reciprocal_space_processes
                 ! Check whether we need to perform a real to complex or complex to complex transformation on the input. 
                 ! In a real to complex transform the input and output buffers will have different shapes, with the first dimension
                 ! in the output buffer being half the length of the input buffer.
-                if (any(fft_obj_input%RealBufferShape /= fft_obj_input%RecipBufferShape)) then 
+                if (fft_obj_input%is_r2c) then 
                         ! Perform the real to complex transformation 
                         call fft_2d_r2c(fft_obj_input,'F') ! Forward Transformation
                else 
@@ -78,13 +87,109 @@ module reciprocal_space_processes
                 end do 
 
                 ! Now fft_object_output will contain the interpolated function in it's output buffer 
-                call fft_2d(fft_obj_output,"B")
+                if (fft_obj_output%is_r2c) then 
+                        call fft_2d_r2c(fft_obj_output,"B")
+                else 
+                        call fft_2d(fft_obj_output,"B") ! Either way the real space array (be it real of complex) will have shape
+                                                        ! Nx,Ny
+                end if 
                 ! Next for convinience if the argument is given we will set the interpolated output buffer pointer, this is just an
                 ! alias for fft_obj_output%fft_array_real_base_ptr
-                if (present(interpolated_field)) interpolated_field = outputObject_real
+                interpolated_field = outputObject_real
 
 
-        end subroutine spectral_interpolation_2d
+        end subroutine spectral_interpolation_2d_real_output
+
+             
+
+        subroutine spectral_interpolation_2d_cmplx_output(fft_obj_input, fft_obj_output, interpolated_field)
+                ! This routine assumes that fft_obj_input and fft_obj_output have been initialised with plans by the relevant
+                ! subroutines in the fft module.
+                use iso_fortran_env, only: dp=>real64
+                use iso_c_binding
+                use fft, only: fft_object, fft_2d, fft_2d_r2c, create_plan_2d_r2c
+                ! TODO: Finish this function
+
+                implicit none
+                type(fft_object), intent(inout) :: fft_obj_input, fft_obj_output
+                complex(kind=c_double_complex), dimension(:,:), pointer :: interpolated_field
+                complex(kind=c_double_complex), dimension(:,:), pointer ::  inputObject_recip, &
+                        outputObject_real, outputObject_recip 
+
+                integer :: scale_factor_x, scale_factor_y
+                integer :: i,j,k, iIndex, jIndex, kIndex
+
+                if (size(fft_obj_input%RealBufferShape) /= 2) error stop "Error: spectral_interpolation_2d only supports &
+                & interpolation on 2d data, fft_obj_input has the wrong dimension"
+                if (size(fft_obj_output%RealBufferShape) /= 2) error stop "Error: spectral_interpolation_2d only supports &
+                & interpolation on 2d data, fft_obj_output has the wrong dimension"
+                if (mod(fft_obj_output%RealBufferShape(1),fft_obj_input%RealBufferShape(1)) /= 0) then
+                        error stop "Error: scale factor is not an integer multiple along the x axis"
+                else 
+                        scale_factor_x = fft_obj_output%RealBufferShape(1) / fft_obj_input%RealBufferShape(1)
+                end if 
+                
+                if (mod(fft_obj_output%RealBufferShape(2),fft_obj_input%RealBufferShape(2)) /= 0) then 
+                        error stop "Error: scale factor is not an integer multiple along the y axis"
+                else 
+                        scale_factor_y = fft_obj_output%RealBufferShape(2) / fft_obj_output%RealBufferShape(2)
+                end if 
+
+                ! Initialise fortran array pointers, these are only used for convinience in this routine  
+                call C_F_POINTER(fft_obj_input%fft_array_recip_base_ptr,inputObject_recip,fft_obj_input%RecipBufferShape)
+                
+                call C_F_POINTER(fft_obj_output%fft_array_real_base_ptr,outputObject_real,fft_obj_output%RealBufferShape)
+                call C_F_POINTER(fft_obj_output%fft_array_recip_base_ptr,outputObject_recip,fft_obj_output%RecipBufferShape)
+
+                ! Need to zero the scaled output Buffers 
+                outputObject_real(:,:) = 0.0_c_double_complex 
+                outputObject_recip(:,:) = 0.0_c_double_complex 
+
+                
+                ! Check whether we need to perform a real to complex or complex to complex transformation on the input. 
+                ! In a real to complex transform the input and output buffers will have different shapes, with the first dimension
+                ! in the output buffer being half the length of the input buffer.
+                if (fft_obj_input%is_r2c) then 
+                        ! Perform the real to complex transformation 
+                        call fft_2d_r2c(fft_obj_input,'F') ! Forward Transformation
+               else 
+                        ! Perform the complex to complex transformation
+                        call fft_2d(fft_obj_input,'F')
+                end if 
+                ! Next we need to deposit the frequencies in the output Buffer, for the real to complex transform we only
+                ! have up to the Nyquist Frequency in the x direction. The fft_objects encapusalte this in their BufferShape
+                ! member variables so we don't need to treat the real to complex and complex to complex cases seperately. E.g. for a
+                ! real to complex transformation fft_object%RecipBufferShape(1) = N/2 + 1 if fft_object%RealBufferShape(1) = N.
+
+                ! The scale_factor tells us the stride of how we need to pad our arrays with zeros. E.g. scale_factor = 3
+                ! means that we deposit a frequency, then pad the next scale_factor - 1 entries with zeros before continuing 
+                do i = 1,fft_obj_input%RecipBufferShape(1)
+                        iIndex = (i-1)*scale_factor_x + 1
+                        do j = 1,fft_obj_input%RecipBufferShape(2)
+                                jIndex = (j-1)*scale_factor_y + 1
+
+                                outputObject_recip(iIndex,jIndex) = inputObject_recip(i,j)
+                                outputObject_recip(iIndex + 1 : iIndex + scale_factor_x - 1,&
+                                        jIndex + 1 : jIndex + scale_factor_y - 1) = cmplx(0.0,0.0,c_double_complex)
+                        end do 
+                end do 
+
+                ! Now fft_object_output will contain the interpolated function in it's output buffer 
+                if (fft_obj_output%is_r2c) then 
+                        call fft_2d_r2c(fft_obj_output,"B")
+                else 
+                        call fft_2d(fft_obj_output,"B") ! Either way the real space array (be it real of complex) will have shape
+                                                        ! Nx,Ny
+                end if 
+                ! Next for convinience if the argument is given we will set the interpolated output buffer pointer, this is just an
+                ! alias for fft_obj_output%fft_array_real_base_ptr
+                interpolated_field = outputObject_real
+
+
+        end subroutine spectral_interpolation_2d_cmplx_output
+
+
+
 
         subroutine interpolate_to_fft_array(chainMesh) 
                 implicit none 
@@ -378,16 +483,27 @@ module reciprocal_space_processes
 
 
         subroutine calculate_winding_number_density(chainMesh,Z_index, density_matrix)
+                use iso_fortran_env, only: dp => real64
+                use iso_c_binding, only: c_double, c_double_complex 
+                use utils, only: utils_2d_array_ptr_wrapper
+                use fft, only: fft_object
                 implicit none
                 type(ChainMesh_t), intent(inout) :: chainMesh 
                 integer, intent(in) :: Z_index
-                real(kind=8), dimension(:,:), allocatable, intent(out) :: density_matrix 
+                real(kind=dp), dimension(:,:), allocatable, intent(out) :: density_matrix 
                 
-                integer :: i, j, i_index, j_index, N, L, M, atomIndex, cellIndex 
+                integer :: i, j, i_index, j_index, N, L, M, atomIndex, cellIndex, comp 
                 integer :: atom2, atom3, atom4
-                type(VecNd_t) :: s1, s2, s3, s4
-                real(kind=8) :: x1,x2_1,x2_2,x3,y1,y2_1,y2_2,y3,z1,z2_1,z2_2,z3
-                real(kind=8) :: sigma1_area1, sigma2_area2
+                type(VecNd_t) :: s1, s2, s3, s4, s
+                real(kind=dp) :: x1,x2_1,x2_2,x3,y1,y2_1,y2_2,y3,z1,z2_1,z2_2,z3
+                real(kind=dp) :: sigma1_area1, sigma2_area2
+                type(utils_2d_array_ptr_wrapper), dimension(3) :: interpolated_buffer, realspace_input
+                integer :: sclx, scly
+                
+
+
+                sclx = chainMesh%sclx
+                scly = chainMesh%scly
 
                 N = chainMesh%numCellsX 
                 L = chainMesh%numcellsY 
@@ -397,16 +513,49 @@ module reciprocal_space_processes
                 if (any(shape(chainMesh%derivativeList) /= [chainMesh%numAtoms,3,2])) &
                                                 error stop "DerivativeList not initialised with proper shape"
                 if (allocated(density_matrix)) then 
-                        if (any(shape(density_matrix) /= [N,L])) then 
+                        if (any(shape(density_matrix) /= [sclx*N,scly*L])) then 
                                 deallocate(density_matrix)
-                                allocate(density_matrix(N,L))
+                                allocate(density_matrix(sclx*N,scly*L))
                         end if 
                 else 
-                        allocate(density_matrix(N,L))
+                        allocate(density_matrix(sclx*N,scly*L))
                 end if
                 density_matrix(:,:) = 0.0_8
 
+                ! Need to set up the grid that the winding density will be calculated from 
 
+                do comp = 1,3
+                        ! Need a handle for the output 
+                        call c_f_pointer(chainMesh%fft_upsmpl_outpt(comp)%fft_array_recip_base_ptr,interpolated_buffer(comp)%ptr,&
+                                chainMesh%fft_upsmpl_inpt(comp)%RealBufferShape) ! interpolated_buffer(comp)%ptr can now be accessed as as
+                                                                                  ! array.
+                        ! Need a handle for the input real space array so that we can write the spins to it 
+                        call c_f_pointer(chainMesh%fft_upsmpl_inpt(comp)%fft_array_real_base_ptr, realspace_input(comp)%ptr,&
+                                chainMesh%fft_upsmpl_inpt(comp)%RealBufferShape)
+
+                        do i = 1,chainMesh%numCellsX
+                                do j = 1,chainMesh%numCellsY
+                                        ! Write spin data onto fft input grid 
+                                        cellIndex = IndexFromCoordinates(chainMesh,i,j,Z_index)
+                                        atomIndex = chainMesh%chainMeshCells(cellIndex)%firstAtomInMeshCell ! Sample from first atom
+                                                                                                            ! in each unit cell
+                                        ! Cursed type punning
+                                        realspace_input(comp)%ptr(i,j) = chainMesh%atomSpins(atomIndex,comp)
+
+                                        ! Really the RHS array above should be it's transpose but I didn't know Fortran array
+                                        ! continuity rules when I wrote the struct, oh well.
+
+                                                
+                                end do 
+                        end do 
+
+                        ! Now we can call the interpolation routine 
+                        call spectral_interpolation_2d(chainMesh%fft_upsmpl_inpt(comp),&
+                                                        chainMesh%fft_upsmpl_outpt(comp),&
+                                                        interpolated_buffer(comp)%ptr) 
+                        ! interpolated_buffer(comp)%ptr is now a handle to the memory for the interpolated array.
+
+                end do 
                 do i = 1, chainMesh%numCellsX
                         do j = 1, chainMesh%numCellsY
                                 cellIndex = IndexFromCoordinates(chainMesh,i,j,Z_index)
@@ -418,6 +567,7 @@ module reciprocal_space_processes
                                s2 = dble(chainMesh%atomSpins(atom2,:))
                                s3 = dble(chainMesh%atomSpins(atom3,:))
                                s4 = dble(chainMesh%atomSpins(atom4,:))
+                               s1 = 
 
                                s1 = s1 / abs(s1)
                                s2 = s2 / abs(s2)
@@ -514,13 +664,14 @@ module reciprocal_space_processes
 
 
 
-        function calculate_skyrmion_number(chainMesh,Z_index,q_threshold,particle_number, sigma) result(skyrmion_number)
+        function calculate_skyrmion_number(chainMesh,Z_index,q_threshold,particle_number, sigma,&
+                        sclx, scly) result(skyrmion_number)
                 use iso_fortran_env, only: dp=>real64
                 implicit none
                 type(chainMesh_t), intent(inout) :: chainmesh
                 integer, intent(in) :: Z_index, particle_number
                 real(kind=8), intent(in) :: q_threshold, sigma
-                
+                integer, intent(in), optional :: sclx, scly
                 real(kind=8), dimension(:,:), allocatable :: density_matrix
                 logical, dimension(:,:), allocatable :: density_mask, visited_array, in_stack_array
                 integer :: N,L, stat, skyrmion_number
@@ -541,7 +692,16 @@ module reciprocal_space_processes
                 logical, allocatable, dimension(:) :: merged
                 integer, allocatable, dimension(:,:) :: regionID
                 integer :: regionCounter, ID1, ID2
+                integer :: my_sclx, my_scly
                 real(kind=dp), parameter :: skThreshold = 0.05_dp ! 95% of a skyrmion must be accounted for 
+
+
+                my_sclx = 1
+                my_scly = 1
+
+                if (present(sclx)) my_sclx = sclx 
+                if (present(scly)) my_scly = scly 
+
                 N = chainMesh%numCellsX 
                 L = chainMesh%numCellsY 
 

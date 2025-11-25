@@ -5,6 +5,7 @@ module ChainMesh
         use omp_lib
         use constants
         use, intrinsic :: iso_c_binding
+        use fft, only: fft_object
         include 'fftw3.f03' ! Mistakes were made, for now the technical debt will have to grow.
 
         type NNContainer_t
@@ -30,6 +31,27 @@ module ChainMesh
                 
                 type(NNContainer_t), allocatable, dimension(:) :: NNNList ! N'th nearest neighbor list OBSOLETE
                 type(NNContainer_t), allocatable, dimension(:,:) ::  atomShells ! (atomIndex, shellIndex)
+
+
+                integer :: sclx, scly ! The scale factors by which the density matrix is being upsampled.
+                type(fft_object), dimension(3) :: fft_upsmpl_inpt, fft_upsmpl_outpt 
+                                                                                ! I need to do a forward FFT for the upsampling
+                                                                                ! input, and a backwards FFT for the upsampling
+                                                                                ! output. Where do I want to initialise this?
+                                                                                ! Probably in make chain mesh but do I want the
+                                                                                ! burden of this memory always being allocated?
+                                                                                ! Probably for the best, I would rather get an out
+                                                                                ! of memory error at the start of my run then 10
+                                                                                ! hours in so I will allocate in makeChainMesh.   
+                                                                                ! We will need an fft object for the x,y, and z
+                                                                                ! compoennts for the winding calculation, we will
+                                                                                ! also need a way to map from the atoms in a cell
+                                                                                ! tabulation to this. 
+                                                                                ! This will be done via IndexFromCoordinates as we
+                                                                                ! are sampling spins on a per unit cell basis to
+                                                                                ! caculate the winding, justified by the continuity
+                                                                                ! of the fields we are interested in, actually maybe
+                                                                                ! we should test for continuity numerically????? 
         end type ChainMesh_t 
 
         interface IndexFromCoordinates
@@ -682,8 +704,11 @@ module ChainMesh
 
         function makeChainMesh(numCellsX, numCellsY, numCellsZ, & 
                         AtomsInUnitCell, &
-                        a,b,c,ab_deg,bc_deg,ca_deg,distance_threshold,numShells,debug) result(chainMesh)
+                        a,b,c,ab_deg,bc_deg,ca_deg,distance_threshold,numShells,debug,&
+                        sclx,scly) result(chainMesh)
                 use algo, only: mergesort
+                use fft, only: fft_object, create_plan_2d, create_plan_2d_r2c
+                use iso_fortran_env, only: dp => real64
                 implicit none 
                 integer, intent(in) ::  numCellsX, numCellsY, numCellsZ 
                 type(Atom_t), intent(in) :: AtomsInUnitCell(:)
@@ -693,6 +718,10 @@ module ChainMesh
                 ! default = 0.1*a where a is the first Bravais lattice dimension length
                 integer, intent(in), optional :: numShells ! the number of shells we wish to compute, default = 2
                 logical, intent(in), optional :: debug
+                integer, intent(in), optional :: sclx, scly
+                
+
+                integer :: my_sclx, my_scly
                 type(ChainMesh_t), target :: chainMesh 
                 integer :: numChainMeshCells, padX, stat, numAtomsPerUnitCell
                 integer :: numAtoms, stride 
@@ -708,17 +737,43 @@ module ChainMesh
                 integer, allocatable, dimension(:) :: intBuffer
                 logical :: my_debug 
 
+                my_sclx = 1
+                my_scly = 1
+                if (present(sclx)) my_sclx = sclx
+                if (present(scly)) my_scly = scly
+
+                chainMesh%sclx = my_sclx
+                chainMesh%scly = my_scly
+                ! Initialise fft_objects
+                
+                do i = 1,3
+                        ! We will do the foward transforms taking advantage of the increased memory and speed efficiency of a real to
+                        ! complex trasnform 
+                        ! Default to inplace = .False., once tested inplace transformations can be tested
+                        if (i == 1) then 
+                                call create_plan_2d_r2c(chainMesh%fft_upsmpl_inpt(i),numCellsX, numCellsY)
+                                call create_plan_2d_r2c(chainMesh%fft_upsmpl_outpt(i),my_sclx*numCellsX,my_scly*numCellsY) 
+                        else 
+                                call create_plan_2d_r2c(chainMesh%fft_upsmpl_inpt(i),numCellsX, numCellsY, &
+                                        usePlanForward = chainMesh%fft_upsmpl_inpt(1)%plan_forward,&
+                                        usePlanBackward = chainMesh%fft_upsmpl_inpt(1)%plan_backward)
+                                call create_plan_2d_r2c(chainMesh%fft_upsmpl_outpt(i),my_sclx*numCellsX,my_scly*numCellsY,&
+                                        usePlanForward = chainMesh%fft_upsmpl_outpt(1)%plan_forward,&
+                                        usePlanBackward = chainMesh%fft_upsmpl_outpt(1)%plan_backward)                                   
+                        end if 
+                end do 
+
                 my_debug = .False.
                 if (present(debug)) my_debug = debug 
-                my_threshold = 0.1_8*a 
+                my_threshold = 0.1_dp*a 
                 my_numShells = 2
                 if (present(distance_threshold)) my_threshold = distance_threshold   
                 if (present(numShells)) my_numShells = numShells  
                 if (my_numShells < 1) error stop "Error in makeChainMesh: numShells must be greater than or equal to 1"
                 numAtomsPerUnitCell = size(AtomsInUnitCell)
-                ab = ab_deg*(pi/180.0_8)
-                bc = bc_deg*(pi/180.0_8)
-                ca = ca_deg*(pi/180.0_8)
+                ab = ab_deg*(pi/180.0_dp)
+                bc = bc_deg*(pi/180.0_dp)
+                ca = ca_deg*(pi/180.0_dp)
                 chainMesh%a = a 
                 chainMesh%b = b 
                 chainMesh%c = c 
