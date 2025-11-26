@@ -44,22 +44,28 @@ public :: fft_2d_r2c, fft_2d, fft_object, create_plan_2d_r2c, create_plan_2d, c2
 
 contains 
 
-        subroutine create_plan_2d_r2c_many(fft_obj, Nx, Ny, vdim, inplace)
+        subroutine create_plan_2d_r2c_many(fft_obj, Nx, Ny, vdim, inplace, zero_arrays)
                 ! use this routine for vectors 
                 ! The resulting arrays will have shape (Nx,Ny,vdim), the (:,:,i) subarrays will be contiguous.
                 implicit none 
                 type(fft_object), intent(inout) :: fft_obj
                 integer, intent(in) :: Nx, Ny, vdim ! vdim is the dimension of the vector field we wish to transform. 
                 logical, optional, intent(in) :: inplace
+                logical, optional, intent(in) :: zero_arrays
                 ! For a three dimensional vector (like spin) rank = 3 
 
                 integer :: numX_real, numY_real, numX_recip, numY_recip
-                logical :: myInPlace
+                logical :: myInPlace, my_zero_arrays
                 integer, dimension(2) :: n_real, n_recip, real_embed, recip_embed
                 integer :: real_stride, recip_stride, real_dist, recip_dist
                 real(kind=c_double), dimension(:), pointer :: real_ptr
                 complex(kind=c_double_complex), dimension(:), pointer :: recip_ptr
                 integer :: stat
+
+
+                my_zero_arrays = .True.
+                if (present(zero_arrays)) my_zero_arrays = zero_arrays
+
                 myInPlace = .False.
                 if (present(inplace)) myinplace = inplace 
 
@@ -112,16 +118,21 @@ contains
 
                 fft_obj%num_elems_without_padding_real = (/ Nx, Ny /) ! This will be used for array normalisation.
                 fft_obj%num_elems_without_padding_recip = (/ Nx/2 + 1, Ny /) ! Only have up to the Nyquist frequency in the x
-                                                                             ! dimension.
-                ! Bind the in_forward and out_forward fortran pointers to the actual memory addresses,
-                ! don't need shapes they are made up.
-                call c_f_pointer(fft_obj%fft_array_real_base_ptr,real_ptr,fft_obj%RealBufferShape)
-                call c_f_pointer(fft_obj%fft_array_recip_base_ptr,recip_ptr,fft_obj%RecipBufferShape)
 
                 fft_obj%real_buffer_len = product(fft_obj%RealBufferShape)
                 fft_obj%recip_buffer_len = product(fft_obj%RecipBufferShape)
                 fft_obj%in_place = myInPlace
-                fft_obj%is_r2c = .True. ! This is a r2c plan creation helper 
+                fft_obj%is_r2c = .True. ! This is a r2c plan creation helper                                                                            
+                ! Bind the in_forward and out_forward fortran pointers to the actual memory addresses,
+                ! don't need shapes they are made up, in fact they are so made up we can flatten them.
+                call c_f_pointer(fft_obj%fft_array_real_base_ptr,real_ptr,(/fft_obj%real_buffer_len/))
+                call c_f_pointer(fft_obj%fft_array_recip_base_ptr,recip_ptr,(/fft_obj%recip_buffer_len/))
+
+                if (my_zero_arrays) then 
+                        real_ptr(:) = 0.0_c_double 
+                        if (.not. myInPlace) recip_ptr(:) = cmplx(0.0,0.0,c_double_complex)
+                end if 
+
                 !TODO: Check everything here is the correct way round.
                 ! 2 dimensional trasnform so n = 2
                 ! In the Forward transform:
@@ -145,22 +156,26 @@ contains
         end subroutine create_plan_2d_r2c_many
 
 
-        subroutine create_plan_2d_many(fft_obj, Nx, Ny, vdim, inplace)
+        subroutine create_plan_2d_many(fft_obj, Nx, Ny, vdim, inplace,zero_arrays)
                 ! use this routine for vectors 
                 implicit none 
                 type(fft_object), intent(inout) :: fft_obj
                 integer, intent(in) :: Nx, Ny, vdim ! vdim is the dimension of the vector field we wish to transform. 
                 logical, optional, intent(in) :: inplace
-                
+                logical, optional, intent(in) :: zero_arrays
                 ! For a three dimensional vector (like spin) rank = 3 
 
                 integer :: numX_real, numY_real, numX_recip, numY_recip
-                logical :: myInPlace
+                logical :: myInPlace, my_zero_arrays
                 integer, dimension(2) :: n_real, n_recip, real_embed, recip_embed
                 integer :: real_stride, recip_stride, real_dist, recip_dist
                 complex(kind=c_double_complex), dimension(:), pointer :: real_ptr, recip_ptr
                 integer :: stat
            
+
+                my_zero_arrays = .True.
+                if (present(zero_arrays)) my_zero_arrays = zero_arrays
+
                 myInPlace = .False.
                 if (present(inplace)) myinplace = inplace 
 
@@ -213,10 +228,15 @@ contains
                 fft_obj%num_elems_without_padding_real = (/ Nx, Ny /) ! This will be used for array normalisation.
                 fft_obj%num_elems_without_padding_recip = (/ Nx, Ny /) 
                 ! Bind the in_forward and out_forward fortran pointers to the actual memory addresses,
-                ! don't need shapes they are made up.
-                call c_f_pointer(fft_obj%fft_array_real_base_ptr,real_ptr,fft_obj%RealBufferShape)
-                call c_f_pointer(fft_obj%fft_array_recip_base_ptr,recip_ptr,fft_obj%RecipBufferShape)
+                ! don't need shapes they are made up, in fact they are so made up we can flatten them 
+                call c_f_pointer(fft_obj%fft_array_real_base_ptr,real_ptr,(/fft_obj%RealBufferShape/))
+                call c_f_pointer(fft_obj%fft_array_recip_base_ptr,recip_ptr,(/fft_obj%RecipBufferShape/))
 
+                if (my_zero_arrays) then
+                        real_ptr(:) = cmplx(0.0,0.0,c_double_complex)
+                        ! If in place then we don't need to zero the same memory twice.
+                        if (.not. myInPlace) recip_ptr(:) = cmplx(0.0,0.0,c_double_complex)
+                end if 
                 fft_obj%real_buffer_len = product(fft_obj%RealBufferShape)
                 fft_obj%recip_buffer_len = product(fft_obj%RecipBufferShape)
                 fft_obj%in_place = myInPlace
