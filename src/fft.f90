@@ -28,10 +28,15 @@ type fft_object
                                                                ! real space shape for an in place transform), size(BufferShape) is
                                                                ! the dimension of the FFT for the object, the entries give the
                                                                ! shape.
+        integer, dimension(:), allocatable :: num_elems_without_padding_real  ! This array will store the number of elements in the
+                                                                              ! real buffer that are meaningful. 
+        integer, dimension(:), allocatable :: num_elems_without_padding_recip ! This array will store the number of elements in the
+                                                                              ! recip buffer that are meaningful.  
         logical :: in_place ! Needed for cleanup
         logical :: is_r2c ! Easier book keeping, if .True. then the real space array is of type real(kind=c_double), else the real
                           ! space array is of type complex(kind=c_double_complex). The reciprocal space array is always of type
                           ! complex(kind=c_double_complex).
+
 
 end type fft_object
 
@@ -39,19 +44,21 @@ public :: fft_2d_r2c, fft_2d, fft_object, create_plan_2d_r2c, create_plan_2d, c2
 
 contains 
 
-        subroutine create_plan_2d_r2c_many(fft_obj, Nx, Ny, vrank, inplace)
+        subroutine create_plan_2d_r2c_many(fft_obj, Nx, Ny, vdim, inplace)
+                ! use this routine for vectors 
+                ! The resulting arrays will have shape (Nx,Ny,vdim), the (:,:,i) subarrays will be contiguous.
                 implicit none 
                 type(fft_object), intent(inout) :: fft_obj
-                integer, intent(in) :: Nx, Ny, vrank 
+                integer, intent(in) :: Nx, Ny, vdim ! vdim is the dimension of the vector field we wish to transform. 
                 logical, optional, intent(in) :: inplace
                 ! For a three dimensional vector (like spin) rank = 3 
 
                 integer :: numX_real, numY_real, numX_recip, numY_recip
                 logical :: myInPlace
-                integer, dimension(2) :: n_forward, n_backward, forward_embed, backward_embed
-                integer :: in_stride, out_stride, in_dist, out_dist
-                real(kind=c_double), dimension(:), pointer :: in_forward
-                complex(kind=c_double_complex), dimension(:), pointer :: out_forward
+                integer, dimension(2) :: n_real, n_recip, real_embed, recip_embed
+                integer :: real_stride, recip_stride, real_dist, recip_dist
+                real(kind=c_double), dimension(:), pointer :: real_ptr
+                complex(kind=c_double_complex), dimension(:), pointer :: recip_ptr
                 integer :: stat
                 myInPlace = .False.
                 if (present(inplace)) myinplace = inplace 
@@ -65,57 +72,182 @@ contains
 
                 ! Now do the allocations 
 
-                fft_obj%fft_array_real_base_ptr = fftw_alloc_real(int(numX_real*numY_real*vrank,c_size_t)) ! Multiply by vrank to
+                fft_obj%fft_array_real_base_ptr = fftw_alloc_real(int(numX_real*numY_real*vdim,c_size_t)) ! Multiply by vdim to
                                                                                                            ! allocate enough memory for all of the batched FFT's.
                 if (myInPlace) then
                         fft_obj%fft_array_recip_base_ptr = fft_obj%fft_array_real_base_ptr
                 else 
-                        fft_obj%fft_array_recip_base_ptr = fftw_alloc_complex(int(numX_recip*numY_recip*vrank,c_size_t))
+                        fft_obj%fft_array_recip_base_ptr = fftw_alloc_complex(int(numX_recip*numY_recip*vdim,c_size_t))
                 end if 
 
 
 
                 ! Now do the Forward plan, we will need the TRANSPOSED shape,
-                n_forward = (/numY_real, numX_real/)
-                n_backward = (/numY_recip, numX_recip/)
+                n_real = (/numY_real, numX_real/)
+                n_recip = (/numY_recip, numX_recip/)
 
-                forward_embed = n_forward
-                backward_embed = n_backward ! No subarrays, so the shape of the sub arrays are that of the entire input 
+                real_embed = n_real
+                recip_embed = n_recip ! No subarrays, so the shape of the sub arrays are that of the entire input 
                 ! take in an array of shape (Nx,Ny,rank), the stride will be Nx*Ny
-                in_stride = 1
-                out_stride = 1 ! Arrays are contiguous, we could have stride = rank if we packed the array as (rank, Nx, Ny) instead.
+                real_stride = 1
+                recip_stride = 1 ! Arrays are contiguous, we could have stride = rank if we packed the array as (rank, Nx, Ny) instead.
 
-                in_dist = numX_real*numY_real ! The size of each subarray we wish to transform 
-                out_dist = numX_recip*numY_recip 
-                allocate(fft_obj%RealBufferShape(2),stat = stat)
+                real_dist = numX_real*numY_real ! The size of each subarray we wish to transform 
+                recip_dist = numX_recip*numY_recip 
+                allocate(fft_obj%RealBufferShape(3),stat = stat)
                 if (stat /= 0 ) error stop "Failed to allocate RealBufferShape"
 
-                allocate(fft_obj%RecipBufferShape(2),stat = stat)
+                allocate(fft_obj%RecipBufferShape(3),stat = stat)
                 if (stat /= 0 ) error stop "Failed to allocate RecipBufferShape"
 
+                ! These are for array usage in Fortran so column major is fine.
+                fft_obj%RealBufferShape = (/numX_real, numY_real, vdim/)
+                fft_obj%RecipBufferShape = (/numX_recip, numY_recip, vdim/)
 
-                fft_obj%RealBufferShape = (/numX_real, numY_real/)
-                fft_obj%RecipBufferShape = (/numX_recip, numY_recip/)
-                call c_f_pointer(fft_obj%fft_array_real_base_ptr,in_forward,fft_obj%RealBufferShape)
-                call c_f_pointer(fft_obj%fft_array_recip_base_ptr,out_forward,fft_obj%RecipBufferShape)
+                allocate(fft_obj%num_elems_without_padding_real(2),stat=stat)
+                if (stat /= 0) error stop "Failed to allocate array"
+
+                allocate(fft_obj%num_elems_without_padding_recip(2),stat=stat)
+                if (stat /= 0) error stop "Failed to allocate array"
+
+                fft_obj%num_elems_without_padding_real = (/ Nx, Ny /) ! This will be used for array normalisation.
+                fft_obj%num_elems_without_padding_recip = (/ Nx/2 + 1, Ny /) ! Only have up to the Nyquist frequency in the x
+                                                                             ! dimension.
+                ! Bind the in_forward and out_forward fortran pointers to the actual memory addresses,
+                ! don't need shapes they are made up.
+                call c_f_pointer(fft_obj%fft_array_real_base_ptr,real_ptr,fft_obj%RealBufferShape)
+                call c_f_pointer(fft_obj%fft_array_recip_base_ptr,recip_ptr,fft_obj%RecipBufferShape)
 
                 fft_obj%real_buffer_len = product(fft_obj%RealBufferShape)
                 fft_obj%recip_buffer_len = product(fft_obj%RecipBufferShape)
                 fft_obj%in_place = myInPlace
-                fft_obj%is_r2c = .True.
+                fft_obj%is_r2c = .True. ! This is a r2c plan creation helper 
                 !TODO: Check everything here is the correct way round.
-                fft_obj%plan_forward = fftw_plan_many_dft_r2c(2,n_forward,vrank,in_forward,forward_embed,in_stride,in_dist,&
-                        out_forward,backward_embed,out_stride,out_dist,FFTW_ESTIMATE)
-                fft_obj%plan_backward = fftw_plan_many_dft_c2r(2,n_backward,vrank,out_forward,backward_embed,out_stride,out_dist,&
-                        in_forward,forward_embed,in_stride,in_dist,FFTW_ESTIMATE)
+                ! 2 dimensional trasnform so n = 2
+                ! In the Forward transform:
+                ! n is the shape of the transform so that will be the row major in_forward (real space dimension)
+                ! howmany: We are doing one transform for each dimension of the input vector, which we have called vdim
+                ! in: The input array, which for the real space data we call in_forward 
+                ! inembed: No subarrays so this is just the (row major) shape of each whole transform 
+                ! istride: We define the arrays of each transform to be contiguous so istride = 1.
+                ! idist: The size of the stride for each input trasnform (How far in memory do we need to jump to reach the base of
+                ! address of the next transform, as each trasnform is contiguous we will only need the products of the shapes of
+                ! each transform
+                !
+                ! backward_embed: again no padding so just the shape of the reciprical space transform 
+                fft_obj%plan_forward = fftw_plan_many_dft_r2c(2,n_real,vdim,real_ptr,real_embed,real_stride,real_dist,&
+                        recip_ptr,recip_embed,recip_stride,recip_dist,FFTW_ESTIMATE)
+                ! For the output trasnform n = n_real (not n_recip) because fftw knows to cut the last row major length in half
+                ! (+1). TLDR: FFTW always takes the full real size as the size of the transform.
+                fft_obj%plan_backward = fftw_plan_many_dft_c2r(2,n_real,vdim,recip_ptr,recip_embed,recip_stride,recip_dist,&
+                        real_ptr,real_embed,real_stride,real_dist,FFTW_ESTIMATE)
 
         end subroutine create_plan_2d_r2c_many
+
+
+        subroutine create_plan_2d_many(fft_obj, Nx, Ny, vdim, inplace)
+                ! use this routine for vectors 
+                implicit none 
+                type(fft_object), intent(inout) :: fft_obj
+                integer, intent(in) :: Nx, Ny, vdim ! vdim is the dimension of the vector field we wish to transform. 
+                logical, optional, intent(in) :: inplace
+                
+                ! For a three dimensional vector (like spin) rank = 3 
+
+                integer :: numX_real, numY_real, numX_recip, numY_recip
+                logical :: myInPlace
+                integer, dimension(2) :: n_real, n_recip, real_embed, recip_embed
+                integer :: real_stride, recip_stride, real_dist, recip_dist
+                complex(kind=c_double_complex), dimension(:), pointer :: real_ptr, recip_ptr
+                integer :: stat
+           
+                myInPlace = .False.
+                if (present(inplace)) myinplace = inplace 
+
+                numX_real = Nx
+                numY_real = Ny
+                
+                numX_recip = Nx
+                numY_recip = Ny
+
+                ! Now do the allocations 
+
+                fft_obj%fft_array_real_base_ptr = fftw_alloc_complex(int(numX_real*numY_real*vdim,c_size_t)) ! Multiply by vdim to
+                                                                                                           ! allocate enough memory for all of the batched FFT's.
+                if (myInPlace) then
+                        fft_obj%fft_array_recip_base_ptr = fft_obj%fft_array_real_base_ptr
+                else 
+                        fft_obj%fft_array_recip_base_ptr = fftw_alloc_complex(int(numX_recip*numY_recip*vdim,c_size_t))
+                end if 
+
+
+
+                ! Now do the Forward plan, we will need the TRANSPOSED shape,
+                n_real = (/numY_real, numX_real/)
+                n_recip = (/numY_recip, numX_recip/)
+
+                real_embed = n_real
+                recip_embed = n_recip ! No subarrays, so the shape of the sub arrays are that of the entire input 
+                ! take in an array of shape (Nx,Ny,rank), the stride will be Nx*Ny
+                real_stride = 1
+                recip_stride = 1 ! Arrays are contiguous, we could have stride = rank if we packed the array as (rank, Nx, Ny) instead.
+
+                real_dist = numX_real*numY_real ! The size of each subarray we wish to transform 
+                recip_dist = numX_recip*numY_recip 
+                allocate(fft_obj%RealBufferShape(3),stat = stat)
+                if (stat /= 0 ) error stop "Failed to allocate RealBufferShape"
+
+                allocate(fft_obj%RecipBufferShape(3),stat = stat)
+                if (stat /= 0 ) error stop "Failed to allocate RecipBufferShape"
+
+                ! These are for array usage in Fortran so column major is fine.
+                fft_obj%RealBufferShape = (/numX_real, numY_real, vdim/)
+                fft_obj%RecipBufferShape = (/numX_recip, numY_recip, vdim/)
+
+                allocate(fft_obj%num_elems_without_padding_real(2),stat=stat)
+                if (stat /= 0) error stop "Failed to allocate array"
+
+                allocate(fft_obj%num_elems_without_padding_recip(2),stat=stat)
+                if (stat /= 0) error stop "Failed to allocate array"
+
+                fft_obj%num_elems_without_padding_real = (/ Nx, Ny /) ! This will be used for array normalisation.
+                fft_obj%num_elems_without_padding_recip = (/ Nx, Ny /) 
+                ! Bind the in_forward and out_forward fortran pointers to the actual memory addresses,
+                ! don't need shapes they are made up.
+                call c_f_pointer(fft_obj%fft_array_real_base_ptr,real_ptr,fft_obj%RealBufferShape)
+                call c_f_pointer(fft_obj%fft_array_recip_base_ptr,recip_ptr,fft_obj%RecipBufferShape)
+
+                fft_obj%real_buffer_len = product(fft_obj%RealBufferShape)
+                fft_obj%recip_buffer_len = product(fft_obj%RecipBufferShape)
+                fft_obj%in_place = myInPlace
+                fft_obj%is_r2c = .False. 
+                !TODO: Check everything here is the correct way round.
+                ! 2 dimensional trasnform so n = 2
+                ! In the Forward transform:
+                ! n is the shape of the transform so that will be the row major in_forward (real space dimension)
+                ! howmany: We are doing one transform for each dimension of the input vector, which we have called vdim
+                ! in: The input array, which for the real space data we call in_forward 
+                ! inembed: No subarrays so this is just the (row major) shape of each whole transform 
+                ! istride: We define the arrays of each transform to be contiguous so istride = 1.
+                ! idist: The size of the stride for each input trasnform (How far in memory do we need to jump to reach the base of
+                ! address of the next transform, as each trasnform is contiguous we will only need the products of the shapes of
+                ! each transform
+                !
+                ! backward_embed: again no padding so just the shape of the reciprical space transform 
+                fft_obj%plan_forward = fftw_plan_many_dft(2,n_real,vdim,real_ptr,real_embed,real_stride,real_dist,&
+                        recip_ptr,recip_embed,recip_stride,recip_dist,FFTW_FORWARD,FFTW_ESTIMATE)
+                ! For the output trasnform n = n_real (not n_recip) because fftw knows to cut the last row major length in half
+                ! (+1). TLDR: FFTW always takes the full real size as the size of the transform.
+                fft_obj%plan_backward = fftw_plan_many_dft(2,n_real,vdim,real_ptr,real_embed,real_stride,real_dist,&
+                        recip_ptr,recip_embed,recip_stride,recip_dist,FFTW_BACKWARD,FFTW_ESTIMATE)
+        end subroutine create_plan_2d_many
 
 
 
         subroutine create_plan_2d_r2c(fft_obj,Nx,Ny,arg_outputBufferReal,arg_outputBufferRecip, inplace,&
                         usePlanForward, usePlanBackward)
                 ! This routine is used to initialise an fft_object such that an in place transformation can be done in outputBuffer
+                ! use this routine for scalar fields 
                 implicit none
 
                 type(fft_object), intent(inout) :: fft_obj
@@ -170,8 +302,18 @@ contains
                 allocate(fft_obj%RecipBufferShape(2),stat=stat)
                 if (stat /= 0) error stop "Error: Failed to allocate reciprocal buffer shape"
 
+                allocate(fft_obj%num_elems_without_padding_real(2),stat=stat)
+                if (stat /= 0) error stop "Error: Failed to alloate array"
+
+                allocate(fft_obj%num_elems_without_padding_recip(2),stat=stat)
+                if (stat /= 0) error stop "Error: Failed to alloate array"
+
+
+
                 fft_obj%RealBufferShape = shape(outputBufferReal)
                 fft_obj%RecipBufferShape = shape(outputBufferComplex)
+                fft_obj%num_elems_without_padding_real = (/Nx, Ny/)
+                fft_obj%num_elems_without_padding_recip = (/Nx/2 + 1, Ny/)
 
                 ! Now we need to initialise the plans 
 
@@ -196,6 +338,7 @@ contains
         end subroutine create_plan_2d_r2c
 
         subroutine create_plan_2d(fft_obj, Nx, Ny,inplace,usePlanForward,usePlanBackward)
+                ! use this routine for scalar fields 
                 use iso_c_binding
                 implicit none 
                 type(fft_object), intent(out) :: fft_obj 
@@ -227,10 +370,16 @@ contains
                 allocate(fft_obj%RecipBufferShape(2),stat=stat)
                 if (stat /= 0) error stop "Error: Failed to allocate fft_obj%RealBufferShape"               
 
-
-               
+                allocate(fft_obj%num_elems_without_padding_real(2),stat=stat)
+                if (stat /= 0) error stop "Error: Failed to allocate array"
+ 
+                allocate(fft_obj%num_elems_without_padding_recip(2),stat=stat)
+                if (stat /= 0) error stop "Error: Failed to allocate array"
+                             
                 fft_obj%RealBufferShape = (/Nx, Ny/)
                 fft_obj%RecipBufferShape = (/Nx, Ny/)
+                fft_obj%num_elems_without_padding_real = (/Nx, Ny/)
+                fft_obj%num_elems_without_padding_recip = (/Nx, Ny/)
 
                 call C_F_POINTER(fft_obj%fft_array_real_base_ptr,inBuff,fft_obj%RealBufferShape)
                 call C_F_POINTER(fft_obj%fft_array_recip_base_ptr,outBuff,fft_obj%RecipBufferShape)
@@ -276,9 +425,13 @@ contains
                         call fftw_execute_dft_r2c(fft_obj%plan_forward,RealBuffer,ComplexBuffer)
                 else if (tempChar == 'B') then 
                         call fftw_execute_dft_c2r(fft_obj%plan_backward,ComplexBuffer,RealBuffer)
+                        RealBuffer = RealBuffer / product(fft_obj%num_elems_without_padding_real)
                 else 
                         error stop "Error: Invalid option passed to fft_2d_r2c"
                 end if 
+
+
+                
                 
         end subroutine fft_2d_r2c
 
@@ -305,6 +458,7 @@ contains
                         call fftw_execute_dft(fft_obj%plan_forward,realBuffer,recipBuffer)
                 else if (tempChar == 'B') then 
                         call fftw_execute_dft(fft_obj%plan_backward,recipBuffer,realBuffer)
+                        realBuffer = realBuffer / product(fft_obj%num_elems_without_padding_real)
                 else 
                         error stop "Error: Invalid option passed to fft_2d"
                 end if 
