@@ -13,12 +13,12 @@ module reciprocal_space_processes
         end interface spectral_interpolation_2d
         contains
        
-        subroutine spectral_interpolation_2d_real_output(fft_obj_input, fft_obj_output, interpolated_field)
+        subroutine spectral_interpolate_to_fine(fft_obj_input, fft_obj_output, interpolated_field)
                 ! This routine assumes that fft_obj_input and fft_obj_output have been initialised with plans by the relevant
                 ! subroutines in the fft module.
                 use iso_fortran_env, only: dp=>real64
                 use iso_c_binding
-                use fft, only: fft_object, fft_2d, fft_2d_r2c, create_plan_2d_r2c
+                use fft, only: fft_object, fft_2d, fft_2d_r2c
                 ! TODO: Finish this function
 
                 implicit none
@@ -30,10 +30,11 @@ module reciprocal_space_processes
 
                 integer :: scale_factor_x, scale_factor_y
                 integer :: i,j,k, iIndex, jIndex, kIndex
-
-                if (size(fft_obj_input%RealBufferShape) /= 2) error stop "Error: spectral_interpolation_2d only supports &
+                
+                ! fft_obj%RealBufferShape = (Nx,Ny,vdim), vdim = 3 for spin.
+                if (size(fft_obj_input%RealBufferShape) /= 3) error stop "Error: spectral_interpolation_2d only supports &
                 & interpolation on 2d data, fft_obj_input has the wrong dimension"
-                if (size(fft_obj_output%RealBufferShape) /= 2) error stop "Error: spectral_interpolation_2d only supports &
+                if (size(fft_obj_output%RealBufferShape) /= 3) error stop "Error: spectral_interpolation_2d only supports &
                 & interpolation on 2d data, fft_obj_output has the wrong dimension"
                 if (mod(fft_obj_output%RealBufferShape(1),fft_obj_input%RealBufferShape(1)) /= 0) then
                         error stop "Error: scale factor is not an integer multiple along the x axis"
@@ -98,96 +99,9 @@ module reciprocal_space_processes
                 interpolated_field = outputObject_real
 
 
-        end subroutine spectral_interpolation_2d_real_output
+        end subroutine spectral_interpolate_to_fine
 
              
-
-        subroutine spectral_interpolation_2d_cmplx_output(fft_obj_input, fft_obj_output, interpolated_field)
-                ! This routine assumes that fft_obj_input and fft_obj_output have been initialised with plans by the relevant
-                ! subroutines in the fft module.
-                use iso_fortran_env, only: dp=>real64
-                use iso_c_binding
-                use fft, only: fft_object, fft_2d, fft_2d_r2c, create_plan_2d_r2c
-                ! TODO: Finish this function
-
-                implicit none
-                type(fft_object), intent(inout) :: fft_obj_input, fft_obj_output
-                complex(kind=c_double_complex), dimension(:,:), pointer :: interpolated_field
-                complex(kind=c_double_complex), dimension(:,:), pointer ::  inputObject_recip, &
-                        outputObject_real, outputObject_recip 
-
-                integer :: scale_factor_x, scale_factor_y
-                integer :: i,j,k, iIndex, jIndex, kIndex
-
-                if (size(fft_obj_input%RealBufferShape) /= 2) error stop "Error: spectral_interpolation_2d only supports &
-                & interpolation on 2d data, fft_obj_input has the wrong dimension"
-                if (size(fft_obj_output%RealBufferShape) /= 2) error stop "Error: spectral_interpolation_2d only supports &
-                & interpolation on 2d data, fft_obj_output has the wrong dimension"
-                if (mod(fft_obj_output%RealBufferShape(1),fft_obj_input%RealBufferShape(1)) /= 0) then
-                        error stop "Error: scale factor is not an integer multiple along the x axis"
-                else 
-                        scale_factor_x = fft_obj_output%RealBufferShape(1) / fft_obj_input%RealBufferShape(1)
-                end if 
-                
-                if (mod(fft_obj_output%RealBufferShape(2),fft_obj_input%RealBufferShape(2)) /= 0) then 
-                        error stop "Error: scale factor is not an integer multiple along the y axis"
-                else 
-                        scale_factor_y = fft_obj_output%RealBufferShape(2) / fft_obj_output%RealBufferShape(2)
-                end if 
-
-                ! Initialise fortran array pointers, these are only used for convinience in this routine  
-                call C_F_POINTER(fft_obj_input%fft_array_recip_base_ptr,inputObject_recip,fft_obj_input%RecipBufferShape)
-                
-                call C_F_POINTER(fft_obj_output%fft_array_real_base_ptr,outputObject_real,fft_obj_output%RealBufferShape)
-                call C_F_POINTER(fft_obj_output%fft_array_recip_base_ptr,outputObject_recip,fft_obj_output%RecipBufferShape)
-
-                ! Need to zero the scaled output Buffers 
-                outputObject_real(:,:) = 0.0_c_double_complex 
-                outputObject_recip(:,:) = 0.0_c_double_complex 
-
-                
-                ! Check whether we need to perform a real to complex or complex to complex transformation on the input. 
-                ! In a real to complex transform the input and output buffers will have different shapes, with the first dimension
-                ! in the output buffer being half the length of the input buffer.
-                if (fft_obj_input%is_r2c) then 
-                        ! Perform the real to complex transformation 
-                        call fft_2d_r2c(fft_obj_input,'F') ! Forward Transformation
-               else 
-                        ! Perform the complex to complex transformation
-                        call fft_2d(fft_obj_input,'F')
-                end if 
-                ! Next we need to deposit the frequencies in the output Buffer, for the real to complex transform we only
-                ! have up to the Nyquist Frequency in the x direction. The fft_objects encapusalte this in their BufferShape
-                ! member variables so we don't need to treat the real to complex and complex to complex cases seperately. E.g. for a
-                ! real to complex transformation fft_object%RecipBufferShape(1) = N/2 + 1 if fft_object%RealBufferShape(1) = N.
-
-                ! The scale_factor tells us the stride of how we need to pad our arrays with zeros. E.g. scale_factor = 3
-                ! means that we deposit a frequency, then pad the next scale_factor - 1 entries with zeros before continuing 
-                do i = 1,fft_obj_input%RecipBufferShape(1)
-                        iIndex = (i-1)*scale_factor_x + 1
-                        do j = 1,fft_obj_input%RecipBufferShape(2)
-                                jIndex = (j-1)*scale_factor_y + 1
-
-                                outputObject_recip(iIndex,jIndex) = inputObject_recip(i,j)
-                                outputObject_recip(iIndex + 1 : iIndex + scale_factor_x - 1,&
-                                        jIndex + 1 : jIndex + scale_factor_y - 1) = cmplx(0.0,0.0,c_double_complex)
-                        end do 
-                end do 
-
-                ! Now fft_object_output will contain the interpolated function in it's output buffer 
-                if (fft_obj_output%is_r2c) then 
-                        call fft_2d_r2c(fft_obj_output,"B")
-                else 
-                        call fft_2d(fft_obj_output,"B") ! Either way the real space array (be it real of complex) will have shape
-                                                        ! Nx,Ny
-                end if 
-                ! Next for convinience if the argument is given we will set the interpolated output buffer pointer, this is just an
-                ! alias for fft_obj_output%fft_array_real_base_ptr
-                interpolated_field = outputObject_real
-
-
-        end subroutine spectral_interpolation_2d_cmplx_output
-
 
 
 
@@ -567,7 +481,6 @@ module reciprocal_space_processes
                                s2 = dble(chainMesh%atomSpins(atom2,:))
                                s3 = dble(chainMesh%atomSpins(atom3,:))
                                s4 = dble(chainMesh%atomSpins(atom4,:))
-                               s1 = 
 
                                s1 = s1 / abs(s1)
                                s2 = s2 / abs(s2)

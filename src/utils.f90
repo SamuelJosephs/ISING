@@ -1,6 +1,14 @@
 module utils
+      
 
-      public :: utils_to_upper
+      use iso_c_binding
+
+      type utils_2d_array_ptr_wrapper
+                real(kind=c_double), dimension(:,:), pointer :: ptr
+      end type utils_2d_array_ptr_wrapper
+
+      public :: utils_to_upper, utils_2d_array_ptr_wrapper
+
       contains
               subroutine utils_to_upper(s)
                       character(len=*), intent(inout) :: s

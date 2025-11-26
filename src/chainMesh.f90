@@ -34,24 +34,8 @@ module ChainMesh
 
 
                 integer :: sclx, scly ! The scale factors by which the density matrix is being upsampled.
-                type(fft_object), dimension(3) :: fft_upsmpl_inpt, fft_upsmpl_outpt 
-                                                                                ! I need to do a forward FFT for the upsampling
-                                                                                ! input, and a backwards FFT for the upsampling
-                                                                                ! output. Where do I want to initialise this?
-                                                                                ! Probably in make chain mesh but do I want the
-                                                                                ! burden of this memory always being allocated?
-                                                                                ! Probably for the best, I would rather get an out
-                                                                                ! of memory error at the start of my run then 10
-                                                                                ! hours in so I will allocate in makeChainMesh.   
-                                                                                ! We will need an fft object for the x,y, and z
-                                                                                ! compoennts for the winding calculation, we will
-                                                                                ! also need a way to map from the atoms in a cell
-                                                                                ! tabulation to this. 
-                                                                                ! This will be done via IndexFromCoordinates as we
-                                                                                ! are sampling spins on a per unit cell basis to
-                                                                                ! caculate the winding, justified by the continuity
-                                                                                ! of the fields we are interested in, actually maybe
-                                                                                ! we should test for continuity numerically????? 
+                type(fft_object) :: fft_obj_std, fft_obj_fine ! fine grid for interpolation, standard grid to  
+                                                                     
         end type ChainMesh_t 
 
         interface IndexFromCoordinates
@@ -707,7 +691,7 @@ module ChainMesh
                         a,b,c,ab_deg,bc_deg,ca_deg,distance_threshold,numShells,debug,&
                         sclx,scly) result(chainMesh)
                 use algo, only: mergesort
-                use fft, only: fft_object, create_plan_2d, create_plan_2d_r2c
+                use fft, only: fft_object, create_plan_2d_many, create_plan_2d_r2c_many
                 use iso_fortran_env, only: dp => real64
                 implicit none 
                 integer, intent(in) ::  numCellsX, numCellsY, numCellsZ 
@@ -745,23 +729,11 @@ module ChainMesh
                 chainMesh%sclx = my_sclx
                 chainMesh%scly = my_scly
                 ! Initialise fft_objects
-                
-                do i = 1,3
-                        ! We will do the foward transforms taking advantage of the increased memory and speed efficiency of a real to
-                        ! complex trasnform 
-                        ! Default to inplace = .False., once tested inplace transformations can be tested
-                        if (i == 1) then 
-                                call create_plan_2d_r2c(chainMesh%fft_upsmpl_inpt(i),numCellsX, numCellsY)
-                                call create_plan_2d_r2c(chainMesh%fft_upsmpl_outpt(i),my_sclx*numCellsX,my_scly*numCellsY) 
-                        else 
-                                call create_plan_2d_r2c(chainMesh%fft_upsmpl_inpt(i),numCellsX, numCellsY, &
-                                        usePlanForward = chainMesh%fft_upsmpl_inpt(1)%plan_forward,&
-                                        usePlanBackward = chainMesh%fft_upsmpl_inpt(1)%plan_backward)
-                                call create_plan_2d_r2c(chainMesh%fft_upsmpl_outpt(i),my_sclx*numCellsX,my_scly*numCellsY,&
-                                        usePlanForward = chainMesh%fft_upsmpl_outpt(1)%plan_forward,&
-                                        usePlanBackward = chainMesh%fft_upsmpl_outpt(1)%plan_backward)                                   
-                        end if 
-                end do 
+                call create_plan_2d_r2c_many(chainMesh%fft_obj_std,numCellsX,numCellsY,3,inplace=.False.) 
+                call create_plan_2d_r2c_many(chainMesh%fft_obj_fine,&
+                                             my_sclx*numCellsX,&
+                                             my_scly*numCellsY,&
+                                             3,inplace = .False.)
 
                 my_debug = .False.
                 if (present(debug)) my_debug = debug 
