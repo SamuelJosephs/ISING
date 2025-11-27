@@ -7,98 +7,60 @@ module reciprocal_space_processes
         !include 'fftw3.f03' !This is included in chainMesh, annoying I would like header files with #pragma once
         
 
-        interface spectral_interpolation_2d
-                module procedure spectral_interpolation_2d_real_output
-                module procedure spectral_interpolation_2d_cmplx_output
-        end interface spectral_interpolation_2d
         contains
        
-        subroutine spectral_interpolate_to_fine(fft_obj_input, fft_obj_output, interpolated_field)
-                ! This routine assumes that fft_obj_input and fft_obj_output have been initialised with plans by the relevant
-                ! subroutines in the fft module.
-                use iso_fortran_env, only: dp=>real64
-                use iso_c_binding
-                use fft, only: fft_object, fft_2d, fft_2d_r2c
-                ! TODO: Finish this function
+        subroutine spectral_interpolate_to_fine(chainMesh)
+                ! This routine interpolates chainMesh%fft_obj_std to chainMesh%fft_obj_fine.
+                ! This routine assumes that the standard grid has the relevant data already on it.
+                use fft, only: fft_object, fft_2d
+                use iso_fortran_env, only: dp => real64
+                use iso_c_binding 
+                implicit none 
+                type(chainMesh_t), intent(inout) :: chainMesh
+                ! We need to write the output of the standard grid fft to the fine grid, so will need handles for both 
+                complex(kind=c_double_complex), dimension(:,:,:), pointer :: std_recip, fine_recip
+                integer :: i,j ! Loop variables
+                integer :: scl_fctr_x, scl_fctr_y ! scaling factors, these are equal the number of channels to pad with 0. 
+                integer :: std_num_elems_x, std_num_elems_y, fine_num_elems_x, fine_num_elems_y
+                ! Associate the pointers
+                call c_f_pointer(chainmesh%fft_obj_std%fft_array_recip_base_ptr,&
+                                 std_recip,&
+                                 chainMesh%fft_obj_std%RecipBufferShape) ! For a 2d transform this is a size 3 array (Nx,Ny,vdim).
+                                                                         ! For an N dimensiona interpolation I would have to treat
+                                                                         ! the arrays as flattened and manually do the indexing, for
+                                                                         ! now this is easier.
 
-                implicit none
-                type(fft_object), intent(inout) :: fft_obj_input, fft_obj_output
-                real(kind=c_double), dimension(:,:), pointer :: interpolated_field 
-                real(kind=c_double), dimension(:,:), pointer :: outputObject_real
-                complex(kind=c_double_complex), dimension(:,:), pointer ::  inputObject_recip, &
-                        outputObject_recip 
+                call c_f_pointer(chainmesh%fft_obj_fine%fft_array_recip_base_ptr,&
+                                 fine_recip,&
+                                 chainMesh%fft_obj_fine%RecipBufferShape)
+                std_num_elems_x = chainMesh%fft_obj_std%num_elems_without_padding_recip(1)
+                std_num_elems_y = chainMesh%fft_obj_std%num_elems_without_padding_recip(2)
 
-                integer :: scale_factor_x, scale_factor_y
-                integer :: i,j,k, iIndex, jIndex, kIndex
-                
-                ! fft_obj%RealBufferShape = (Nx,Ny,vdim), vdim = 3 for spin.
-                if (size(fft_obj_input%RealBufferShape) /= 3) error stop "Error: spectral_interpolation_2d only supports &
-                & interpolation on 2d data, fft_obj_input has the wrong dimension"
-                if (size(fft_obj_output%RealBufferShape) /= 3) error stop "Error: spectral_interpolation_2d only supports &
-                & interpolation on 2d data, fft_obj_output has the wrong dimension"
-                if (mod(fft_obj_output%RealBufferShape(1),fft_obj_input%RealBufferShape(1)) /= 0) then
-                        error stop "Error: scale factor is not an integer multiple along the x axis"
-                else 
-                        scale_factor_x = fft_obj_output%RealBufferShape(1) / fft_obj_input%RealBufferShape(1)
-                end if 
-                
-                if (mod(fft_obj_output%RealBufferShape(2),fft_obj_input%RealBufferShape(2)) /= 0) then 
-                        error stop "Error: scale factor is not an integer multiple along the y axis"
-                else 
-                        scale_factor_y = fft_obj_output%RealBufferShape(2) / fft_obj_output%RealBufferShape(2)
-                end if 
-
-                ! Initialise fortran array pointers, these are only used for convinience in this routine  
-                call C_F_POINTER(fft_obj_input%fft_array_recip_base_ptr,inputObject_recip,fft_obj_input%RecipBufferShape)
-                
-                call C_F_POINTER(fft_obj_output%fft_array_real_base_ptr,outputObject_real,fft_obj_output%RealBufferShape)
-                call C_F_POINTER(fft_obj_output%fft_array_recip_base_ptr,outputObject_recip,fft_obj_output%RecipBufferShape)
-
-                ! Need to zero the scaled output Buffers 
-                outputObject_real(:,:) = 0.0_c_double_complex 
-                outputObject_recip(:,:) = 0.0_c_double_complex 
+                fine_num_elems_x = chainMesh%fft_obj_fine%num_elems_without_padding_recip(1)
+                fine_num_elems_y = chainMesh%fft_obj_fine%num_elems_without_padding_recip(2)
 
                 
-                ! Check whether we need to perform a real to complex or complex to complex transformation on the input. 
-                ! In a real to complex transform the input and output buffers will have different shapes, with the first dimension
-                ! in the output buffer being half the length of the input buffer.
-                if (fft_obj_input%is_r2c) then 
-                        ! Perform the real to complex transformation 
-                        call fft_2d_r2c(fft_obj_input,'F') ! Forward Transformation
-               else 
-                        ! Perform the complex to complex transformation
-                        call fft_2d(fft_obj_input,'F')
-                end if 
-                ! Next we need to deposit the frequencies in the output Buffer, for the real to complex transform we only
-                ! have up to the Nyquist Frequency in the x direction. The fft_objects encapusalte this in their BufferShape
-                ! member variables so we don't need to treat the real to complex and complex to complex cases seperately. E.g. for a
-                ! real to complex transformation fft_object%RecipBufferShape(1) = N/2 + 1 if fft_object%RealBufferShape(1) = N.
+                scl_fctr_x = fine_num_elems_x / std_num_elems_x
+                scl_fctr_y = fine_num_elems_y / std_num_elems_y
+                ! Test that these are exact multiples 
+                if (modulo(fine_num_elems_x,std_num_elems_x) /= 0) error stop "Error: Inexact multiples in spectral interpolation &
+                                                                                & along x"
+                if (modulo(fine_num_elems_y,std_num_elems_y) /= 0) error stop "Error: Inexact multiples in spectral interpolation &
+                                                                                & along y"
+                if (scl_fctr_x <= 1) error stop "Error: Interpolation scale factor along x must be two or greater"
+                if (scl_fctr_y <= 1) error stop "Error: Interpolation scale factor along y must be two or greater"
 
-                ! The scale_factor tells us the stride of how we need to pad our arrays with zeros. E.g. scale_factor = 3
-                ! means that we deposit a frequency, then pad the next scale_factor - 1 entries with zeros before continuing 
-                do i = 1,fft_obj_input%RecipBufferShape(1)
-                        iIndex = (i-1)*scale_factor_x + 1
-                        do j = 1,fft_obj_input%RecipBufferShape(2)
-                                jIndex = (j-1)*scale_factor_y + 1
-
-                                outputObject_recip(iIndex,jIndex) = inputObject_recip(i,j)
-                                outputObject_recip(iIndex + 1 : iIndex + scale_factor_x - 1,&
-                                        jIndex + 1 : jIndex + scale_factor_y - 1) = cmplx(0.0,0.0,c_double_complex)
+                ! Now perform the forward transform 
+                call fft_2d(chainMesh%fft_obj_std,"F")
+                fine_recip(:,:,:) = cmplx(0.0,0.0,c_double_complex) ! Zero the buffer
+                do j = 1, chainMesh%fft_obj_std%num_elems_without_padding_recip(2)
+                        do i = 1, chainMesh%fft_obj_std%num_elems_without_padding_recip(1)
+                                   fine_recip((i-1)*scl_fctr_x + 1,&
+                                               (j-1)*scl_fctr_y + 1,:)  = std_recip(i,j,:)     
                         end do 
                 end do 
-
-                ! Now fft_object_output will contain the interpolated function in it's output buffer 
-                if (fft_obj_output%is_r2c) then 
-                        call fft_2d_r2c(fft_obj_output,"B")
-                else 
-                        call fft_2d(fft_obj_output,"B") ! Either way the real space array (be it real of complex) will have shape
-                                                        ! Nx,Ny
-                end if 
-                ! Next for convinience if the argument is given we will set the interpolated output buffer pointer, this is just an
-                ! alias for fft_obj_output%fft_array_real_base_ptr
-                interpolated_field = outputObject_real
-
-
+                ! Do the backwards transform 
+                call fft_2d(chainMesh%fft_obj_fine,"B")
         end subroutine spectral_interpolate_to_fine
 
              
@@ -395,12 +357,42 @@ module reciprocal_space_processes
                 winding_number = winding_number / (4*pi) ! Leaving this at the end hoping the compiler will vectorise it
         end function calculate_winding_number2
 
+        subroutine calculate_winding_density_interpolated(chainMesh)
+                use iso_c_binding
+                implicit none 
+                type(chainMesh_t), intent(inout) :: chainMesh 
+                
+                real(kind=c_double), dimension(:,:,:), pointer :: fine_real ! The fine and standard grids work with real to complex
+                                                                            ! transforms, so real is the appropriate type here (not
+                                                                            ! complex). For 2d transforms they have the shape
+                                                                            ! (Nx,Ny,vdim).
+                integer :: i, j
+                integer :: numX, numY
+                ! First we need the data on the standard grid 
+
+                call map_spins_to_std_grid(chainMesh)
+
+                ! Then we need to interpolate from the standard grid on to the fine grid.
+
+                call spectral_interpolate_to_fine(chainMesh)
+
+                ! In order to work with the interpolated data we will need a handle to work with it in Fortran land. 
+                call c_f_pointer(chainMesh%fft_obj_fine%fft_array_real_base_ptr,&
+                                 fine_real,&
+                                 chainMesh%fft_obj_fine%RealBufferShape)
+
+                numX = chainMesh%fft_obj_fine%num_elems_without_padding_real(1)
+                numY = chainMesh%fft_obj_fine%num_elems_without_padding_real(2)
+
+
+                !TODO: Complete this subroutine
+
+
+        end subroutine calculate_winding_density_interpolated
 
         subroutine calculate_winding_number_density(chainMesh,Z_index, density_matrix)
                 use iso_fortran_env, only: dp => real64
                 use iso_c_binding, only: c_double, c_double_complex 
-                use utils, only: utils_2d_array_ptr_wrapper
-                use fft, only: fft_object
                 implicit none
                 type(ChainMesh_t), intent(inout) :: chainMesh 
                 integer, intent(in) :: Z_index
@@ -411,7 +403,6 @@ module reciprocal_space_processes
                 type(VecNd_t) :: s1, s2, s3, s4, s
                 real(kind=dp) :: x1,x2_1,x2_2,x3,y1,y2_1,y2_2,y3,z1,z2_1,z2_2,z3
                 real(kind=dp) :: sigma1_area1, sigma2_area2
-                type(utils_2d_array_ptr_wrapper), dimension(3) :: interpolated_buffer, realspace_input
                 integer :: sclx, scly
                 
 
@@ -427,49 +418,17 @@ module reciprocal_space_processes
                 if (any(shape(chainMesh%derivativeList) /= [chainMesh%numAtoms,3,2])) &
                                                 error stop "DerivativeList not initialised with proper shape"
                 if (allocated(density_matrix)) then 
-                        if (any(shape(density_matrix) /= [sclx*N,scly*L])) then 
+                        if (any(shape(density_matrix) /= [N,L])) then 
                                 deallocate(density_matrix)
-                                allocate(density_matrix(sclx*N,scly*L))
+                                allocate(density_matrix(N,L))
                         end if 
                 else 
-                        allocate(density_matrix(sclx*N,scly*L))
+                        allocate(density_matrix(N,L))
                 end if
                 density_matrix(:,:) = 0.0_8
 
                 ! Need to set up the grid that the winding density will be calculated from 
 
-                do comp = 1,3
-                        ! Need a handle for the output 
-                        call c_f_pointer(chainMesh%fft_upsmpl_outpt(comp)%fft_array_recip_base_ptr,interpolated_buffer(comp)%ptr,&
-                                chainMesh%fft_upsmpl_inpt(comp)%RealBufferShape) ! interpolated_buffer(comp)%ptr can now be accessed as as
-                                                                                  ! array.
-                        ! Need a handle for the input real space array so that we can write the spins to it 
-                        call c_f_pointer(chainMesh%fft_upsmpl_inpt(comp)%fft_array_real_base_ptr, realspace_input(comp)%ptr,&
-                                chainMesh%fft_upsmpl_inpt(comp)%RealBufferShape)
-
-                        do i = 1,chainMesh%numCellsX
-                                do j = 1,chainMesh%numCellsY
-                                        ! Write spin data onto fft input grid 
-                                        cellIndex = IndexFromCoordinates(chainMesh,i,j,Z_index)
-                                        atomIndex = chainMesh%chainMeshCells(cellIndex)%firstAtomInMeshCell ! Sample from first atom
-                                                                                                            ! in each unit cell
-                                        ! Cursed type punning
-                                        realspace_input(comp)%ptr(i,j) = chainMesh%atomSpins(atomIndex,comp)
-
-                                        ! Really the RHS array above should be it's transpose but I didn't know Fortran array
-                                        ! continuity rules when I wrote the struct, oh well.
-
-                                                
-                                end do 
-                        end do 
-
-                        ! Now we can call the interpolation routine 
-                        call spectral_interpolation_2d(chainMesh%fft_upsmpl_inpt(comp),&
-                                                        chainMesh%fft_upsmpl_outpt(comp),&
-                                                        interpolated_buffer(comp)%ptr) 
-                        ! interpolated_buffer(comp)%ptr is now a handle to the memory for the interpolated array.
-
-                end do 
                 do i = 1, chainMesh%numCellsX
                         do j = 1, chainMesh%numCellsY
                                 cellIndex = IndexFromCoordinates(chainMesh,i,j,Z_index)
