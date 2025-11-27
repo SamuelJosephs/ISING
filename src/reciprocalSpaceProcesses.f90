@@ -357,17 +357,21 @@ module reciprocal_space_processes
                 winding_number = winding_number / (4*pi) ! Leaving this at the end hoping the compiler will vectorise it
         end function calculate_winding_number2
 
-        subroutine calculate_winding_density_interpolated(chainMesh)
+        subroutine calculate_winding_density_interpolated(chainMesh,density)
+                use iso_fortran_env, only: dp => real64
                 use iso_c_binding
                 implicit none 
                 type(chainMesh_t), intent(inout) :: chainMesh 
-                
+                real(kind=dp), dimension(:,:), allocatable, intent(inout) :: density ! The output winding density 
                 real(kind=c_double), dimension(:,:,:), pointer :: fine_real ! The fine and standard grids work with real to complex
                                                                             ! transforms, so real is the appropriate type here (not
                                                                             ! complex). For 2d transforms they have the shape
                                                                             ! (Nx,Ny,vdim).
-                integer :: i, j
+                integer :: i, j, itemp, jtemp
                 integer :: numX, numY
+                integer :: stat
+                type(VecNd_t) :: s1, s2, s3, s4
+                real(kind=dp) :: sigma_area_1, sigma_area_2
                 ! First we need the data on the standard grid 
 
                 call map_spins_to_std_grid(chainMesh)
@@ -383,9 +387,42 @@ module reciprocal_space_processes
 
                 numX = chainMesh%fft_obj_fine%num_elems_without_padding_real(1)
                 numY = chainMesh%fft_obj_fine%num_elems_without_padding_real(2)
+                
+                ! Make sure density is allocated with the correct shape.
+                if (allocated(density)) then 
+                        if (any(shape(density) /= chainMesh%fft_obj_fine%num_elems_without_padding_real)) then 
+                                deallocate(density)
+                                allocate(density(numX, numY),stat=stat)
+                                if (stat /= 0) error stop "Error: Failed to allocate interpolated density array"
+                        end if 
+                else 
+                        allocate(density(numX, numY),stat=stat)
+                        if (stat /= 0) error stop "Error: Failed to allocate interpolated density array"
+                end if 
+                density(:,:) = 0.0_dp
+                do j = 1,numY
+                        jtemp = j + 1
+                        if (jtemp > numY) jtemp = 1 ! Periodicity
+                        do i = 1,numX
+                                itemp = i + 1
+                                if (itemp > numX) itemp = 1 ! periodicity 
 
+                                s1 = fine_real(i,j,:)
+                                s2 = fine_real(itemp,j,:)
+                                s3 = fine_real(itemp,jtemp,:)
+                                s4 = fine_real(i,jtemp,:)
 
-                !TODO: Complete this subroutine
+                                s1 = s1 / abs(s1)
+                                s2 = s2 / abs(s2)
+                                s3 = s3 / abs(s3)
+                                s4 = s4 / abs(s4) 
+                                sigma_area_1 = arc_winding(s1,s2,s3) ! Anti-Clockwise
+                                sigma_area_2 = arc_winding(s1,s3,s4)
+                                
+                                density(i,j) = sigma_area_1 + sigma_area_2
+
+                        end do 
+                end do 
 
 
         end subroutine calculate_winding_density_interpolated
