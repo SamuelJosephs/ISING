@@ -29,9 +29,10 @@ type fft_object
                                                                ! the dimension of the FFT for the object, the entries give the
                                                                ! shape.
         integer, dimension(:), allocatable :: num_elems_without_padding_real  ! This array will store the number of elements in the
-                                                                              ! real buffer that are meaningful. 
+                                                                              ! real buffer that are meaningful. Only this one
+                                                                              ! should be used for normalising transforms. 
         integer, dimension(:), allocatable :: num_elems_without_padding_recip ! This array will store the number of elements in the
-                                                                              ! recip buffer that are meaningful.  
+                                                                              ! recip buffer that are meaningful. 
         logical :: in_place ! Needed for cleanup
         logical :: is_r2c ! Easier book keeping, if .True. then the real space array is of type real(kind=c_double), else the real
                           ! space array is of type complex(kind=c_double_complex). The reciprocal space array is always of type
@@ -40,7 +41,7 @@ type fft_object
 
 end type fft_object
 
-public :: fft_2d_r2c, fft_2d, fft_object, create_plan_2d_r2c_many, create_plan_2d_many, c2f_indexing_3d, c2f_indexing_2d, fft_alloc_real 
+public ::  fft_2d, fft_object, create_plan_2d_r2c_many, create_plan_2d_many, c2f_indexing_3d, c2f_indexing_2d, fft_alloc_real 
 
 contains 
 
@@ -263,16 +264,30 @@ contains
         end subroutine create_plan_2d_many
 
 
-        subroutine fft_2d_r2c(fft_obj,direction)
+        subroutine fft_2d(fft_obj,direction)
+                type(fft_object), intent(inout) :: fft_obj
+                character(len=1) :: direction 
+
+
+                if (fft_obj%is_r2c) then 
+                        call fft_2d_r2c_wrapped(fft_obj,direction)
+                else 
+                        call fft_2d_wrapped(fft_obj,direction)
+                endif 
+
+
+        end subroutine fft_2d
+
+        subroutine fft_2d_r2c_wrapped(fft_obj,direction)
                 ! This function assumes that the real and complex buffers have been initialised with create_plan_2d_inplace, not
                 ! doing this could very easily cause a book keeping error!!!!!!
                 use utils, only: utils_to_upper
                 implicit none 
-                type(fft_object), intent(in) :: fft_obj
+                type(fft_object), intent(inout) :: fft_obj
                 character(len=1) :: direction
 
-                real(kind=c_double), dimension(:,:), pointer :: RealBuffer
-                complex(kind=c_double_complex), dimension(:,:), pointer :: ComplexBuffer
+                real(kind=c_double), dimension(:,:,:), pointer :: RealBuffer ! (Nx, Ny, vdim)
+                complex(kind=c_double_complex), dimension(:,:,:), pointer :: ComplexBuffer
                 character(len=1) :: tempChar
                
                 if (.not. fft_obj%in_place) error stop "Error: fft_2d_r2c can only be used for in place transformations"
@@ -293,18 +308,18 @@ contains
 
                 
                 
-        end subroutine fft_2d_r2c
+        end subroutine fft_2d_r2c_wrapped
 
-        subroutine fft_2d(fft_obj,direction)
+        subroutine fft_2d_wrapped(fft_obj,direction)
                 ! This function assumes that the real and complex buffers have been initialised with create_plan_2d_inplace, not
                 ! doing this could very easily cause a book keeping error!!!!!!
                 use utils, only: utils_to_upper
                 implicit none 
-                type(fft_object), intent(in) :: fft_obj
+                type(fft_object), intent(inout) :: fft_obj
                 character(len=1) :: direction
 
                
-                complex(kind=c_double_complex), dimension(:,:), pointer :: realBuffer, recipBuffer
+                complex(kind=c_double_complex), dimension(:,:,:), pointer :: realBuffer, recipBuffer
                 character(len=1) :: tempChar
                
                 if (fft_obj%in_place) error stop "Error: fft_2d cannot be used for in place transformations"
@@ -323,7 +338,7 @@ contains
                         error stop "Error: Invalid option passed to fft_2d"
                 end if 
                 
-        end subroutine fft_2d
+        end subroutine fft_2d_wrapped
 
         subroutine fft_alloc_real(ptr,numElems)
                 ! allocate with alignment for SIMD correctness, ptr should be a pointer to the first element of the array
