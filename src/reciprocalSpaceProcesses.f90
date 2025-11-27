@@ -424,7 +424,7 @@ module reciprocal_space_processes
                         end do 
                 end do 
 
-
+                density = density / (4*pi)
         end subroutine calculate_winding_density_interpolated
 
         subroutine calculate_winding_number_density(chainMesh,Z_index, density_matrix)
