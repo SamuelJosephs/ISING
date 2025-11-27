@@ -23,7 +23,15 @@ module ChainMesh
                 integer, allocatable, dimension(:,:,:) :: derivativeList !(i,j,k) : i=atomInex, j=dim (1,2,3), k = lower,higher (1,2)
                 type(C_ptr) :: forwardPlanX, forwardPlanY, forwardPlanZ, backwardPlanX, backwardPlanY, backwardPlanZ
                 real(kind=c_double), pointer :: fft_array_x(:,:,:), fft_array_y(:,:,:), fft_array_z(:,:,:)
-                complex(kind=c_double_complex), pointer :: fft_c_view_x(:,:,:), fft_c_view_y(:,:,:), fft_c_view_z(:,:,:)
+                complex(kind=c_double_complex), pointer :: fft_c_view_x(:,:,:), fft_c_view_y(:,:,:), fft_c_view_z(:,:,:) ! These
+                                                                                                                         ! should be
+                                                                                                                         ! depreciated
+                                                                                                                         ! but that
+                                                                                                                         ! refactor
+                                                                                                                         ! can be
+                                                                                                                         ! done at
+                                                                                                                         ! another
+                                                                                                                         ! time.
                 type(C_ptr) :: fft_array_ptr
                 real(kind=8) :: a, b, c, Bravais_ab, Bravais_bc, Bravais_ca
                 type(vecNd_t) :: a_vec, b_vec, c_vec, ar_vec, br_vec, cr_vec ! ar stands for a reciprocal  
@@ -43,7 +51,31 @@ module ChainMesh
         end interface IndexFromCoordinates
         contains
 
+        subroutine map_spins_to_std_grid(chainMesh)
+                ! This routine writes the spins of the first atom in each chain mesh cell to it's appropriate index in the standard
+                ! grid.
+                use iso_c_binding
+                implicit none 
+                type(chainMesh_t), intent(inout) :: chainMesh
 
+                integer :: i,j,k, atomIndex, cellIndex
+                real(kind=c_double), dimension(:,:,:), pointer :: std_grid ! the standard grid is for spins on a 2d domain, so has
+                                                                           ! shape (Nx,Ny, vdim), where vdim = 3 for 3d spins.
+
+
+                call c_f_pointer(chainMesh%fft_obj_std%fft_array_real_base_ptr,&
+                                 std_grid, &
+                                 chainMesh%fft_obj_std%RealBufferShape) 
+                ! k is a dumy variable that is never used
+                do cellIndex = 1, chainMesh%numChainMeshCells
+                        atomIndex = chainMesh%chainMeshCells(cellIndex)%firstAtomInMeshCell
+                        call coordinatesFromIndex(chainMesh,cellIndex,i,j,k)
+                        std_grid(i,j,:) = chainMesh%atomSpins(atomIndex,:)
+                end do 
+
+                
+        end subroutine map_spins_to_std_grid
+                
         subroutine getNeighboringCells(chainMesh,cellIndex,neighborCellList)
                 type(chainMesh_t), intent(in) :: chainMesh 
                 integer, intent(out) :: neighborCellList(27)
