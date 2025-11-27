@@ -357,16 +357,18 @@ module reciprocal_space_processes
                 winding_number = winding_number / (4*pi) ! Leaving this at the end hoping the compiler will vectorise it
         end function calculate_winding_number2
 
-        subroutine calculate_winding_density_interpolated(chainMesh,density)
+        subroutine calculate_winding_density_interpolated(chainMesh,density,z_index)
                 use iso_fortran_env, only: dp => real64
                 use iso_c_binding
                 implicit none 
                 type(chainMesh_t), intent(inout) :: chainMesh 
                 real(kind=dp), dimension(:,:), allocatable, intent(inout) :: density ! The output winding density 
+                integer, intent(in) :: z_index
                 real(kind=c_double), dimension(:,:,:), pointer :: fine_real ! The fine and standard grids work with real to complex
                                                                             ! transforms, so real is the appropriate type here (not
                                                                             ! complex). For 2d transforms they have the shape
-                                                                            ! (Nx,Ny,vdim).
+                                                                            ! (Nx,Ny,vdim) where vdim is the dimension of the spin
+                                                                            ! vector.
                 integer :: i, j, itemp, jtemp
                 integer :: numX, numY
                 integer :: stat
@@ -374,7 +376,7 @@ module reciprocal_space_processes
                 real(kind=dp) :: sigma_area_1, sigma_area_2
                 ! First we need the data on the standard grid 
 
-                call map_spins_to_std_grid(chainMesh)
+                call map_spins_to_std_grid(chainMesh, z_index)
 
                 ! Then we need to interpolate from the standard grid on to the fine grid.
 
