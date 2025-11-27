@@ -357,13 +357,13 @@ module reciprocal_space_processes
                 winding_number = winding_number / (4*pi) ! Leaving this at the end hoping the compiler will vectorise it
         end function calculate_winding_number2
 
-        subroutine calculate_winding_density_interpolated(chainMesh,density,z_index)
+        subroutine calculate_winding_density_interpolated(chainMesh,z_index,density)
                 use iso_fortran_env, only: dp => real64
                 use iso_c_binding
                 implicit none 
                 type(chainMesh_t), intent(inout) :: chainMesh 
-                real(kind=dp), dimension(:,:), allocatable, intent(inout) :: density ! The output winding density 
                 integer, intent(in) :: z_index
+                real(kind=dp), dimension(:,:), allocatable, intent(inout) :: density ! The output winding density 
                 real(kind=c_double), dimension(:,:,:), pointer :: fine_real ! The fine and standard grids work with real to complex
                                                                             ! transforms, so real is the appropriate type here (not
                                                                             ! complex). For 2d transforms they have the shape
@@ -613,8 +613,8 @@ module reciprocal_space_processes
                 if (present(sclx)) my_sclx = sclx 
                 if (present(scly)) my_scly = scly 
 
-                N = chainMesh%numCellsX 
-                L = chainMesh%numCellsY 
+                N = chainMesh%fft_obj_fine%num_elems_without_padding_real(1) 
+                L = chainMesh%fft_obj_fine%num_elems_without_padding_real(2) 
 
                 allocate(density_matrix(N,L), stat=stat)
                 if (stat /= 0) error stop "Error allocating topological charge density matrix"
@@ -643,7 +643,7 @@ module reciprocal_space_processes
 
                 if (abs(q_threshold) > 1.0_8 .or. q_threshold < 0.0_8) error stop "q_threshold must be between 0 and 1"
 
-                call calculate_winding_number_density(chainMesh, Z_index, density_matrix)
+                call calculate_winding_density_interpolated(chainMesh, Z_index, density_matrix)
                 !print *, "Minval / Maxval in winding array = ", minval(abs(density_matrix)) / maxval(abs(density_matrix))
                 ! density_mask(:,:) = density_matrix > (q_threshold * maxval(abs(density_matrix)))
                 call Gaussian_filter_2d(density_matrix,sigma)

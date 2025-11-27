@@ -759,10 +759,13 @@ module ChainMesh
                 integer, allocatable, dimension(:) :: intBuffer
                 logical :: my_debug 
 
-                my_sclx = 1
-                my_scly = 1
+                my_sclx = 2
+                my_scly = 2
                 if (present(sclx)) my_sclx = sclx
                 if (present(scly)) my_scly = scly
+
+                if (my_sclx < 2) error stop "x interpolation scale must be greater than or equal to 2"
+                if (my_scly < 2) error stop "y interpolation scale must be greater than or equal to 2"
 
                 chainMesh%sclx = my_sclx
                 chainMesh%scly = my_scly
