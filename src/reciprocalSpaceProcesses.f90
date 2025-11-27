@@ -53,10 +53,11 @@ module reciprocal_space_processes
                 ! Now perform the forward transform 
                 call fft_2d(chainMesh%fft_obj_std,"F")
                 fine_recip(:,:,:) = cmplx(0.0,0.0,c_double_complex) ! Zero the buffer
+                ! We just want to pad zeros on to the end of each axis. Because this is a real to complex transform we can just pad
+                ! the RHS, if it were a complex to complex transform we would need to pad from the Nyquist frequcy.
                 do j = 1, chainMesh%fft_obj_std%num_elems_without_padding_recip(2)
                         do i = 1, chainMesh%fft_obj_std%num_elems_without_padding_recip(1)
-                                   fine_recip((i-1)*scl_fctr_x + 1,&
-                                               (j-1)*scl_fctr_y + 1,:)  = std_recip(i,j,:)     
+                                   fine_recip(i,j,:)  = std_recip(i,j,:)     
                         end do 
                 end do 
                 ! Do the backwards transform 
@@ -499,13 +500,15 @@ module reciprocal_space_processes
                 character(len=*), intent(in) :: filepath 
 
                 real(kind=8), dimension(:,:), allocatable :: density_matrix 
-                integer :: i, unit, stat, j, k 
+                integer :: i, unit, stat, j, k, numX, numY 
                 type(vecNd_t) :: pos
                 character(len=400) :: string_buff
                 character(len=:), allocatable :: outputString
                 character(len=1), parameter :: newline = NEW_LINE('a')
 
                 
+                numX = chainMesh%fft_obj_fine%num_elems_without_padding_real(1)
+                numY = chainMesh%fft_obj_fine%num_elems_without_padding_real(2)
 
                 string_buff(1:len(string_buff)) = ' '
 
@@ -514,9 +517,9 @@ module reciprocal_space_processes
 
                 outputString = "x,y,z,Winding_Density" // NEW_LINE('a')
                 do i=1,chainMesh%numcellsZ 
-                        call calculate_winding_number_density(chainMesh,i,density_matrix)
-                        do j = 1,chainMesh%numCellsX 
-                                do k = 1,chainMesh%numCellsY 
+                        call calculate_winding_density_interpolated(chainMesh,i,density_matrix)
+                        do j = 1,numX 
+                                do k = 1,numY 
                                         pos = (dble(j)*chainMesh%a_vec) + (dble(k)*chainMesh%b_vec) + (dble(i)*chainMesh%c_vec)
                                         string_buff(1:len(string_buff)) = ' '
 
