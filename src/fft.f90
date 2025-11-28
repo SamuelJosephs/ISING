@@ -290,7 +290,6 @@ contains
                 complex(kind=c_double_complex), dimension(:,:,:), pointer :: ComplexBuffer
                 character(len=1) :: tempChar
                
-                if (.not. fft_obj%in_place) error stop "Error: fft_2d_r2c can only be used for in place transformations"
                 tempChar = direction 
                 call utils_to_upper(tempChar)
 
