@@ -494,7 +494,7 @@ module reciprocal_space_processes
                 density_matrix = density_matrix / (4*pi) ! Leaving this at the end hoping the compiler will vectorise it
         end subroutine calculate_winding_number_density
 
-        subroutine write_winding_number_density(chainMesh, filepath)
+        subroutine write_winding_number_density_interpolated(chainMesh, filepath)
                 implicit none
                 type(chainMesh_t), intent(inout) :: chainMesh 
                 character(len=*), intent(in) :: filepath 
@@ -532,7 +532,48 @@ module reciprocal_space_processes
                 write(unit,'(A)') outputString 
                 
                 close(unit)
+        end subroutine write_winding_number_density_interpolated
+
+
+
+        subroutine write_winding_number_density(chainMesh, filepath)
+                implicit none
+                type(chainMesh_t), intent(inout) :: chainMesh 
+                character(len=*), intent(in) :: filepath 
+
+                real(kind=8), dimension(:,:), allocatable :: density_matrix 
+                integer :: i, unit, stat, j, k 
+                type(vecNd_t) :: pos
+                character(len=400) :: string_buff
+                character(len=:), allocatable :: outputString
+                character(len=1), parameter :: newline = NEW_LINE('a')
+
+                
+
+                string_buff(1:len(string_buff)) = ' '
+
+                open(newunit=unit, file=filepath, status="replace",action="write",iostat=stat)
+                if (stat/=0) error stop "Error opening file to write density information" 
+
+                outputString = "x,y,z,Winding_Density" // NEW_LINE('a')
+                do i=1,chainMesh%numcellsZ 
+                        call calculate_winding_number_density(chainMesh,i,density_matrix)
+                        do j = 1,chainMesh%numCellsX 
+                                do k = 1,chainMesh%numCellsY 
+                                        pos = (dble(j)*chainMesh%a_vec) + (dble(k)*chainMesh%b_vec) + (dble(i)*chainMesh%c_vec)
+                                        string_buff(1:len(string_buff)) = ' '
+
+                                        write(string_buff,'(F0.8, A, F0.8, A, F0.8, A, F0.8, A1)') &
+                pos%coords(1), ",", pos%coords(2), ",", pos%coords(3),",", density_matrix(j,k), newline ! Thank you gfortran parser
+                                        outputString = outputString // trim(adjustl(string_buff)) // NEW_LINE('a')
+                                end do 
+                        end do 
+                end do 
+                write(unit,'(A)') outputString 
+                
+                close(unit)
         end subroutine write_winding_number_density
+
         subroutine add_neighbors_to_stack(chainMesh, i,j,stack_array, stack_ptr, visited_array, density_mask, in_stack_array, &
                                                 density_matrix)
                 implicit none
