@@ -71,7 +71,7 @@ program PT
         type(MPI_STATUS) :: mpi_status_handle
         integer :: mpi_file_ierr
         character(len=:), allocatable :: output_string, filename_string, filename_string_spins,&
-                filename_string_density
+                filename_string_density, filename_string_density_interpolated
         character(len=500) :: string_buff
         integer :: mpi_mode
         integer :: skyrmion_number_middle 
@@ -342,10 +342,14 @@ program PT
                         filename_string_density = trim(adjustl(outputPathDensity)) // "/" // "density_" &
                                 // trim(adjustl(string_buff)) // ".csv"
 
+                        filename_string_density_interpolated = trim(adjustl(outputPathDensity)) // "/" // "density_interp_" &
+                                // trim(adjustl(string_buff)) // ".csv"
                         call write_spins_to_file(meshBuffer(i,meshIndex),&
                                 filename_string_spins)
 
                         call write_winding_number_density(meshBuffer(i,meshIndex),filename_string_density)
+
+                        call write_winding_number_density_interpolated(meshBuffer(i,meshIndex),filename_string_density_interpolated)
                         open(newunit=fileHandle, status="replace", action="write",file=filename_string)
 
                         write(fileHandle, '(A)') output_string
