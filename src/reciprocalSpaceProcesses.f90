@@ -33,11 +33,11 @@ module reciprocal_space_processes
                 call c_f_pointer(chainmesh%fft_obj_fine%fft_array_recip_base_ptr,&
                                  fine_recip,&
                                  chainMesh%fft_obj_fine%RecipBufferShape)
-                std_num_elems_x = chainMesh%fft_obj_std%num_elems_without_padding_recip(1)
-                std_num_elems_y = chainMesh%fft_obj_std%num_elems_without_padding_recip(2)
+                std_num_elems_x = chainMesh%fft_obj_std%num_elems_without_padding_real(1)
+                std_num_elems_y = chainMesh%fft_obj_std%num_elems_without_padding_real(2)
 
-                fine_num_elems_x = chainMesh%fft_obj_fine%num_elems_without_padding_recip(1)
-                fine_num_elems_y = chainMesh%fft_obj_fine%num_elems_without_padding_recip(2)
+                fine_num_elems_x = chainMesh%fft_obj_fine%num_elems_without_padding_real(1)
+                fine_num_elems_y = chainMesh%fft_obj_fine%num_elems_without_padding_real(2)
 
                 
                 scl_fctr_x = fine_num_elems_x / std_num_elems_x
