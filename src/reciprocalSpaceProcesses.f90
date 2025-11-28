@@ -54,7 +54,12 @@ module reciprocal_space_processes
                 call fft_2d(chainMesh%fft_obj_std,"F")
                 fine_recip(:,:,:) = cmplx(0.0,0.0,c_double_complex) ! Zero the buffer
                 ! We just want to pad zeros on to the end of each axis. Because this is a real to complex transform we can just pad
-                ! the RHS, if it were a complex to complex transform we would need to pad from the Nyquist frequcy.
+                ! the RHS, if it were a complex to complex transform we would need to pad from the Nyquist frequcy. For now we will
+                ! error out if the fft_objects are not r2c, to support c2c we would need to handle that seperately.
+                
+                if (.not. chainMesh%fft_obj_fine%is_r2c) error stop "Error: spectral_interpolate_to_fine currently only supports &
+                        & real to complex transforms, either you have made a mistake or need to code up how to pad complex &
+                        & to complex transforms."
                 do j = 1, chainMesh%fft_obj_std%num_elems_without_padding_recip(2)
                         do i = 1, chainMesh%fft_obj_std%num_elems_without_padding_recip(1)
                                    fine_recip(i,j,:)  = std_recip(i,j,:)     
