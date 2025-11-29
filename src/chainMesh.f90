@@ -131,6 +131,7 @@ module ChainMesh
         end subroutine getNeighboringCells
 
         function distance(chainMesh, atomIndex1, atomIndex2) result(d)
+                implicit none
                 type(ChainMesh_t), intent(in) :: chainMesh
                 integer, intent(in) :: atomIndex1, atomIndex2 
                 integer :: ind1,ind2 ! ChainCell Coordinates of atoms 1 and 2 
@@ -759,8 +760,8 @@ module ChainMesh
                 integer, allocatable, dimension(:) :: intBuffer
                 logical :: my_debug 
 
-                my_sclx = 2
-                my_scly = 2
+                my_sclx = 10
+                my_scly = 10
                 if (present(sclx)) my_sclx = sclx
                 if (present(scly)) my_scly = scly
 
