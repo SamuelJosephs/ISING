@@ -138,7 +138,8 @@ module ChainMesh
                 integer :: i1,j1,k1,i2,j2,k2 ! Chain Cell i,j,k coordinates of 
                 type(Atom_t) :: atom1, atom2 
                 real :: d 
-                real(kind=8) :: a_coeff, b_coeff, c_coeff, widthX, widthY, widthZ
+                real(kind=8) :: a_coeff, b_coeff, c_coeff, widthX, widthY, widthZ,&
+                        dx, dy, dz
                 real(kind=8), parameter :: eps = 1e-8_8
                 
                 widthX = dble(chainMesh%numCellsX) ! widthX is the maximum width along the a axis 
