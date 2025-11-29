@@ -79,7 +79,8 @@ program PT
         type(vecNd_t) :: magnetisation
 
         integer :: numArgs, fileHandle 
-        character(len=400) :: outputPath, outputPathSpins, outputPathDensity 
+        character(len=400) :: outputPath, outputPathSpins, outputPathDensity,&
+                                        outputPathDensityInterpolated 
         call MPI_Init(MPI_ierr)
         call MPI_Comm_Rank(MPI_COMM_WORLD,MPI_rank)
         call MPI_Comm_Size(MPI_COMM_WORLD,MPI_num_procs)
@@ -298,11 +299,15 @@ program PT
         outputPathSpins = ' '
         outputPathSpins = trim(adjustl(outputPath)) // "_spins"
         outputPathDensity = trim(adjustl(outputPath)) // "_density"
+        outputPathDensityInterpolated = trim(adjustl(outputPath)) // "_density_interpolated"
+
         if (MPI_RANK == 0) call EXECUTE_COMMAND_LINE("mkdir -p " // trim(adjustl(outputPath)))
 
         if (MPI_RANK == 0) call EXECUTE_COMMAND_LINE("mkdir -p " // trim(adjustl(outputPathSpins)))
                 
         if (MPI_RANK == 0) call EXECUTE_COMMAND_LINE("mkdir -p " // trim(adjustl(outputPathDensity)))
+
+        if (MPI_RANK == 0) call EXECUTE_COMMAND_LINE("mkdir -p " // trim(adjustl(outputPathDensityInterpolated)))
 
         do i = 1,NumParams
                 do j = 1,numTemps
@@ -342,8 +347,8 @@ program PT
                         filename_string_density = trim(adjustl(outputPathDensity)) // "/" // "density_" &
                                 // trim(adjustl(string_buff)) // ".csv"
 
-                        filename_string_density_interpolated = trim(adjustl(outputPathDensity)) // "/" // "density_interp_" &
-                                // trim(adjustl(string_buff)) // ".csv"
+                        filename_string_density_interpolated = trim(adjustl(outputPathDensityInterpolated)) // "/" // "density_&
+                                &interp_" // trim(adjustl(string_buff)) // ".csv"
                         call write_spins_to_file(meshBuffer(i,meshIndex),&
                                 filename_string_spins)
 
