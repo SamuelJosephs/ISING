@@ -81,10 +81,14 @@ contains
 
                 fft_obj%fft_array_real_base_ptr = fftw_alloc_real(int(numX_real*numY_real*vdim,c_size_t)) ! Multiply by vdim to
                                                                                                            ! allocate enough memory for all of the batched FFT's.
+                if (.not. c_associated(fft_obj%fft_array_real_base_ptr)) error stop "Error:&
+                                & failed to allocate real base ptr"
                 if (myInPlace) then
                         fft_obj%fft_array_recip_base_ptr = fft_obj%fft_array_real_base_ptr
                 else 
                         fft_obj%fft_array_recip_base_ptr = fftw_alloc_complex(int(numX_recip*numY_recip*vdim,c_size_t))
+                        if (.not. c_associated(fft_obj%fft_array_recip_base_ptr)) error stop "Error:&
+                                & Failed to allocate recip base ptr"
                 end if 
 
 
@@ -189,11 +193,15 @@ contains
                 ! Now do the allocations 
 
                 fft_obj%fft_array_real_base_ptr = fftw_alloc_complex(int(numX_real*numY_real*vdim,c_size_t)) ! Multiply by vdim to
-                                                                                                           ! allocate enough memory for all of the batched FFT's.
+                                                                                                             ! allocate enough memory for all of the batched FFT's.
+                if (.not. c_associated(fft_obj%fft_array_real_base_ptr)) error stop "Error: Failed to allocate&
+                                & real base ptr"
                 if (myInPlace) then
                         fft_obj%fft_array_recip_base_ptr = fft_obj%fft_array_real_base_ptr
                 else 
                         fft_obj%fft_array_recip_base_ptr = fftw_alloc_complex(int(numX_recip*numY_recip*vdim,c_size_t))
+                        if (.not. c_associated(fft_obj%fft_array_recip_base_ptr)) error stop "Error: Failed to allocate&
+                                & recip base ptr"
                 end if 
 
 
