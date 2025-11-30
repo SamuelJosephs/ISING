@@ -158,6 +158,9 @@ contains
                 fft_obj%plan_backward = fftw_plan_many_dft_c2r(2,n_real,vdim,recip_ptr,recip_embed,recip_stride,recip_dist,&
                         real_ptr,real_embed,real_stride,real_dist,FFTW_ESTIMATE)
 
+                
+                if (.not. c_associated(fft_obj%plan_forward)) error stop "Error: Failed to create forward plan"
+                if (.not. c_associated(fft_obj%plan_backward)) error stop "Error: Failed to create backward plan"
         end subroutine create_plan_2d_r2c_many
 
 
@@ -269,6 +272,10 @@ contains
                 ! (+1). TLDR: FFTW always takes the full real size as the size of the transform.
                 fft_obj%plan_backward = fftw_plan_many_dft(2,n_real,vdim,real_ptr,real_embed,real_stride,real_dist,&
                         recip_ptr,recip_embed,recip_stride,recip_dist,FFTW_BACKWARD,FFTW_ESTIMATE)
+                
+                if (.not. c_associated(fft_obj%plan_forward)) error stop "Error: Failed to create forward plan"
+                if (.not. c_associated(fft_obj%plan_backward)) error stop "Error: Failed to create backward plan"
+
         end subroutine create_plan_2d_many
 
 
